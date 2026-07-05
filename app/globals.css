@@ -113,13 +113,17 @@ body {
   margin-left: var(--sidebar-width);
   min-height: 100vh;
   background: var(--bg-primary);
-  min-width: 0; /* Prevent flex child from overflowing */
+  min-width: 0;          /* prevent flex overflow */
   overflow-x: hidden;
+  overflow-y: auto;      /* always scrollable */
+  width: 0;             /* force flex to not expand beyond parent */
 }
 
 .page-container {
   padding: 32px;
   max-width: 1400px;
+  width: 100%;           /* never wider than parent */
+  box-sizing: border-box;
 }
 
 /* ===================== Sidebar ===================== */
