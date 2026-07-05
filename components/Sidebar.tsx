@@ -1,13 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 const navItems = [
-  { href: '/', icon: '📊', label: 'Dashboard' },
-  { href: '/add', icon: '➕', label: 'Add Expense' },
+  { href: '/',         icon: '📊', label: 'Dashboard'   },
+  { href: '/add',      icon: '➕', label: 'Add Expense' },
   { href: '/expenses', icon: '📋', label: 'Expense Log' },
-  { href: '/reports', icon: '📈', label: 'Reports' },
+  { href: '/reports',  icon: '📈', label: 'Reports'     },
 ];
 
 const settingsItems = [
@@ -17,6 +18,15 @@ const settingsItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router   = useRouter();
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  async function handleLogout() {
+    setLoggingOut(true);
+    await fetch('/api/auth/logout', { method: 'POST' });
+    router.push('/login');
+    router.refresh();
+  }
 
   return (
     <aside className="sidebar">
@@ -55,7 +65,19 @@ export default function Sidebar() {
       </nav>
 
       <div className="sidebar-footer">
-        Personal use only
+        <button
+          onClick={handleLogout}
+          disabled={loggingOut}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+            background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
+            borderRadius: 'var(--radius-sm)', padding: '8px 12px',
+            color: 'var(--danger)', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+            transition: 'all 0.15s',
+          }}
+        >
+          {loggingOut ? '⏳' : '🚪'} {loggingOut ? 'Signing out…' : 'Sign Out'}
+        </button>
       </div>
     </aside>
   );

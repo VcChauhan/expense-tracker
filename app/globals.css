@@ -1,34 +1,36 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
-/* ===================== CSS Variables ===================== */
+/* ===================== CSS Variables — Dark (default) ===================== */
 :root {
-  --bg-primary: #0a0b0f;
-  --bg-secondary: #111318;
-  --bg-card: #16181f;
-  --bg-card-hover: #1c1f28;
-  --bg-input: #1e2230;
-  --border: #252836;
-  --border-light: #2e3347;
+  color-scheme: dark;          /* native elements (scrollbars, inputs) use dark style */
 
-  --text-primary: #f0f2f8;
-  --text-secondary: #8b92a5;
-  --text-muted: #555d73;
+  --bg-primary:      #0a0b0f;
+  --bg-secondary:    #111318;
+  --bg-card:         #16181f;
+  --bg-card-hover:   #1c1f28;
+  --bg-input:        #1e2230;
+  --border:          #252836;
+  --border-light:    #2e3347;
 
-  --accent-primary: #6366f1;
+  --text-primary:    #f0f2f8;
+  --text-secondary:  #8b92a5;
+  --text-muted:      #555d73;
+
+  --accent-primary:   #6366f1;
   --accent-secondary: #8b5cf6;
-  --accent-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-  --accent-glow: rgba(99, 102, 241, 0.3);
+  --accent-gradient:  linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  --accent-glow:      rgba(99, 102, 241, 0.3);
 
-  --success: #10b981;
-  --success-bg: rgba(16, 185, 129, 0.1);
-  --warning: #f59e0b;
-  --warning-bg: rgba(245, 158, 11, 0.1);
-  --danger: #ef4444;
-  --danger-bg: rgba(239, 68, 68, 0.1);
-  --info: #3b82f6;
+  --success:     #10b981;
+  --success-bg:  rgba(16, 185, 129, 0.1);
+  --warning:     #f59e0b;
+  --warning-bg:  rgba(245, 158, 11, 0.1);
+  --danger:      #ef4444;
+  --danger-bg:   rgba(239, 68, 68, 0.1);
+  --info:        #3b82f6;
 
-  --sidebar-width: 240px;
-  --header-height: 64px;
+  --sidebar-width:  240px;
+  --header-height:  64px;
 
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -37,8 +39,45 @@
 
   --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.4);
   --shadow-glow: 0 0 40px rgba(99, 102, 241, 0.15);
-  --transition: all 0.2s ease;
+  --transition:  all 0.2s ease;
 }
+
+/* ===================== CSS Variables — Light (system override) ===================== */
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;        /* native elements use light style */
+
+    --bg-primary:    #f4f5f7;
+    --bg-secondary:  #ebedf2;
+    --bg-card:       #ffffff;
+    --bg-card-hover: #f0f1f5;
+    --bg-input:      #eef0f5;
+    --border:        #d8dce8;
+    --border-light:  #e4e7f0;
+
+    --text-primary:   #111827;
+    --text-secondary: #4b5563;
+    --text-muted:     #9ca3af;
+
+    /* Accent stays indigo — still vibrant on light bg */
+    --accent-primary:   #4f46e5;
+    --accent-secondary: #7c3aed;
+    --accent-gradient:  linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    --accent-glow:      rgba(79, 70, 229, 0.2);
+
+    --success:    #059669;
+    --success-bg: rgba(5, 150, 105, 0.08);
+    --warning:    #d97706;
+    --warning-bg: rgba(217, 119, 6, 0.08);
+    --danger:     #dc2626;
+    --danger-bg:  rgba(220, 38, 38, 0.08);
+    --info:       #2563eb;
+
+    --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.08);
+    --shadow-glow: 0 0 40px rgba(79, 70, 229, 0.1);
+  }
+}
+
 
 /* ===================== Reset ===================== */
 *, *::before, *::after {

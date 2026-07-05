@@ -23,14 +23,18 @@ export default function BottomNav() {
 
   const isPlanActive = planItems.some(i => pathname === i.href);
 
-  // Close when clicking outside
+  // Close when clicking or touching outside
   useEffect(() => {
     if (!open) return;
-    function handler(e: MouseEvent) {
+    function handler(e: MouseEvent | TouchEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }
     document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    document.addEventListener('touchstart', handler);
+    return () => {
+      document.removeEventListener('mousedown', handler);
+      document.removeEventListener('touchstart', handler);
+    };
   }, [open]);
 
   return (
@@ -63,15 +67,21 @@ export default function BottomNav() {
             <span className="bottom-nav-label">Plan</span>
           </button>
 
-          {/* Popup menu */}
+          {/* Popup menu — anchored to RIGHT edge of button so it never overflows */}
           {open && (
             <div style={{
-              position: 'absolute', bottom: 'calc(100% + 10px)', left: '50%', transform: 'translateX(-50%)',
-              background: 'var(--bg-card)', border: '1px solid var(--border-light)',
-              borderRadius: 'var(--radius-md)', boxShadow: '0 -8px 32px rgba(0,0,0,0.5)',
-              minWidth: 200, overflow: 'hidden', zIndex: 300,
+              position: 'absolute',
+              bottom: 'calc(100% + 12px)',
+              right: 0,               /* flush with right edge of button */
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border-light)',
+              borderRadius: 'var(--radius-md)',
+              boxShadow: '0 -8px 32px rgba(0,0,0,0.4)',
+              width: 210,
+              overflow: 'hidden',
+              zIndex: 300,
             }}>
-              <div style={{ padding: '8px 12px 6px', fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              <div style={{ padding: '8px 14px 6px', fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 Plan
               </div>
               {planItems.map(item => (
@@ -85,8 +95,8 @@ export default function BottomNav() {
                     color: pathname === item.href ? 'var(--accent-primary)' : 'var(--text-primary)',
                     background: pathname === item.href ? 'rgba(99,102,241,0.1)' : 'transparent',
                     fontSize: 14, fontWeight: 500,
-                    transition: 'background 0.15s',
                     borderBottom: '1px solid var(--border)',
+                    WebkitTapHighlightColor: 'transparent',
                   }}
                 >
                   <span style={{ fontSize: 20 }}>{item.icon}</span>

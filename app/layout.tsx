@@ -6,6 +6,16 @@ import BottomNav from '@/components/BottomNav';
 export const metadata: Metadata = {
   title: 'ExpenseIQ — Personal Finance Tracker',
   description: 'Track your daily expenses, manage budgets by category, and visualize your spending trends monthly and annually.',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'ExpenseIQ',
+  },
+  icons: {
+    apple: '/icons/apple-touch-icon.png',
+    icon:  '/icons/icon-192.png',
+  },
 };
 
 export const viewport: Viewport = {
@@ -13,6 +23,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   viewportFit: 'cover',
+  themeColor: '#6366f1',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

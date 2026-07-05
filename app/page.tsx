@@ -272,7 +272,7 @@ export default function DashboardPage() {
                   <Tooltip content={<CustomTooltip />} />
                   <Legend wrapperStyle={{ fontSize: 12, color: 'var(--text-secondary)' }} />
                   <Bar dataKey="Spent" fill="#6366f1" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="Salary" name="In-Hand" fill="#1e2230" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Salary" name="In-Hand" fill="#818cf8" radius={[4, 4, 0, 0]} opacity={0.35} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

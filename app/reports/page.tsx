@@ -146,7 +146,7 @@ export default function ReportsPage() {
             <Tooltip content={<ChartTooltip />} />
             <Legend wrapperStyle={{ fontSize: 12 }} />
             <Bar dataKey="Total" name="Spent" fill="#6366f1" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="Salary" name="Income" fill="#1e2230" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="Salary" name="Income" fill="#818cf8" radius={[4, 4, 0, 0]} opacity={0.35} />
           </BarChart>
         </ResponsiveContainer>
       </div>
