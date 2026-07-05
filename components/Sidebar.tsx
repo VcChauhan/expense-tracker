@@ -12,6 +12,7 @@ const navItems = [
 
 const settingsItems = [
   { href: '/settings', icon: '⚙️', label: 'Budget Planner' },
+  { href: '/hike',     icon: '💹', label: 'Hike Planner'   },
 ];
 
 export default function Sidebar() {

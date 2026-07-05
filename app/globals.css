@@ -813,8 +813,9 @@ tbody td.primary {
   transform: scale(1.15);
 }
 
+/* With 6 items the icons need to be slightly smaller */
 .bottom-nav-icon {
-  font-size: 20px;
+  font-size: 18px;
   line-height: 1;
   transition: transform 0.2s ease;
 }

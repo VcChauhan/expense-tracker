@@ -12,7 +12,17 @@ export interface Category {
 export interface Settings {
   _id?: string;
   annualSalary: number;
-  monthlySalary: number;
+  monthlySalary: number;        // computed in-hand
+  taxRegime?: 'new' | 'old';
+  basicPercent?: number;
+  deductions80C?: number;
+  deductions80D?: number;
+  otherDeductions?: number;
+  epfMonthly?: number;
+  annualTax?: number;
+  professionalTax?: number;
+  taxableIncome?: number;
+  effectiveTaxRate?: number;
   categories: Category[];
   updatedAt?: string;
 }

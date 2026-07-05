@@ -89,9 +89,10 @@ export function computeSalaryBreakdown(
   const basicAnnual = Math.round((basicPercent / 100) * annualGross);
   const basicMonthly = Math.round(basicAnnual / 12);
 
-  // Employee EPF = 12% of basic (capped at ₹15,000/month basic per EPFO mandate)
-  const epfBasicMonthly = Math.min(basicMonthly, 15000);
-  const epfEmployeeMonthly = Math.round(epfBasicMonthly * 0.12);
+  // Employee EPF = 12% of full basic salary
+  // (The ₹15,000 cap only governs mandatory EPFO enrollment;
+  //  once enrolled, 12% is deducted on actual basic)
+  const epfEmployeeMonthly = Math.round((basicAnnual / 12) * 0.12);
   const epfEmployee = epfEmployeeMonthly * 12;
 
   // Professional Tax (₹200/month — standard across most Indian states)

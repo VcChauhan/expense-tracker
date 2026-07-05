@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { formatINR, Settings, Category } from '@/lib/types';
+import { computeSalaryBreakdown } from '@/lib/taxUtils';
 
 const PRESET_COLORS = [
   '#6366f1', '#8b5cf6', '#ec4899', '#ef4444', '#f97316',
@@ -11,12 +12,33 @@ const PRESET_COLORS = [
 
 const PRESET_EMOJIS = ['🏠', '⚡', '🚗', '🛒', '📈', '👨‍👩‍👧', '📱', '🎲', '🍔', '🎓', '💊', '✈️', '🎮', '👕', '🏋️'];
 
+function Row({ label, value, highlight, muted }: { label: string; value: string; highlight?: string; muted?: boolean }) {
+  return (
+    <div className="flex items-center justify-between" style={{ padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
+      <span style={{ fontSize: 13, color: muted ? 'var(--text-muted)' : 'var(--text-secondary)' }}>{label}</span>
+      <span style={{ fontSize: 14, fontWeight: 600, color: highlight ?? 'var(--text-primary)' }}>{value}</span>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
-  const [settings, setSettings] = useState<Settings | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
-  const [annualSalary, setAnnualSalary] = useState('');
+  const [settings, setSettings]   = useState<Settings | null>(null);
+  const [loading, setLoading]     = useState(true);
+  const [saving, setSaving]       = useState(false);
+  const [toast, setToast]         = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+
+  // Salary fields
+  const [annualSalary, setAnnualSalary]       = useState('');
+  const [taxRegime, setTaxRegime]             = useState<'new' | 'old'>('new');
+  const [basicPercent, setBasicPercent]       = useState(50);
+  const [deductions80C, setDeductions80C]     = useState(0);
+  const [deductions80D, setDeductions80D]     = useState(0);
+  const [otherDeductions, setOtherDeductions] = useState(0);
+
+  // UI state
+  const [showBreakdown, setShowBreakdown] = useState(false);
+
+  // Category fields
   const [categories, setCategories] = useState<Category[]>([]);
   const [editingCat, setEditingCat] = useState<Category | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -26,12 +48,35 @@ export default function SettingsPage() {
 
   useEffect(() => {
     fetch('/api/settings').then(r => r.json()).then(s => {
-      setSettings(s);
-      setAnnualSalary(String(s.annualSalary));
-      setCategories(s.categories ?? []);
+      if (s && !s.error) {
+        setSettings(s);
+        setAnnualSalary(String(s.annualSalary ?? ''));
+        setTaxRegime(s.taxRegime ?? 'new');
+        setBasicPercent(s.basicPercent ?? 50);
+        setDeductions80C(s.deductions80C ?? 0);
+        setDeductions80D(s.deductions80D ?? 0);
+        setOtherDeductions(s.otherDeductions ?? 0);
+        setCategories(s.categories ?? []);
+      }
       setLoading(false);
     });
   }, []);
+
+  // Live salary breakdown computed client-side for instant feedback
+  const breakdown = useMemo(() =>
+    computeSalaryBreakdown(
+      parseFloat(annualSalary) || 0,
+      taxRegime,
+      basicPercent,
+      deductions80C,
+      deductions80D,
+      otherDeductions,
+    )
+  , [annualSalary, taxRegime, basicPercent, deductions80C, deductions80D, otherDeductions]);
+
+  const totalBudget = categories.reduce((s, c) => s + Number(c.monthlyBudget), 0);
+  const budgetPct   = breakdown.monthlyInhand > 0 ? (totalBudget / breakdown.monthlyInhand) * 100 : 0;
+  const remaining   = breakdown.monthlyInhand - totalBudget;
 
   function showToast(msg: string, type: 'success' | 'error') {
     setToast({ msg, type });
@@ -44,10 +89,15 @@ export default function SettingsPage() {
       const res = await fetch('/api/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ annualSalary: parseFloat(annualSalary), categories }),
+        body: JSON.stringify({
+          annualSalary: parseFloat(annualSalary) || 0,
+          taxRegime, basicPercent,
+          deductions80C, deductions80D, otherDeductions,
+          categories,
+        }),
       });
       const updated = await res.json();
-      setSettings(updated);
+      if (!updated.error) setSettings(updated);
       showToast('Settings saved!', 'success');
     } catch {
       showToast('Failed to save', 'error');
@@ -68,7 +118,7 @@ export default function SettingsPage() {
   }
 
   function deleteCategory(id: string) {
-    if (!confirm('Delete this category? Existing expenses in this category will still be stored but may show as "Unknown".')) return;
+    if (!confirm('Delete this category? Existing expenses will still be stored but may show as "Unknown".')) return;
     setCategories(cats => cats.filter(c => c.id !== id));
   }
 
@@ -82,11 +132,6 @@ export default function SettingsPage() {
     });
   }
 
-  const monthlySalary = parseFloat(annualSalary) > 0 ? Math.round(parseFloat(annualSalary) / 12) : 0;
-  const totalBudget = categories.reduce((s, c) => s + Number(c.monthlyBudget), 0);
-  const budgetPct = monthlySalary > 0 ? (totalBudget / monthlySalary) * 100 : 0;
-  const remaining = monthlySalary - totalBudget;
-
   if (loading) return <div className="page-container"><div className="loading-overlay"><div className="spinner" /></div></div>;
 
   return (
@@ -95,7 +140,7 @@ export default function SettingsPage() {
         <div className="page-header-row">
           <div>
             <h1 className="page-title">⚙️ Budget Planner</h1>
-            <p className="page-subtitle">Set your salary and monthly category budgets</p>
+            <p className="page-subtitle">Set your salary, tax regime, and monthly budgets</p>
           </div>
           <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
             {saving ? <span className="spinner" style={{ width: 16, height: 16 }} /> : '💾'}
@@ -104,36 +149,148 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Salary Section */}
+      {/* ── Salary Section ── */}
       <div className="card mb-32">
         <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 20 }}>
-          💵 Salary Configuration
+          💵 Salary & Tax Configuration
         </h2>
-        <div className="grid-2" style={{ alignItems: 'end' }}>
+
+        <div className="grid-2" style={{ marginBottom: 20 }}>
           <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label" htmlFor="annual-salary">Annual Salary (₹)</label>
+            <label className="form-label" htmlFor="annual-salary">Annual Gross Salary (₹ CTC)</label>
             <input
-              id="annual-salary"
-              type="number"
-              className="form-input"
-              value={annualSalary}
-              onChange={e => setAnnualSalary(e.target.value)}
+              id="annual-salary" type="number" className="form-input"
+              value={annualSalary} onChange={e => setAnnualSalary(e.target.value)}
               placeholder="e.g. 1574604"
             />
           </div>
-          <div className="card card-sm" style={{ background: 'var(--bg-input)', border: '1px solid var(--border)' }}>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>Monthly Salary (Auto-calculated)</div>
-            <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--success)' }}>{formatINR(monthlySalary)}</div>
+
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label">Tax Regime</label>
+            <div className="flex gap-8">
+              {(['new', 'old'] as const).map(r => (
+                <button
+                  key={r}
+                  className={`btn ${taxRegime === r ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ flex: 1 }}
+                  onClick={() => setTaxRegime(r)}
+                >
+                  {r === 'new' ? '🆕 New (FY25-26)' : '📋 Old Regime'}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Budget Summary */}
-        {monthlySalary > 0 && (
+        <div className="grid-2" style={{ marginBottom: 20 }}>
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label">Basic Salary % of CTC</label>
+            <div className="flex items-center gap-12">
+              <input
+                type="range" min={30} max={80} step={5}
+                value={basicPercent} onChange={e => setBasicPercent(Number(e.target.value))}
+                style={{ flex: 1, accentColor: 'var(--accent-primary)' }}
+              />
+              <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--accent-primary)', minWidth: 40 }}>{basicPercent}%</span>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
+              EPF deducted on full basic: {formatINR(Math.round((basicPercent / 100) * (parseFloat(annualSalary) || 0) / 12 * 0.12))}/mo
+              &nbsp;(12% of basic, regulatory rate)
+            </div>
+          </div>
+
+          {taxRegime === 'old' && (
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Old Regime Deductions</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div className="flex items-center gap-8">
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)', width: 120, flexShrink: 0 }}>80C (max ₹1.5L)</span>
+                  <input type="number" className="form-input" style={{ padding: '8px 12px' }}
+                    value={deductions80C || ''} placeholder="150000"
+                    onChange={e => setDeductions80C(Math.min(parseFloat(e.target.value) || 0, 150000))} />
+                </div>
+                <div className="flex items-center gap-8">
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)', width: 120, flexShrink: 0 }}>80D (max ₹25K)</span>
+                  <input type="number" className="form-input" style={{ padding: '8px 12px' }}
+                    value={deductions80D || ''} placeholder="25000"
+                    onChange={e => setDeductions80D(Math.min(parseFloat(e.target.value) || 0, 25000))} />
+                </div>
+                <div className="flex items-center gap-8">
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)', width: 120, flexShrink: 0 }}>Other deductions</span>
+                  <input type="number" className="form-input" style={{ padding: '8px 12px' }}
+                    value={otherDeductions || ''} placeholder="0"
+                    onChange={e => setOtherDeductions(parseFloat(e.target.value) || 0)} />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── Live Tax Breakdown (collapsible) ── */}
+        {breakdown.annualGross > 0 && (
+          <div style={{ marginTop: 4 }}>
+            {/* Always-visible summary chip — click to expand */}
+            <button
+              onClick={() => setShowBreakdown(v => !v)}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                background: 'var(--bg-input)', border: '1px solid var(--border)',
+                borderRadius: showBreakdown ? 'var(--radius-md) var(--radius-md) 0 0' : 'var(--radius-md)',
+                padding: '12px 20px', cursor: 'pointer', transition: 'border-radius 0.2s',
+              }}
+            >
+              <div className="flex items-center gap-12">
+                <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>📊 Salary Breakdown</span>
+                <span style={{
+                  fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 100,
+                  background: 'rgba(16,185,129,0.15)', color: 'var(--success)',
+                }}>🏦 {formatINR(breakdown.monthlyInhand)}/mo in-hand</span>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Tax: {breakdown.effectiveTaxRate}%</span>
+              </div>
+              <span style={{ fontSize: 16, color: 'var(--text-muted)', transition: 'transform 0.2s', transform: showBreakdown ? 'rotate(180deg)' : 'none' }}>▾</span>
+            </button>
+
+            {/* Expandable detail panel */}
+            {showBreakdown && (
+              <div style={{
+                background: 'var(--bg-input)', borderRadius: '0 0 var(--radius-md) var(--radius-md)',
+                padding: '0 20px 16px', borderTop: '1px solid var(--border)',
+                border: '1px solid var(--border)', borderTopColor: 'transparent',
+              }}>
+                <div style={{ paddingTop: 12 }}>
+                  <Row label="Annual Gross (CTC)"        value={formatINR(breakdown.annualGross)} />
+                  <Row label={`Basic (${basicPercent}% of CTC)`} value={formatINR(breakdown.basicAnnual)} muted />
+                  <Row label={`Employee EPF (12% of basic)`} value={`− ${formatINR(breakdown.epfEmployee)}`} highlight="var(--warning)" />
+                  <Row label={`Standard Deduction (${taxRegime === 'new' ? '₹75,000' : '₹50,000'})`}
+                       value={`− ${formatINR(breakdown.standardDeduction)}`} muted />
+                  {taxRegime === 'old' && breakdown.deductionsApplied > 0 &&
+                    <Row label="80C / 80D / Other Deductions" value={`− ${formatINR(breakdown.deductionsApplied)}`} muted />
+                  }
+                  <Row label="Taxable Income"             value={formatINR(breakdown.taxableIncome)} />
+                  <Row label="Income Tax + Cess (4%)"     value={`− ${formatINR(breakdown.annualTax)}`} highlight="var(--danger)" />
+                  <Row label="Professional Tax"           value={`− ${formatINR(breakdown.professionalTax)}`} muted />
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 12, marginTop: 4 }}>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>🏦 Monthly In-Hand</span>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--success)', fontFamily: "'Space Grotesk', sans-serif" }}>
+                        {formatINR(breakdown.monthlyInhand)}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Effective tax rate: {breakdown.effectiveTaxRate}%</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Budget vs In-hand bar */}
+        {breakdown.monthlyInhand > 0 && (
           <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
             <div className="flex items-center justify-between mb-8">
               <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
                 Total budgeted: <strong style={{ color: budgetPct > 100 ? 'var(--danger)' : 'var(--text-primary)' }}>{formatINR(totalBudget)}</strong>
-                <span style={{ color: 'var(--text-muted)', marginLeft: 6 }}>({budgetPct.toFixed(1)}% of monthly salary)</span>
+                <span style={{ color: 'var(--text-muted)', marginLeft: 6 }}>({budgetPct.toFixed(1)}% of in-hand)</span>
               </span>
               <span style={{ fontSize: 13, color: remaining >= 0 ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>
                 {remaining >= 0 ? '✅' : '⚠️'} Remaining: {formatINR(remaining)}
@@ -149,7 +306,7 @@ export default function SettingsPage() {
         )}
       </div>
 
-      {/* Categories */}
+      {/* ── Categories ── */}
       <div>
         <div className="page-header-row mb-16">
           <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)' }}>📂 Expense Categories</h2>
@@ -158,7 +315,6 @@ export default function SettingsPage() {
           </button>
         </div>
 
-        {/* Add Category Form */}
         {showAddForm && (
           <div className="card mb-16" style={{ borderColor: 'var(--accent-primary)' }}>
             <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 16, color: 'var(--accent-primary)' }}>New Category</h3>
@@ -181,7 +337,6 @@ export default function SettingsPage() {
                   value={newCat.notes} onChange={e => setNewCat(n => ({ ...n, notes: e.target.value }))} />
               </div>
             </div>
-            {/* Emoji picker */}
             <div className="form-group">
               <label className="form-label">Emoji</label>
               <div className="flex gap-8" style={{ flexWrap: 'wrap' }}>
@@ -192,7 +347,6 @@ export default function SettingsPage() {
                 ))}
               </div>
             </div>
-            {/* Color picker */}
             <div className="form-group">
               <label className="form-label">Color</label>
               <div className="flex gap-8" style={{ flexWrap: 'wrap' }}>
@@ -207,7 +361,6 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {/* Category Table */}
         <div className="table-wrapper">
           <table>
             <thead>
@@ -215,7 +368,7 @@ export default function SettingsPage() {
                 <th style={{ width: 40 }}>#</th>
                 <th>Category</th>
                 <th>Monthly Budget</th>
-                <th>% of Salary</th>
+                <th>% of In-Hand</th>
                 <th>Notes</th>
                 <th style={{ width: 120 }}>Actions</th>
               </tr>
@@ -251,7 +404,7 @@ export default function SettingsPage() {
                     )}
                   </td>
                   <td style={{ color: 'var(--text-secondary)' }}>
-                    {monthlySalary > 0 ? ((cat.monthlyBudget / monthlySalary) * 100).toFixed(1) : 0}%
+                    {breakdown.monthlyInhand > 0 ? ((cat.monthlyBudget / breakdown.monthlyInhand) * 100).toFixed(1) : 0}%
                   </td>
                   <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>
                     {editingCat?.id === cat.id ? (
@@ -278,19 +431,17 @@ export default function SettingsPage() {
                   </td>
                 </tr>
               ))}
-              {/* Totals row */}
               <tr style={{ background: 'var(--bg-secondary)', borderTop: '2px solid var(--border-light)' }}>
-                <td colSpan={2} style={{ fontWeight: 700, color: 'var(--text-primary)' }}>TOTAL EXPENSES</td>
+                <td colSpan={2} style={{ fontWeight: 700, color: 'var(--text-primary)' }}>TOTAL BUDGETED</td>
                 <td style={{ fontWeight: 700, color: budgetPct > 100 ? 'var(--danger)' : 'var(--warning)' }}>{formatINR(totalBudget)}</td>
                 <td style={{ fontWeight: 700, color: budgetPct > 100 ? 'var(--danger)' : 'var(--text-secondary)' }}>{budgetPct.toFixed(1)}%</td>
                 <td colSpan={2} />
               </tr>
-              {/* Savings row */}
               <tr style={{ background: 'var(--bg-secondary)' }}>
                 <td colSpan={2} style={{ fontWeight: 700, color: 'var(--success)' }}>💰 EXPECTED SAVINGS</td>
                 <td style={{ fontWeight: 700, color: remaining >= 0 ? 'var(--success)' : 'var(--danger)' }}>{formatINR(remaining)}</td>
-                <td style={{ color: 'var(--text-muted)' }}>{monthlySalary > 0 ? (100 - budgetPct).toFixed(1) : 0}%</td>
-                <td colSpan={2} style={{ color: 'var(--text-muted)', fontSize: 12 }}>Monthly Salary − Total</td>
+                <td style={{ color: 'var(--text-muted)' }}>{breakdown.monthlyInhand > 0 ? (100 - budgetPct).toFixed(1) : 0}%</td>
+                <td colSpan={2} style={{ color: 'var(--text-muted)', fontSize: 12 }}>In-hand − Total Budget</td>
               </tr>
             </tbody>
           </table>
