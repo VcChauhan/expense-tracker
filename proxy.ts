@@ -5,7 +5,7 @@ const SESSION_COOKIE = 'iq-session';
 // Paths that never require auth
 const PUBLIC = ['/login', '/api/auth'];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Pass through public paths and static assets
