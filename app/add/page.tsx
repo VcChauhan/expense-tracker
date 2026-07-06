@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { formatINR, Settings, Expense, Suggestion } from '@/lib/types';
 import { Edit2, Trash2, FileText, CheckCircle2, XCircle } from 'lucide-react';
 import { CategoryIcon } from '@/components/CategoryIcon';
+import { ConfirmModal } from '@/components/ConfirmModal';
 
 export default function AddExpensePage() {
   const [settings, setSettings]             = useState<Settings | null>(null);
@@ -13,6 +14,7 @@ export default function AddExpensePage() {
   const [loading, setLoading]               = useState(false);
   const [toast, setToast]                   = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
   const [editingId, setEditingId]           = useState<string | null>(null);
+  const [confirmDialog, setConfirmDialog]   = useState<{ isOpen: boolean; id: string } | null>(null);
 
   const today = new Date().toISOString().split('T')[0];
   const [form, setForm] = useState({ date: today, categoryId: '', amount: '', note: '' });
@@ -81,8 +83,14 @@ export default function AddExpensePage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm('Delete this expense?')) return;
+  function handleDeleteClick(id: string) {
+    setConfirmDialog({ isOpen: true, id });
+  }
+
+  async function confirmDelete() {
+    if (!confirmDialog) return;
+    const id = confirmDialog.id;
+    setConfirmDialog(null);
     await fetch(`/api/expenses/${id}`, { method: 'DELETE' });
     showToast('Expense deleted', 'success');
     fetchRecent();
@@ -313,7 +321,7 @@ export default function AddExpensePage() {
                           style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', fontSize: 13, borderRadius: 16, cursor: 'pointer', border: 'none', fontWeight: 500 }}
                         ><Edit2 size={14} /> Edit</button>
                         <button
-                          onClick={() => handleDelete(exp._id)}
+                          onClick={() => handleDeleteClick(exp._id)}
                           className="btn-text"
                           style={{ display: 'flex', alignItems: 'center', padding: '4px 8px', fontSize: 13, borderRadius: 16, cursor: 'pointer', border: 'none', color: 'var(--md-sys-color-error)', fontWeight: 500 }}
                         ><Trash2 size={14} /></button>
@@ -327,7 +335,6 @@ export default function AddExpensePage() {
         )}
       </div>
 
-      {/* Toast */}
       {toast && (
         <div className="toast-container">
           <div className={`toast ${toast.type}`}>
@@ -337,6 +344,13 @@ export default function AddExpensePage() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={!!confirmDialog?.isOpen}
+        message="Are you sure you want to delete this expense? This action cannot be undone."
+        onConfirm={confirmDelete}
+        onCancel={() => setConfirmDialog(null)}
+      />
     </div>
   );
 }

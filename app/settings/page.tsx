@@ -4,8 +4,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { formatINR, Settings, Category } from '@/lib/types';
 import { computeSalaryBreakdown } from '@/lib/taxUtils';
-import { Save, Wallet, Folder, Edit2, ArrowUp, ArrowDown, Trash2 } from 'lucide-react';
+import { Save, Wallet, Folder, Edit2, ArrowUp, ArrowDown, Trash2, CheckCircle2, XCircle } from 'lucide-react';
 import { CategoryIcon } from '@/components/CategoryIcon';
+import { ConfirmModal } from '@/components/ConfirmModal';
 
 const PRESET_COLORS = [
   '#6366f1', '#8b5cf6', '#ec4899', '#ef4444', '#f97316',
@@ -26,6 +27,7 @@ export default function SettingsPage() {
   const [loading, setLoading]     = useState(true);
   const [saving, setSaving]       = useState(false);
   const [toast, setToast]         = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean; id: string } | null>(null);
 
   // Salary fields
   const [annualSalary, setAnnualSalary]       = useState('');
@@ -117,8 +119,14 @@ export default function SettingsPage() {
     setCategories(cats => cats.map(c => c.id === id ? { ...c, ...changes } : c));
   }
 
-  function deleteCategory(id: string) {
-    if (!confirm('Delete this category? Existing expenses will still be stored but may show as "Unknown".')) return;
+  function handleDeleteClick(id: string) {
+    setConfirmDialog({ isOpen: true, id });
+  }
+
+  function confirmDelete() {
+    if (!confirmDialog) return;
+    const id = confirmDialog.id;
+    setConfirmDialog(null);
     setCategories(cats => cats.filter(c => c.id !== id));
   }
 
@@ -411,7 +419,7 @@ export default function SettingsPage() {
                           <button className="btn-text" style={{ cursor: 'pointer', border: 'none', padding: '4px 8px', display: 'flex', alignItems: 'center' }} onClick={() => setEditingCat({ ...cat })} title="Edit"><Edit2 size={16} /></button>
                           <button className="btn-text hide-on-mobile" style={{ cursor: 'pointer', border: 'none', padding: '4px 8px', display: 'flex', alignItems: 'center' }} onClick={() => moveCat(cat.id, -1)} disabled={idx === 0} title="Move up"><ArrowUp size={16} /></button>
                           <button className="btn-text hide-on-mobile" style={{ cursor: 'pointer', border: 'none', padding: '4px 8px', display: 'flex', alignItems: 'center' }} onClick={() => moveCat(cat.id, 1)} disabled={idx === categories.length - 1} title="Move down"><ArrowDown size={16} /></button>
-                          <button className="btn-text" style={{ cursor: 'pointer', border: 'none', padding: '4px 8px', display: 'flex', alignItems: 'center', color: 'var(--md-sys-color-error)' }} onClick={() => deleteCategory(cat.id)} title="Delete"><Trash2 size={16} /></button>
+                          <button className="btn-text" style={{ cursor: 'pointer', border: 'none', padding: '4px 8px', display: 'flex', alignItems: 'center', color: 'var(--md-sys-color-error)' }} onClick={() => handleDeleteClick(cat.id)} title="Delete"><Trash2 size={16} /></button>
                         </>
                       )}
                     </div>
@@ -444,9 +452,20 @@ export default function SettingsPage() {
 
       {toast && (
         <div className="toast-container">
-          <div className={`toast ${toast.type}`}>{toast.type === 'success' ? '✅' : '❌'} {toast.msg}</div>
+          <div className={`toast ${toast.type}`}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {toast.type === 'success' ? <CheckCircle2 size={18} /> : <XCircle size={18} />} {toast.msg}
+            </span>
+          </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={!!confirmDialog?.isOpen}
+        message='Delete this category? Existing expenses will still be stored but may show as "Unknown".'
+        onConfirm={confirmDelete}
+        onCancel={() => setConfirmDialog(null)}
+      />
     </div>
   );
 }

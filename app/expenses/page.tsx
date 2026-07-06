@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { formatINR, MONTHS, SHORT_MONTHS, Expense, Settings, Category } from '@/lib/types';
-import { CalendarDays, Edit2, Trash2 } from 'lucide-react';
+import { CalendarDays, Edit2, Trash2, CheckCircle2, XCircle } from 'lucide-react';
 import { CategoryIcon } from '@/components/CategoryIcon';
+import { ConfirmModal } from '@/components/ConfirmModal';
 
 type ViewMode = 'monthly' | 'annual';
 type SortField = 'date' | 'amount';
@@ -15,6 +16,7 @@ export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean; id: string } | null>(null);
 
   // Filters
   const [viewMode, setViewMode]           = useState<ViewMode>('monthly');
@@ -104,8 +106,14 @@ export default function ExpensesPage() {
     else { setSortBy(field); setSortDir('desc'); }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm('Delete this expense?')) return;
+  function handleDeleteClick(id: string) {
+    setConfirmDialog({ isOpen: true, id });
+  }
+
+  async function confirmDelete() {
+    if (!confirmDialog) return;
+    const id = confirmDialog.id;
+    setConfirmDialog(null);
     await fetch(`/api/expenses/${id}`, { method: 'DELETE' });
     setExpenses(exps => exps.filter(e => e._id !== id));
     showToast('Expense deleted', 'success');
@@ -174,7 +182,7 @@ export default function ExpensesPage() {
                 style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', fontSize: 13, borderRadius: 16, cursor: 'pointer', border: 'none', fontWeight: 500 }}
               ><Edit2 size={14} /> Edit</button>
               <button
-                onClick={() => handleDelete(exp._id!)}
+                onClick={() => handleDeleteClick(exp._id!)}
                 className="btn-text"
                 style={{ display: 'flex', alignItems: 'center', padding: '4px 8px', fontSize: 13, borderRadius: 16, cursor: 'pointer', border: 'none', color: 'var(--md-sys-color-error)', fontWeight: 500 }}
               ><Trash2 size={14} /></button>
@@ -339,9 +347,20 @@ export default function ExpensesPage() {
 
       {toast && (
         <div className="toast-container">
-          <div className={`toast ${toast.type}`}>{toast.type === 'success' ? '✅' : '❌'} {toast.msg}</div>
+          <div className={`toast ${toast.type}`}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {toast.type === 'success' ? <CheckCircle2 size={18} /> : <XCircle size={18} />} {toast.msg}
+            </span>
+          </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={!!confirmDialog?.isOpen}
+        message="Are you sure you want to delete this expense? This action cannot be undone."
+        onConfirm={confirmDelete}
+        onCancel={() => setConfirmDialog(null)}
+      />
     </div>
   );
 }

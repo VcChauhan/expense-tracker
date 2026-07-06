@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { formatINR, Settings } from '@/lib/types';
 import { computeSalaryBreakdown } from '@/lib/taxUtils';
 import { TrendingUp, Wallet, Folder, RefreshCw, Check, History, CheckCircle2, XCircle } from 'lucide-react';
+import { ConfirmModal } from '@/components/ConfirmModal';
 import { CategoryIcon } from '@/components/CategoryIcon';
 
 interface HikeCategory {
@@ -53,6 +54,7 @@ export default function HikePage() {
   const [applying, setApplying]         = useState(false);
   const [history, setHistory]           = useState<HikeRecord[]>([]);
   const [toast, setToast]               = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean; pct: number } | null>(null);
 
   // Hike inputs
   const [hikePercent, setHikePercent]   = useState<string>('20');
@@ -125,10 +127,14 @@ export default function HikePage() {
     setTimeout(() => setToast(null), 4000);
   }
 
-  async function handleApply() {
+  function handleApplyClick(pct: number) {
+    setConfirmDialog({ isOpen: true, pct });
+  }
+
+  async function confirmApply() {
     if (!settings || pct <= 0) return;
-    if (!confirm(`Apply ${pct}% hike? This will update your salary and all category budgets in the Budget Planner.`)) return;
     setApplying(true);
+    setConfirmDialog(null);
     try {
       const res = await fetch('/api/hike', {
         method: 'POST',
@@ -296,7 +302,7 @@ export default function HikePage() {
             </button>
             <button
               className="btn btn-primary"
-              onClick={handleApply}
+              onClick={() => handleApplyClick(pct)}
               disabled={applying || pct <= 0}
               style={{ background: 'linear-gradient(135deg, #10b981, #059669)', display: 'flex', alignItems: 'center', gap: 6 }}
             >
@@ -431,6 +437,14 @@ export default function HikePage() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={!!confirmDialog?.isOpen}
+        title="Apply Hike?"
+        message={`Are you sure you want to apply a ${confirmDialog?.pct}% hike? This will permanently update your annual salary and proportionately increase all your category budgets in the Budget Planner.`}
+        onConfirm={confirmApply}
+        onCancel={() => setConfirmDialog(null)}
+      />
     </div>
   );
 }
