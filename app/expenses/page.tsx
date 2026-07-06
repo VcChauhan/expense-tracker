@@ -262,7 +262,7 @@ export default function ExpensesPage() {
         <div className="loading-overlay"><div className="spinner" /> Loading…</div>
       ) : filtered.length === 0 ? (
         <div className="empty-state">
-          <span className="empty-state-icon">🔍</span>
+          <img src="/empty-box.jpg" alt="Empty" style={{ width: 140, height: 140, objectFit: 'cover', borderRadius: 24, marginBottom: 20, mixBlendMode: 'screen' }} />
           <span className="empty-state-title">No expenses found</span>
           <span className="empty-state-sub">
             Add your first expense using the + Add tab
@@ -270,7 +270,7 @@ export default function ExpensesPage() {
         </div>
       ) : viewMode === 'monthly' ? (
         /* ── Monthly flat list ── */
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div className="animate-list" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ display: 'flex', gap: 16, padding: '0 4px', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>
              <span style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('date')}>DATE {sortIcon('date')}</span>
              <span style={{ cursor: 'pointer', userSelect: 'none', marginLeft: 'auto' }} onClick={() => toggleSort('amount')}>AMOUNT {sortIcon('amount')}</span>
@@ -299,7 +299,7 @@ export default function ExpensesPage() {
                     <span style={{ fontWeight: 700, color: 'var(--danger)', fontSize: 15 }}>{formatINR(monthTotal)}</span>
                   </div>
                 </div>
-                <div style={{ padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div className="animate-list" style={{ padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {exps.map(exp => <ExpenseRow key={exp._id} exp={exp} />)}
                 </div>
               </div>

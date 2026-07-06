@@ -258,8 +258,8 @@ export default function DashboardPage() {
                   </div>
                 </>
               ) : (
-                <div className="empty-state" style={{ padding: '40px 0' }}>
-                  <span className="empty-state-icon">🥧</span>
+                <div className="empty-state" style={{ padding: '40px 0', border: 'none', background: 'transparent' }}>
+                  <img src="/empty-box.jpg" alt="Empty" style={{ width: 120, height: 120, objectFit: 'cover', borderRadius: 20, marginBottom: 16, opacity: 0.8, mixBlendMode: 'screen' }} />
                   <span className="empty-state-sub">No expenses {isAnnual ? 'this year' : 'this month'}</span>
                 </div>
               )}
@@ -331,7 +331,7 @@ export default function DashboardPage() {
                   View all →
                 </Link>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div className="animate-list" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {recentExpenses.map(exp => {
                   const cat = getCategoryById(exp.categoryId);
                   return (
