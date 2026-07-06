@@ -6,11 +6,12 @@
 
   --bg-primary:      #0a0b0f;
   --bg-secondary:    #111318;
-  --bg-card:         #16181f;
-  --bg-card-hover:   #1c1f28;
-  --bg-input:        #1e2230;
-  --border:          #252836;
-  --border-light:    #2e3347;
+  --bg-card:         rgba(22, 24, 31, 0.7);
+  --bg-card-hover:   rgba(28, 31, 40, 0.85);
+  --bg-glass-border: rgba(255, 255, 255, 0.05);
+  --bg-input:        rgba(30, 34, 48, 0.8);
+  --border:          rgba(255, 255, 255, 0.1);
+  --border-light:    rgba(255, 255, 255, 0.15);
 
   --text-primary:    #f0f2f8;
   --text-secondary:  #8b92a5;
@@ -49,11 +50,12 @@
 
     --bg-primary:    #f4f5f7;
     --bg-secondary:  #ebedf2;
-    --bg-card:       #ffffff;
-    --bg-card-hover: #f0f1f5;
-    --bg-input:      #eef0f5;
-    --border:        #d8dce8;
-    --border-light:  #e4e7f0;
+    --bg-card:       rgba(255, 255, 255, 0.7);
+    --bg-card-hover: rgba(255, 255, 255, 0.9);
+    --bg-glass-border: rgba(255, 255, 255, 0.8);
+    --bg-input:      rgba(238, 240, 245, 0.8);
+    --border:        rgba(0, 0, 0, 0.08);
+    --border-light:  rgba(0, 0, 0, 0.12);
 
     --text-primary:   #111827;
     --text-secondary: #4b5563;
@@ -266,15 +268,20 @@ body {
 /* ===================== Cards ===================== */
 .card {
   background: var(--bg-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--border);
+  box-shadow: inset 0 1px 0 var(--bg-glass-border), var(--shadow-card);
   border-radius: var(--radius-lg);
   padding: 24px;
-  box-shadow: var(--shadow-card);
-  transition: var(--transition);
+  transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .card:hover {
+  background: var(--bg-card-hover);
   border-color: var(--border-light);
+  transform: translateY(-2px);
+  box-shadow: inset 0 1px 0 var(--bg-glass-border), 0 8px 30px rgba(0, 0, 0, 0.3);
 }
 
 .card-sm {
@@ -552,9 +559,13 @@ body {
   box-shadow: 0 4px 14px var(--accent-glow);
 }
 
+.btn-primary:active {
+  transform: scale(0.96);
+}
+
 .btn-primary:hover {
   opacity: 0.9;
-  transform: translateY(-1px);
+  transform: translateY(-2px) scale(1.02);
   box-shadow: 0 6px 20px var(--accent-glow);
 }
 
@@ -996,3 +1007,47 @@ tbody td.primary {
 .fw-700 { font-weight: 700; }
 .fs-13 { font-size: 13px; }
 .fs-12 { font-size: 12px; }
+
+/* ===================== Top Layer Animations ===================== */
+dialog,
+[popover] {
+  opacity: 0;
+  transform: translateY(20px) scale(0.95);
+  transition-property: opacity, transform, display, overlay;
+  transition-duration: 0.3s;
+  transition-timing-function: cubic-bezier(0.25, 1, 0.5, 1);
+  transition-behavior: allow-discrete;
+}
+
+dialog[open],
+[popover]:popover-open {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+
+  @starting-style {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+}
+
+dialog::backdrop,
+[popover]::backdrop {
+  background-color: rgba(0, 0, 0, 0);
+  backdrop-filter: blur(0px);
+  transition:
+    display 0.3s allow-discrete,
+    overlay 0.3s allow-discrete,
+    background-color 0.3s ease-out,
+    backdrop-filter 0.3s ease-out;
+}
+
+dialog[open]::backdrop,
+[popover]:popover-open::backdrop {
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+
+  @starting-style {
+    background-color: rgba(0, 0, 0, 0);
+    backdrop-filter: blur(0px);
+  }
+}

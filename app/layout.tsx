@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import Sidebar from '@/components/Sidebar';
 import BottomNav from '@/components/BottomNav';
+import QuickAddSheet from '@/components/QuickAddSheet';
 
 export const metadata: Metadata = {
   title: 'ExpenseIQ — Personal Finance Tracker',
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {children}
           </main>
           <BottomNav />
+          <QuickAddSheet />
         </div>
       </body>
     </html>

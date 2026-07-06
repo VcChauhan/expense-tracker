@@ -7,6 +7,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend,
 } from 'recharts';
 import { formatINR, MONTHS, SHORT_MONTHS, getBudgetStatus, Settings, Expense } from '@/lib/types';
+import AiInsights from '@/components/AiInsights';
 
 interface CategoryTotal { _id: string; total: number; count: number; }
 interface MonthTotal    { _id: string; total: number; count: number; }
@@ -221,6 +222,9 @@ export default function DashboardPage() {
               <div className="summary-card-sub">Budget cap: {formatINR(displayBudget)}</div>
             </div>
           </div>
+
+          {/* AI Insights */}
+          {!isAnnual && <AiInsights month={selectedMonth} year={selectedYear} />}
 
           {/* Charts */}
           <div className="charts-grid mb-32">
