@@ -108,7 +108,7 @@ export default function AddExpensePage() {
       date: sug.date,
       categoryId: sug.suggestedCategory || settings?.categories[0]?.id || '',
       amount: String(sug.amount),
-      note: `SMS: ${sug.smsBody.substring(0, 30)}...`,
+      note: sug.suggestedLabel || `SMS: ${sug.smsBody.substring(0, 30)}...`,
     });
     
     try {
@@ -142,10 +142,25 @@ export default function AddExpensePage() {
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
-                      {sug.sender}
+                      {sug.suggestedLabel ? (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          ✨ {sug.suggestedLabel}
+                          {sug.suggestedCategory && getCat(sug.suggestedCategory) && (
+                            <span style={{ fontSize: 11, background: 'var(--bg-input)', padding: '2px 6px', borderRadius: 4, color: 'var(--text-secondary)', fontWeight: 500 }}>
+                              {getCat(sug.suggestedCategory)?.emoji} {getCat(sug.suggestedCategory)?.name}
+                            </span>
+                          )}
+                        </span>
+                      ) : (
+                        sug.sender
+                      )}
                     </div>
-                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, wordBreak: 'break-word' }}>
-                      "{sug.smsBody}"
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4, wordBreak: 'break-word' }}>
+                      {sug.suggestedLabel ? (
+                        <span style={{ opacity: 0.8 }}>From {sug.sender}: "{sug.smsBody}"</span>
+                      ) : (
+                        `"${sug.smsBody}"`
+                      )}
                     </div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>{sug.date}</div>
                   </div>

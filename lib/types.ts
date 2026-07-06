@@ -44,6 +44,7 @@ export interface Suggestion {
   date: string;
   status: 'pending' | 'approved' | 'rejected';
   suggestedCategory?: string;
+  suggestedLabel?: string;
 }
 
 export interface MonthlyAnalytics {
