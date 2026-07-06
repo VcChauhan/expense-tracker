@@ -4,17 +4,17 @@ import { useState, useEffect, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { formatINR, Settings, Category } from '@/lib/types';
 import { computeSalaryBreakdown } from '@/lib/taxUtils';
+import { Save, Wallet, Folder, Edit2, ArrowUp, ArrowDown, Trash2 } from 'lucide-react';
+import { CategoryIcon } from '@/components/CategoryIcon';
 
 const PRESET_COLORS = [
   '#6366f1', '#8b5cf6', '#ec4899', '#ef4444', '#f97316',
   '#f59e0b', '#10b981', '#14b8a6', '#3b82f6', '#06b6d4',
 ];
 
-const PRESET_EMOJIS = ['🏠', '⚡', '🚗', '🛒', '📈', '👨‍👩‍👧', '📱', '🎲', '🍔', '🎓', '💊', '✈️', '🎮', '👕', '🏋️'];
-
 function Row({ label, value, highlight, muted }: { label: string; value: string; highlight?: string; muted?: boolean }) {
   return (
-    <div className="flex items-center justify-between" style={{ padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
+    <div className="flex items-center justify-between" style={{ padding: '10px 0' }}>
       <span style={{ fontSize: 13, color: muted ? 'var(--text-muted)' : 'var(--text-secondary)' }}>{label}</span>
       <span style={{ fontSize: 14, fontWeight: 600, color: highlight ?? 'var(--text-primary)' }}>{value}</span>
     </div>
@@ -43,7 +43,7 @@ export default function SettingsPage() {
   const [editingCat, setEditingCat] = useState<Category | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newCat, setNewCat] = useState<Omit<Category, 'id'>>({
-    name: '', emoji: '💰', monthlyBudget: 0, notes: '', color: '#6366f1'
+    name: '', emoji: '', monthlyBudget: 0, notes: '', color: '#6366f1'
   });
 
   useEffect(() => {
@@ -109,7 +109,7 @@ export default function SettingsPage() {
   function addCategory() {
     if (!newCat.name.trim()) return;
     setCategories(cats => [...cats, { ...newCat, id: uuidv4(), monthlyBudget: Number(newCat.monthlyBudget) }]);
-    setNewCat({ name: '', emoji: '💰', monthlyBudget: 0, notes: '', color: '#6366f1' });
+    setNewCat({ name: '', emoji: '', monthlyBudget: 0, notes: '', color: '#6366f1' });
     setShowAddForm(false);
   }
 
@@ -139,11 +139,11 @@ export default function SettingsPage() {
       <div className="page-header">
         <div className="page-header-row">
           <div>
-            <h1 className="page-title">⚙️ Budget Planner</h1>
+            <h1 className="page-title">Budget Planner</h1>
             <p className="page-subtitle">Set your salary, tax regime, and monthly budgets</p>
           </div>
-          <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-            {saving ? <span className="spinner" style={{ width: 16, height: 16 }} /> : '💾'}
+          <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={handleSave} disabled={saving}>
+            {saving ? <span className="spinner" style={{ width: 16, height: 16 }} /> : <Save size={16} />}
             Save All Changes
           </button>
         </div>
@@ -151,8 +151,8 @@ export default function SettingsPage() {
 
       {/* ── Salary Section ── */}
       <div className="card mb-32">
-        <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 20 }}>
-          💵 Salary & Tax Configuration
+        <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Wallet size={20} /> Salary & Tax Configuration
         </h2>
 
         <div className="grid-2" style={{ marginBottom: 20 }}>
@@ -175,7 +175,7 @@ export default function SettingsPage() {
                   style={{ flex: 1 }}
                   onClick={() => setTaxRegime(r)}
                 >
-                  {r === 'new' ? '🆕 New (FY25-26)' : '📋 Old Regime'}
+                  {r === 'new' ? 'New (FY25-26)' : 'Old Regime'}
                 </button>
               ))}
             </div>
@@ -234,17 +234,17 @@ export default function SettingsPage() {
               onClick={() => setShowBreakdown(v => !v)}
               style={{
                 width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                background: 'var(--bg-input)', border: '1px solid var(--border)',
+                background: 'var(--bg-input)', border: 'none',
                 borderRadius: showBreakdown ? 'var(--radius-md) var(--radius-md) 0 0' : 'var(--radius-md)',
                 padding: '12px 20px', cursor: 'pointer', transition: 'border-radius 0.2s',
               }}
             >
               <div className="flex items-center gap-12">
-                <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>📊 Salary Breakdown</span>
+                <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Salary Breakdown</span>
                 <span style={{
                   fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 100,
                   background: 'rgba(16,185,129,0.15)', color: 'var(--success)',
-                }}>🏦 {formatINR(breakdown.monthlyInhand)}/mo in-hand</span>
+                }}>{formatINR(breakdown.monthlyInhand)}/mo in-hand</span>
                 <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Tax: {breakdown.effectiveTaxRate}%</span>
               </div>
               <span style={{ fontSize: 16, color: 'var(--text-muted)', transition: 'transform 0.2s', transform: showBreakdown ? 'rotate(180deg)' : 'none' }}>▾</span>
@@ -254,8 +254,8 @@ export default function SettingsPage() {
             {showBreakdown && (
               <div style={{
                 background: 'var(--bg-input)', borderRadius: '0 0 var(--radius-md) var(--radius-md)',
-                padding: '0 20px 16px', borderTop: '1px solid var(--border)',
-                border: '1px solid var(--border)', borderTopColor: 'transparent',
+                padding: '0 20px 16px', borderTop: 'none',
+                border: 'none',
               }}>
                 <div style={{ paddingTop: 12 }}>
                   <Row label="Annual Gross (CTC)"        value={formatINR(breakdown.annualGross)} />
@@ -270,7 +270,7 @@ export default function SettingsPage() {
                   <Row label="Income Tax + Cess (4%)"     value={`− ${formatINR(breakdown.annualTax)}`} highlight="var(--danger)" />
                   <Row label="Professional Tax"           value={`− ${formatINR(breakdown.professionalTax)}`} muted />
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 12, marginTop: 4 }}>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>🏦 Monthly In-Hand</span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>Monthly In-Hand</span>
                     <div style={{ textAlign: 'right' }}>
                       <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--success)', fontFamily: "'Space Grotesk', sans-serif" }}>
                         {formatINR(breakdown.monthlyInhand)}
@@ -286,7 +286,7 @@ export default function SettingsPage() {
 
         {/* Budget vs In-hand bar */}
         {breakdown.monthlyInhand > 0 && (
-          <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
+          <div style={{ marginTop: 20, paddingTop: 20, borderTop: 'none' }}>
             <div className="flex items-center justify-between mb-8">
               <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
                 Total budgeted: <strong style={{ color: budgetPct > 100 ? 'var(--danger)' : 'var(--text-primary)' }}>{formatINR(totalBudget)}</strong>
@@ -306,12 +306,13 @@ export default function SettingsPage() {
         )}
       </div>
 
-      {/* ── Categories ── */}
       <div>
         <div className="page-header-row mb-16">
-          <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)' }}>📂 Expense Categories</h2>
+          <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Folder size={20} /> Expense Categories
+          </h2>
           <button className="btn btn-primary btn-sm" onClick={() => setShowAddForm(s => !s)}>
-            {showAddForm ? '✕ Cancel' : '➕ Add Category'}
+            {showAddForm ? 'Cancel' : 'Add Category'}
           </button>
         </div>
 
@@ -335,16 +336,6 @@ export default function SettingsPage() {
                 <label className="form-label">Notes</label>
                 <input type="text" className="form-input" placeholder="Optional description"
                   value={newCat.notes} onChange={e => setNewCat(n => ({ ...n, notes: e.target.value }))} />
-              </div>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Emoji</label>
-              <div className="flex gap-8" style={{ flexWrap: 'wrap' }}>
-                {PRESET_EMOJIS.map(em => (
-                  <button key={em} type="button"
-                    style={{ fontSize: 22, padding: '6px 8px', borderRadius: 8, border: newCat.emoji === em ? '2px solid var(--accent-primary)' : '2px solid transparent', background: 'var(--bg-input)', cursor: 'pointer' }}
-                    onClick={() => setNewCat(n => ({ ...n, emoji: em }))}>{em}</button>
-                ))}
               </div>
             </div>
             <div className="form-group">
@@ -380,17 +371,13 @@ export default function SettingsPage() {
                   <td data-label="Category">
                     {editingCat?.id === cat.id ? (
                       <div className="flex items-center gap-8">
-                        <input type="text" className="form-input" style={{ width: 130, padding: '6px 10px', fontSize: 13 }}
+                        <input type="text" className="form-input" style={{ width: 160, padding: '6px 10px', fontSize: 13 }}
                           value={editingCat.name} onChange={e => setEditingCat({ ...editingCat, name: e.target.value })} />
-                        <select className="form-input" style={{ width: 60, padding: '6px 8px', fontSize: 18, textAlign: 'center' }}
-                          value={editingCat.emoji} onChange={e => setEditingCat({ ...editingCat, emoji: e.target.value })}>
-                          {PRESET_EMOJIS.map(em => <option key={em} value={em}>{em}</option>)}
-                        </select>
                       </div>
                     ) : (
                       <span className="flex items-center gap-8">
                         <span style={{ width: 10, height: 10, borderRadius: '50%', background: cat.color, display: 'inline-block', flexShrink: 0 }} />
-                        <span style={{ fontSize: 18 }}>{cat.emoji}</span>
+                        <span style={{ display: 'flex' }}><CategoryIcon name={cat.name} size={18} /></span>
                         <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{cat.name}</span>
                       </span>
                     )}
@@ -421,24 +408,24 @@ export default function SettingsPage() {
                         </>
                       ) : (
                         <>
-                          <button className="btn btn-secondary btn-icon btn-sm" onClick={() => setEditingCat({ ...cat })} title="Edit">✏️</button>
-                          <button className="btn btn-secondary btn-icon btn-sm hide-on-mobile" onClick={() => moveCat(cat.id, -1)} disabled={idx === 0} title="Move up">↑</button>
-                          <button className="btn btn-secondary btn-icon btn-sm hide-on-mobile" onClick={() => moveCat(cat.id, 1)} disabled={idx === categories.length - 1} title="Move down">↓</button>
-                          <button className="btn btn-danger btn-icon btn-sm" onClick={() => deleteCategory(cat.id)} title="Delete">🗑️</button>
+                          <button className="btn-text" style={{ cursor: 'pointer', border: 'none', padding: '4px 8px', display: 'flex', alignItems: 'center' }} onClick={() => setEditingCat({ ...cat })} title="Edit"><Edit2 size={16} /></button>
+                          <button className="btn-text hide-on-mobile" style={{ cursor: 'pointer', border: 'none', padding: '4px 8px', display: 'flex', alignItems: 'center' }} onClick={() => moveCat(cat.id, -1)} disabled={idx === 0} title="Move up"><ArrowUp size={16} /></button>
+                          <button className="btn-text hide-on-mobile" style={{ cursor: 'pointer', border: 'none', padding: '4px 8px', display: 'flex', alignItems: 'center' }} onClick={() => moveCat(cat.id, 1)} disabled={idx === categories.length - 1} title="Move down"><ArrowDown size={16} /></button>
+                          <button className="btn-text" style={{ cursor: 'pointer', border: 'none', padding: '4px 8px', display: 'flex', alignItems: 'center', color: 'var(--md-sys-color-error)' }} onClick={() => deleteCategory(cat.id)} title="Delete"><Trash2 size={16} /></button>
                         </>
                       )}
                     </div>
                   </td>
                 </tr>
               ))}
-              <tr style={{ background: 'var(--bg-secondary)', borderTop: '2px solid var(--border-light)' }}>
+              <tr style={{ background: 'var(--bg-secondary)', borderTop: 'none' }}>
                 <td data-label="Summary" className="hide-on-mobile" colSpan={2} style={{ fontWeight: 700, color: 'var(--text-primary)' }}>TOTAL BUDGETED</td>
                 <td data-label="Total Budgeted" style={{ fontWeight: 700, color: budgetPct > 100 ? 'var(--danger)' : 'var(--warning)' }}>{formatINR(totalBudget)}</td>
                 <td data-label="% of In-Hand" style={{ fontWeight: 700, color: budgetPct > 100 ? 'var(--danger)' : 'var(--text-secondary)' }}>{budgetPct.toFixed(1)}%</td>
                 <td className="hide-on-mobile" colSpan={2} />
               </tr>
               <tr style={{ background: 'var(--bg-secondary)' }}>
-                <td data-label="Summary" className="hide-on-mobile" colSpan={2} style={{ fontWeight: 700, color: 'var(--success)' }}>💰 EXPECTED SAVINGS</td>
+                <td data-label="Summary" className="hide-on-mobile" colSpan={2} style={{ fontWeight: 700, color: 'var(--success)' }}>EXPECTED SAVINGS</td>
                 <td data-label="Expected Savings" style={{ fontWeight: 700, color: remaining >= 0 ? 'var(--success)' : 'var(--danger)' }}>{formatINR(remaining)}</td>
                 <td data-label="% Savings" style={{ color: 'var(--text-muted)' }}>{breakdown.monthlyInhand > 0 ? (100 - budgetPct).toFixed(1) : 0}%</td>
                 <td className="hide-on-mobile" colSpan={2} style={{ color: 'var(--text-muted)', fontSize: 12 }}>In-hand − Total Budget</td>
@@ -448,8 +435,8 @@ export default function SettingsPage() {
         </div>
 
         <div style={{ marginTop: 24, display: 'flex', justifyContent: 'flex-end' }}>
-          <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-            {saving ? <span className="spinner" style={{ width: 16, height: 16 }} /> : '💾'}
+          <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={handleSave} disabled={saving}>
+            {saving ? <span className="spinner" style={{ width: 16, height: 16 }} /> : <Save size={16} />}
             Save All Changes
           </button>
         </div>

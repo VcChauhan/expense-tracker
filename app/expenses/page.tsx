@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { formatINR, MONTHS, Settings, Expense } from '@/lib/types';
+import { formatINR, MONTHS, SHORT_MONTHS, Expense, Settings, Category } from '@/lib/types';
+import { CalendarDays, Edit2, Trash2 } from 'lucide-react';
+import { CategoryIcon } from '@/components/CategoryIcon';
 
 type ViewMode = 'monthly' | 'annual';
 type SortField = 'date' | 'amount';
@@ -144,7 +146,7 @@ export default function ExpensesPage() {
             background: cat?.color ? `${cat.color}22` : 'var(--bg-input)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
           }}>
-            {cat?.emoji ?? '💰'}
+            <CategoryIcon name={cat?.name ?? ''} size={20} />
           </div>
 
           {/* Text info */}
@@ -168,20 +170,14 @@ export default function ExpensesPage() {
             <div style={{ display: 'flex', gap: 6 }}>
               <button
                 onClick={() => setEditingExp({ ...exp })}
-                style={{
-                  padding: '4px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, cursor: 'pointer',
-                  background: 'var(--bg-input)', border: '1px solid var(--border)',
-                  color: 'var(--text-secondary)',
-                }}
-              >✏️ Edit</button>
+                className="btn-text"
+                style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', fontSize: 13, borderRadius: 16, cursor: 'pointer', border: 'none', fontWeight: 500 }}
+              ><Edit2 size={14} /> Edit</button>
               <button
                 onClick={() => handleDelete(exp._id!)}
-                style={{
-                  padding: '4px 8px', fontSize: 11, borderRadius: 6, cursor: 'pointer',
-                  background: 'var(--danger-bg)', border: '1px solid rgba(239,68,68,0.3)',
-                  color: 'var(--danger)',
-                }}
-              >🗑️</button>
+                className="btn-text"
+                style={{ display: 'flex', alignItems: 'center', padding: '4px 8px', fontSize: 13, borderRadius: 16, cursor: 'pointer', border: 'none', color: 'var(--md-sys-color-error)', fontWeight: 500 }}
+              ><Trash2 size={14} /></button>
             </div>
           </div>
         </div>
@@ -193,67 +189,61 @@ export default function ExpensesPage() {
     <div className="page-container">
       {/* Header */}
       <div className="page-header">
-        <h1 className="page-title">📋 Expense Log</h1>
+        <h1 className="page-title">Expense Log</h1>
         <p className="page-subtitle">All your recorded expenses</p>
       </div>
 
-      {/* View mode toggle */}
-      <div className="flex gap-8 mb-16" style={{ flexWrap: 'wrap', alignItems: 'center' }}>
-        <div style={{ display: 'flex', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 4 }}>
+      {/* Controls Area (2x2 Grid) */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 }}>
+        
+        {/* Top Left: Period */}
+        <div className="period-selector" style={{ display: 'flex', width: '100%', overflow: 'hidden' }}>
           {(['monthly', 'annual'] as ViewMode[]).map(v => (
             <button
               key={v}
               onClick={() => setViewMode(v)}
-              style={{
-                padding: '7px 18px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600,
-                background: viewMode === v ? 'var(--accent-gradient)' : 'transparent',
-                color: viewMode === v ? 'white' : 'var(--text-secondary)',
-                transition: 'all 0.2s',
-              }}
+              className={`period-btn ${viewMode === v ? 'active' : ''}`}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, flex: 1, padding: '8px 4px', fontSize: 13, textAlign: 'center' }}
             >
-              {v === 'monthly' ? '📅 Monthly' : '📆 Annual'}
+              <CalendarDays size={14} /> {v === 'monthly' ? 'M' : 'Y'}
             </button>
           ))}
         </div>
 
-        {/* Month/Year nav — only for monthly */}
-        {viewMode === 'monthly' ? (
-          <div className="month-nav">
-            <button className="month-nav-btn" onClick={() => navigateMonth(-1)}>‹</button>
-            <span className="month-label">{MONTHS[selectedMonth - 1]} {selectedYear}</span>
-            <button className="month-nav-btn" onClick={() => navigateMonth(1)}>›</button>
-          </div>
-        ) : (
-          /* Year nav for annual */
-          <div className="month-nav">
-            <button className="month-nav-btn" onClick={() => setSelectedYear(y => y - 1)}>‹</button>
-            <span className="month-label">{selectedYear}</span>
-            <button className="month-nav-btn" onClick={() => setSelectedYear(y => y + 1)}>›</button>
-          </div>
-        )}
-      </div>
+        {/* Top Right: Month */}
+        <div className="month-nav" style={{ background: 'var(--md-sys-color-surface-container-high)', borderRadius: 'var(--shape-full)', padding: '4px 8px', display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+          {viewMode === 'monthly' ? (
+            <>
+              <button className="month-nav-btn" style={{ width: 32, height: 32 }} onClick={() => navigateMonth(-1)}>‹</button>
+              <span className="month-label" style={{ fontWeight: 700, fontSize: 13, minWidth: 'auto', flex: 1, textAlign: 'center' }}>{MONTHS[selectedMonth - 1].substring(0,3)} {selectedYear.toString().substring(2)}</span>
+              <button className="month-nav-btn" style={{ width: 32, height: 32 }} onClick={() => navigateMonth(1)}>›</button>
+            </>
+          ) : (
+            <>
+              <button className="month-nav-btn" style={{ width: 32, height: 32 }} onClick={() => setSelectedYear(y => y - 1)}>‹</button>
+              <span className="month-label" style={{ fontWeight: 700, fontSize: 13, minWidth: 'auto', flex: 1, textAlign: 'center' }}>{selectedYear}</span>
+              <button className="month-nav-btn" style={{ width: 32, height: 32 }} onClick={() => setSelectedYear(y => y + 1)}>›</button>
+            </>
+          )}
+        </div>
 
-      {/* Search + filters row */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 16, alignItems: 'center' }}>
-        {/* Category filter */}
+        {/* Bottom Left: Filter */}
         <select
           className="form-select"
-          style={{ flex: '0 1 200px', minWidth: 160 }}
+          style={{ width: '100%', margin: 0, fontSize: 13, padding: '10px 30px 10px 12px' }}
           value={filterCategory}
           onChange={e => setFilterCategory(e.target.value)}
         >
-          <option value="">All Categories</option>
+          <option value="">All Cat</option>
           {(settings?.categories ?? []).map(c => (
-            <option key={c.id} value={c.id}>{c.emoji} {c.name}</option>
+            <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </select>
 
-        {/* Total */}
-        <div className="card card-sm" style={{ padding: '8px 16px', flexShrink: 0, whiteSpace: 'nowrap', marginLeft: 'auto' }}>
-          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-            {filtered.length} entries · Total:{' '}
-          </span>
-          <span style={{ fontWeight: 700, color: 'var(--danger)', fontSize: 15 }}>{formatINR(totalSpent)}</span>
+        {/* Bottom Right: Total */}
+        <div className="card card-sm" style={{ padding: '8px 12px', background: 'var(--md-sys-color-surface-container-high)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{filtered.length} entries</span>
+          <span style={{ fontWeight: 700, color: 'var(--danger)', fontSize: 14 }}>{formatINR(totalSpent)}</span>
         </div>
       </div>
 
@@ -289,10 +279,10 @@ export default function ExpensesPage() {
                 <div style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   padding: '14px 20px', background: 'var(--bg-secondary)',
-                  borderBottom: '1px solid var(--border)',
+                  borderBottom: 'none',
                 }}>
                   <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' }}>
-                    📅 {MONTHS[parseInt(m) - 1]} {y}
+                    {MONTHS[parseInt(m) - 1]} {y}
                   </span>
                   <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
                     <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{exps.length} entries</span>
@@ -312,7 +302,7 @@ export default function ExpensesPage() {
       {editingExp && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div className="card" style={{ width: '100%', maxWidth: 460 }}>
-            <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 20, color: 'var(--text-primary)' }}>✏️ Edit Expense</h3>
+            <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 20, color: 'var(--text-primary)' }}>Edit Expense</h3>
             <div className="form-group">
               <label className="form-label">Date</label>
               <input type="date" className="form-input" value={editingExp.date}
@@ -323,7 +313,7 @@ export default function ExpensesPage() {
               <select className="form-select" value={editingExp.categoryId}
                 onChange={e => setEditingExp({ ...editingExp, categoryId: e.target.value })}>
                 {(settings?.categories ?? []).map(c => (
-                  <option key={c.id} value={c.id}>{c.emoji} {c.name}</option>
+                  <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
             </div>

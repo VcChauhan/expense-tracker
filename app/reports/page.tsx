@@ -6,14 +6,16 @@ import {
   ResponsiveContainer, LineChart, Line, Legend,
 } from 'recharts';
 import { formatINR, SHORT_MONTHS, MONTHS, Settings, AnnualAnalytics } from '@/lib/types';
+import { Wallet, CreditCard, PiggyBank, CalendarDays } from 'lucide-react';
+import { CategoryIcon } from '@/components/CategoryIcon';
 
 const ChartTooltip = ({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number; color: string }[]; label?: string }) => {
   if (active && payload && payload.length) {
     return (
-      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-light)', borderRadius: 8, padding: '10px 14px' }}>
-        <p style={{ color: 'var(--text-muted)', fontSize: 12, marginBottom: 6 }}>{label}</p>
+      <div style={{ background: 'var(--md-sys-color-surface-container-highest)', borderRadius: 12, padding: '12px 16px', boxShadow: 'var(--elevation-3)', border: 'none' }}>
+        <p style={{ color: 'var(--md-sys-color-on-surface-variant)', fontSize: 12, marginBottom: 6 }}>{label}</p>
         {payload.map((p, i) => (
-          <p key={i} style={{ color: p.color, fontWeight: 600, fontSize: 14 }}>
+          <p key={i} style={{ color: p.color, fontWeight: 700, fontSize: 14 }}>
             {p.name}: {formatINR(p.value)}
           </p>
         ))}
@@ -94,15 +96,15 @@ export default function ReportsPage() {
 
   return (
     <div className="page-container">
-      <div className="page-header">
-        <div className="page-header-row">
+      <div className="page-header mb-32">
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '24px', flexWrap: 'wrap' }}>
           <div>
-            <h1 className="page-title">📈 Reports</h1>
+            <h1 className="page-title">Reports</h1>
             <p className="page-subtitle">Annual spending analysis and trends</p>
           </div>
-          <div className="flex items-center gap-8">
+          <div className="month-nav" style={{ background: 'var(--md-sys-color-surface-container-high)', borderRadius: 'var(--shape-full)', padding: '4px 8px' }}>
             <button className="month-nav-btn" onClick={() => setSelectedYear(y => y - 1)}>‹</button>
-            <span className="month-label" style={{ minWidth: 60 }}>{selectedYear}</span>
+            <span className="month-label" style={{ minWidth: 60, fontWeight: 700 }}>{selectedYear}</span>
             <button className="month-nav-btn" onClick={() => setSelectedYear(y => y + 1)}>›</button>
           </div>
         </div>
@@ -111,23 +113,23 @@ export default function ReportsPage() {
       {/* Annual Summary Cards */}
       <div className="summary-grid mb-32">
         <div className="summary-card income">
-          <span className="summary-card-icon">💵</span>
+          <span className="summary-card-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--success)' }}><Wallet size={24} /></span>
           <div className="summary-card-label">Annual Income</div>
           <div className="summary-card-value income">{formatINR(annualSalary)}</div>
         </div>
         <div className="summary-card spent">
-          <span className="summary-card-icon">💸</span>
+          <span className="summary-card-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--danger)' }}><CreditCard size={24} /></span>
           <div className="summary-card-label">Total Spent ({selectedYear})</div>
           <div className="summary-card-value spent">{formatINR(grandTotal)}</div>
           <div className="summary-card-sub">{annualSalary > 0 ? ((grandTotal / annualSalary) * 100).toFixed(1) : 0}% of income</div>
         </div>
         <div className="summary-card savings">
-          <span className="summary-card-icon">🏦</span>
+          <span className="summary-card-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)' }}><PiggyBank size={24} /></span>
           <div className="summary-card-label">Annual Savings</div>
           <div className={`summary-card-value ${annualSavings >= 0 ? 'savings' : 'spent'}`}>{formatINR(annualSavings)}</div>
         </div>
         <div className="summary-card budget">
-          <span className="summary-card-icon">📅</span>
+          <span className="summary-card-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--warning)' }}><CalendarDays size={24} /></span>
           <div className="summary-card-label">Avg Monthly Spend</div>
           <div className="summary-card-value" style={{ color: 'var(--warning)' }}>
             {formatINR(grandTotal / 12)}
@@ -145,8 +147,8 @@ export default function ReportsPage() {
             <YAxis tickFormatter={v => `₹${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 11 }} width={55} />
             <Tooltip content={<ChartTooltip />} />
             <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Bar dataKey="Total" name="Spent" fill="#6366f1" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="Salary" name="Income" fill="#818cf8" radius={[4, 4, 0, 0]} opacity={0.35} />
+            <Bar dataKey="Total" name="Spent" fill="#6750a4" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="Salary" name="Income" fill="#eaddff" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -168,7 +170,9 @@ export default function ReportsPage() {
                 style={activeCategory === c.id ? { background: c.color } : {}}
                 onClick={() => setActiveCategory(activeCategory === c.id ? null : c.id)}
               >
-                {c.emoji} {c.name}
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <CategoryIcon name={c.name} size={14} /> {c.name}
+                </span>
               </button>
             ))}
         </div>
@@ -197,9 +201,9 @@ export default function ReportsPage() {
             <thead>
               <tr>
                 <th>Category</th>
-                {SHORT_MONTHS.map(m => <th key={m} className="text-right hide-on-mobile" style={{ minWidth: 70 }}>{m}</th>)}
+                {SHORT_MONTHS.map(m => <th key={m} className="text-right" style={{ minWidth: 70 }}>{m}</th>)}
                 <th className="text-right" style={{ minWidth: 90 }}>Annual</th>
-                <th className="text-right hide-on-mobile">Budget/mo</th>
+                <th className="text-right">Budget/mo</th>
               </tr>
             </thead>
             <tbody>
@@ -210,15 +214,14 @@ export default function ReportsPage() {
                 return (
                   <tr key={cat.id}>
                     <td className="primary">
-                      <span className="flex items-center gap-8">
-                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: cat.color, flexShrink: 0, display: 'inline-block' }} />
-                        {cat.emoji} {cat.name}
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <CategoryIcon name={cat.name} size={16} /> {cat.name}
                       </span>
                     </td>
                     {SHORT_MONTHS.map((_, i) => {
                       const v = getCatMonthSpend(cat.id, i);
                       return (
-                        <td key={i} className="text-right hide-on-mobile" style={{ fontSize: 13, color: v > 0 ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                        <td key={i} className="text-right" style={{ fontSize: 13, color: v > 0 ? 'var(--text-primary)' : 'var(--text-muted)' }}>
                           {v > 0 ? `₹${(v / 1000).toFixed(1)}k` : '—'}
                         </td>
                       );
@@ -226,20 +229,20 @@ export default function ReportsPage() {
                     <td className="text-right" style={{ fontWeight: 700, color: overBudget ? 'var(--danger)' : 'var(--success)' }}>
                       {formatINR(annual)}
                     </td>
-                    <td className="text-right hide-on-mobile" style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                    <td className="text-right" style={{ fontSize: 13, color: 'var(--text-muted)' }}>
                       {formatINR(cat.monthlyBudget)}
                     </td>
                   </tr>
                 );
               })}
               {/* Totals row */}
-              <tr style={{ background: 'var(--bg-secondary)', borderTop: '2px solid var(--border-light)' }}>
+              <tr style={{ background: 'var(--bg-secondary)', borderTop: 'none' }}>
                 <td className="primary" style={{ fontWeight: 700 }}>TOTAL</td>
                 {SHORT_MONTHS.map((_, i) => {
                   const mm = String(i + 1).padStart(2, '0');
                   const v = (analytics?.monthTotals ?? []).find(x => x._id === mm)?.total ?? 0;
                   return (
-                    <td key={i} className="text-right hide-on-mobile" style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 13 }}>
+                    <td key={i} className="text-right" style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 13 }}>
                       {v > 0 ? `₹${(v / 1000).toFixed(1)}k` : '—'}
                     </td>
                   );
@@ -247,7 +250,7 @@ export default function ReportsPage() {
                 <td className="text-right" style={{ fontWeight: 700, color: 'var(--danger)', fontSize: 15 }}>
                   {formatINR(grandTotal)}
                 </td>
-                <td className="text-right hide-on-mobile" style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                <td className="text-right" style={{ fontSize: 13, color: 'var(--text-muted)' }}>
                   {formatINR((settings?.categories ?? []).reduce((s, c) => s + c.monthlyBudget, 0))}
                 </td>
               </tr>

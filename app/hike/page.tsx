@@ -4,6 +4,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { formatINR, Settings } from '@/lib/types';
 import { computeSalaryBreakdown } from '@/lib/taxUtils';
+import { TrendingUp, Wallet, Folder, RefreshCw, Check, History, CheckCircle2, XCircle } from 'lucide-react';
+import { CategoryIcon } from '@/components/CategoryIcon';
 
 interface HikeCategory {
   id: string;
@@ -167,14 +169,14 @@ export default function HikePage() {
   return (
     <div className="page-container">
       <div className="page-header">
-        <h1 className="page-title">💹 Salary Hike Planner</h1>
+        <h1 className="page-title">Salary Hike Planner</h1>
         <p className="page-subtitle">Model your salary hike and update budgets automatically</p>
       </div>
 
       {/* ── Hike Input ── */}
       <div className="card mb-24">
-        <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 20 }}>
-          📊 Hike Details
+        <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <TrendingUp size={20} /> Hike Details
         </h2>
         <div className="grid-2" style={{ gap: 20 }}>
           {/* Hike % */}
@@ -216,8 +218,8 @@ export default function HikePage() {
       <div className="card mb-24">
         {/* Header summary */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
-          <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-            💵 Salary Comparison
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Wallet size={20} /> Salary Comparison
           </h2>
           <span style={{
             background: 'rgba(16,185,129,0.15)', color: 'var(--success)',
@@ -285,20 +287,20 @@ export default function HikePage() {
       {/* ── Category Budget Distribution ── */}
       <div className="card mb-24">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
-          <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-            📂 Budget Distribution
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Folder size={20} /> Budget Distribution
           </h2>
           <div className="flex gap-8" style={{ flexWrap: 'wrap' }}>
-            <button className="btn btn-secondary btn-sm" onClick={resetToProposed}>
-              ↺ Reset to {pct}% proposed
+            <button className="btn btn-secondary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={resetToProposed}>
+              <RefreshCw size={14} /> Reset to {pct}% proposed
             </button>
             <button
               className="btn btn-primary"
               onClick={handleApply}
               disabled={applying || pct <= 0}
-              style={{ background: 'linear-gradient(135deg, #10b981, #059669)' }}
+              style={{ background: 'linear-gradient(135deg, #10b981, #059669)', display: 'flex', alignItems: 'center', gap: 6 }}
             >
-              {applying ? <span className="spinner" style={{ width: 15, height: 15 }} /> : '✅'}
+              {applying ? <span className="spinner" style={{ width: 15, height: 15 }} /> : <Check size={16} />}
               Apply Hike to Budget Planner
             </button>
           </div>
@@ -322,8 +324,9 @@ export default function HikePage() {
                   <tr key={cat.id}>
                     <td>
                       <span className="flex items-center gap-8">
-                        <span style={{ width: 10, height: 10, borderRadius: '50%', background: cat.color, display: 'inline-block', flexShrink: 0 }} />
-                        <span style={{ fontSize: 16 }}>{cat.emoji}</span>
+                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: `${cat.color}22`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <CategoryIcon name={cat.name} size={16} color={cat.color} />
+                        </div>
                         <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{cat.name}</span>
                       </span>
                     </td>
@@ -385,8 +388,8 @@ export default function HikePage() {
       {/* ── Hike History ── */}
       {history.length > 0 && (
         <div>
-          <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 16 }}>
-            📜 Hike History
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <History size={20} /> Hike History
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {history.map(h => (
@@ -421,7 +424,11 @@ export default function HikePage() {
 
       {toast && (
         <div className="toast-container">
-          <div className={`toast ${toast.type}`}>{toast.type === 'success' ? '✅' : '❌'} {toast.msg}</div>
+          <div className={`toast ${toast.type}`}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {toast.type === 'success' ? <CheckCircle2 size={18} /> : <XCircle size={18} />} {toast.msg}
+            </span>
+          </div>
         </div>
       )}
     </div>

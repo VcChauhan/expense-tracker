@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { formatINR, Settings, Expense, Suggestion } from '@/lib/types';
+import { Edit2, Trash2, FileText, CheckCircle2, XCircle } from 'lucide-react';
+import { CategoryIcon } from '@/components/CategoryIcon';
 
 export default function AddExpensePage() {
   const [settings, setSettings]             = useState<Settings | null>(null);
@@ -126,7 +128,7 @@ export default function AddExpensePage() {
   return (
     <div className="page-container">
       <div className="page-header">
-        <h1 className="page-title">{editingId ? '✏️ Edit Expense' : '➕ Add Expense'}</h1>
+        <h1 className="page-title">{editingId ? 'Edit Expense' : 'Add Expense'}</h1>
         <p className="page-subtitle">Log a new expense entry</p>
       </div>
 
@@ -134,11 +136,11 @@ export default function AddExpensePage() {
       {suggestions.length > 0 && (
         <div style={{ marginBottom: 24 }}>
           <h2 style={{ fontSize: 16, fontWeight: 600, color: 'var(--warning)', margin: '0 0 14px' }}>
-            📬 Suggested from SMS
+            Suggested from SMS
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {suggestions.map(sug => (
-              <div key={sug._id} className="card card-sm" style={{ padding: '14px', border: '1px solid var(--warning-bg)' }}>
+              <div key={sug._id} className="card card-sm" style={{ padding: '14px', border: 'none' }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
@@ -146,8 +148,8 @@ export default function AddExpensePage() {
                         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           ✨ {sug.suggestedLabel}
                           {sug.suggestedCategory && getCat(sug.suggestedCategory) && (
-                            <span style={{ fontSize: 11, background: 'var(--bg-input)', padding: '2px 6px', borderRadius: 4, color: 'var(--text-secondary)', fontWeight: 500 }}>
-                              {getCat(sug.suggestedCategory)?.emoji} {getCat(sug.suggestedCategory)?.name}
+                            <span style={{ fontSize: 11, background: 'var(--bg-input)', padding: '2px 6px', borderRadius: 4, color: 'var(--text-secondary)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <CategoryIcon name={getCat(sug.suggestedCategory)?.name ?? ''} size={11} /> {getCat(sug.suggestedCategory)?.name}
                             </span>
                           )}
                         </span>
@@ -172,12 +174,14 @@ export default function AddExpensePage() {
                       <button
                         type="button"
                         onClick={() => handleActionSuggestion(sug, 'approve')}
-                        style={{ padding: '4px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, cursor: 'pointer', background: 'var(--success-bg)', color: 'var(--success)', border: '1px solid var(--success-bg)' }}
+                        className="btn-text"
+                        style={{ padding: '4px 8px', fontSize: 13, borderRadius: 16, cursor: 'pointer', border: 'none', color: 'var(--success)', fontWeight: 500 }}
                       >✓ Add</button>
                       <button
                         type="button"
                         onClick={() => handleActionSuggestion(sug, 'reject')}
-                        style={{ padding: '4px 8px', fontSize: 11, borderRadius: 6, cursor: 'pointer', background: 'var(--bg-input)', border: 'none', color: 'var(--text-secondary)' }}
+                        className="btn-text"
+                        style={{ padding: '4px 8px', fontSize: 13, borderRadius: 16, cursor: 'pointer', border: 'none', color: 'var(--text-secondary)', fontWeight: 500 }}
                       >✕</button>
                     </div>
                   </div>
@@ -203,7 +207,7 @@ export default function AddExpensePage() {
               value={form.categoryId}
               onChange={e => setForm(f => ({ ...f, categoryId: e.target.value }))} required>
               {(settings?.categories ?? []).map(cat => (
-                <option key={cat.id} value={cat.id}>{cat.emoji} {cat.name}</option>
+                <option key={cat.id} value={cat.id}>{cat.name}</option>
               ))}
             </select>
           </div>
@@ -240,11 +244,11 @@ export default function AddExpensePage() {
           if (!cat) return null;
           return (
             <div style={{
-              marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)',
+              marginTop: 20, paddingTop: 16, borderTop: 'none',
               display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 4,
               fontSize: 13, color: 'var(--text-secondary)',
             }}>
-              <span>{cat.emoji} Monthly budget for <strong style={{ color: 'var(--text-primary)' }}>{cat.name}</strong></span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><CategoryIcon name={cat.name} size={14} /> Monthly budget for <strong style={{ color: 'var(--text-primary)' }}>{cat.name}</strong></span>
               <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{formatINR(cat.monthlyBudget)}</span>
             </div>
           );
@@ -264,7 +268,7 @@ export default function AddExpensePage() {
 
         {recentExpenses.length === 0 ? (
           <div className="empty-state card">
-            <span className="empty-state-icon">📝</span>
+            <div className="empty-state-icon" style={{ display: 'flex', justifyContent: 'center', marginBottom: 12, color: 'var(--text-muted)' }}><FileText size={32} strokeWidth={1.5} /></div>
             <span className="empty-state-title">No expenses yet</span>
             <span className="empty-state-sub">Add your first expense using the form above</span>
           </div>
@@ -281,7 +285,7 @@ export default function AddExpensePage() {
                       background: cat?.color ? `${cat.color}22` : 'var(--bg-input)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
                     }}>
-                      {cat?.emoji ?? '💰'}
+                      <CategoryIcon name={cat?.name ?? ''} size={20} />
                     </div>
 
                     {/* Text info */}
@@ -305,20 +309,14 @@ export default function AddExpensePage() {
                       <div style={{ display: 'flex', gap: 6 }}>
                         <button
                           onClick={() => handleEdit(exp)}
-                          style={{
-                            padding: '4px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, cursor: 'pointer',
-                            background: 'var(--bg-input)', border: '1px solid var(--border)',
-                            color: 'var(--text-secondary)',
-                          }}
-                        >✏️ Edit</button>
+                          className="btn-text"
+                          style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', fontSize: 13, borderRadius: 16, cursor: 'pointer', border: 'none', fontWeight: 500 }}
+                        ><Edit2 size={14} /> Edit</button>
                         <button
                           onClick={() => handleDelete(exp._id)}
-                          style={{
-                            padding: '4px 8px', fontSize: 11, borderRadius: 6, cursor: 'pointer',
-                            background: 'var(--danger-bg)', border: '1px solid rgba(239,68,68,0.3)',
-                            color: 'var(--danger)',
-                          }}
-                        >🗑️</button>
+                          className="btn-text"
+                          style={{ display: 'flex', alignItems: 'center', padding: '4px 8px', fontSize: 13, borderRadius: 16, cursor: 'pointer', border: 'none', color: 'var(--md-sys-color-error)', fontWeight: 500 }}
+                        ><Trash2 size={14} /></button>
                       </div>
                     </div>
                   </div>
@@ -333,7 +331,9 @@ export default function AddExpensePage() {
       {toast && (
         <div className="toast-container">
           <div className={`toast ${toast.type}`}>
-            {toast.type === 'success' ? '✅' : '❌'} {toast.msg}
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {toast.type === 'success' ? <CheckCircle2 size={18} /> : <XCircle size={18} />} {toast.msg}
+            </span>
           </div>
         </div>
       )}

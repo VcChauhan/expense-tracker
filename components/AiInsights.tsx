@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { Sparkles } from 'lucide-react';
 
 export default function AiInsights({ month, year }: { month: number; year: number }) {
   const [insight, setInsight] = useState<string | null>(null);
@@ -38,7 +39,7 @@ export default function AiInsights({ month, year }: { month: number; year: numbe
       alignItems: 'flex-start',
       gap: 16
     }}>
-      <div style={{ fontSize: 24, flexShrink: 0 }}>✨</div>
+      <div style={{ flexShrink: 0, color: 'var(--accent-primary)' }}><Sparkles size={24} /></div>
       <div>
         <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 6px 0' }}>Smart Insights</h3>
         <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>

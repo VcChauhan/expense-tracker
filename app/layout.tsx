@@ -1,8 +1,16 @@
 import type { Metadata, Viewport } from 'next';
+import { Roboto } from 'next/font/google';
 import './globals.css';
 import Sidebar from '@/components/Sidebar';
 import BottomNav from '@/components/BottomNav';
 import QuickAddSheet from '@/components/QuickAddSheet';
+
+const roboto = Roboto({
+  weight: ['400', '500', '700'],
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-roboto',
+});
 
 export const metadata: Metadata = {
   title: 'ExpenseIQ — Personal Finance Tracker',
@@ -30,7 +38,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>
+      <body className={roboto.variable}>
         <div className="app-layout">
           <Sidebar />
           <main className="main-content">

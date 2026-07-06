@@ -6,8 +6,10 @@ import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend,
 } from 'recharts';
+import { CalendarDays, PlusCircle, Wallet, CreditCard, PiggyBank, Target } from 'lucide-react';
 import { formatINR, MONTHS, SHORT_MONTHS, getBudgetStatus, Settings, Expense } from '@/lib/types';
 import AiInsights from '@/components/AiInsights';
+import { CategoryIcon } from '@/components/CategoryIcon';
 
 interface CategoryTotal { _id: string; total: number; count: number; }
 interface MonthTotal    { _id: string; total: number; count: number; }
@@ -17,7 +19,7 @@ type ViewMode = 'monthly' | 'annual';
 const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: {name: string; value: number; color: string}[]; label?: string }) => {
   if (active && payload && payload.length) {
     return (
-      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-light)', borderRadius: 8, padding: '10px 14px' }}>
+      <div style={{ background: 'var(--bg-card)', borderRadius: 16, padding: '12px 16px', boxShadow: 'var(--elevation-2)', border: 'none' }}>
         <p style={{ color: 'var(--text-muted)', fontSize: 12, marginBottom: 6 }}>{label}</p>
         {payload.map((p, i) => (
           <p key={i} style={{ color: p.color, fontWeight: 600, fontSize: 14 }}>
@@ -33,7 +35,7 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
 const PieTooltip = ({ active, payload }: { active?: boolean; payload?: {name: string; value: number; payload: {color: string}}[] }) => {
   if (active && payload && payload.length) {
     return (
-      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-light)', borderRadius: 8, padding: '10px 14px' }}>
+      <div style={{ background: 'var(--bg-card)', borderRadius: 16, padding: '12px 16px', boxShadow: 'var(--elevation-2)', border: 'none' }}>
         <p style={{ color: payload[0].payload.color, fontWeight: 600, fontSize: 14 }}>{payload[0].name}</p>
         <p style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: 16 }}>{formatINR(payload[0].value)}</p>
       </div>
@@ -109,7 +111,7 @@ export default function DashboardPage() {
   const pieData = useMemo(() =>
     (settings?.categories ?? []).map(cat => {
       const total = activeTotals.find(c => c._id === cat.id)?.total ?? 0;
-      return { name: cat.name, value: total, color: cat.color, emoji: cat.emoji };
+      return { name: cat.name, value: total, color: cat.color, emoji: '' };
     }).filter(d => d.value > 0)
   , [settings, activeTotals]);
 
@@ -144,19 +146,15 @@ export default function DashboardPage() {
           </div>
           <div className="flex items-center gap-8" style={{ flexWrap: 'wrap', width: '100%' }}>
             {/* View mode toggle */}
-            <div style={{ display: 'flex', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 4 }}>
+            <div className="period-selector">
               {(['monthly', 'annual'] as ViewMode[]).map(v => (
                 <button
                   key={v}
                   onClick={() => setViewMode(v)}
-                  style={{
-                    padding: '6px 16px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600,
-                    background: viewMode === v ? 'var(--accent-gradient)' : 'transparent',
-                    color: viewMode === v ? 'white' : 'var(--text-secondary)',
-                    transition: 'all 0.2s',
-                  }}
+                  className={`period-btn ${viewMode === v ? 'active' : ''}`}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6 }}
                 >
-                  {v === 'monthly' ? '📅 Monthly' : '📆 Annual'}
+                  <CalendarDays size={14} /> {v === 'monthly' ? 'Monthly' : 'Annual'}
                 </button>
               ))}
             </div>
@@ -176,8 +174,8 @@ export default function DashboardPage() {
               </div>
             )}
 
-            <Link href="/add" className="btn btn-primary" style={{ flexShrink: 0 }}>
-              ➕ Add Expense
+            <Link href="/add" className="btn btn-primary" style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <PlusCircle size={16} /> Add Expense
             </Link>
           </div>
         </div>
@@ -190,7 +188,7 @@ export default function DashboardPage() {
           {/* Summary Cards */}
           <div className="summary-grid">
             <div className="summary-card income">
-              <span className="summary-card-icon">💵</span>
+              <span className="summary-card-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--success)' }}><Wallet size={24} /></span>
               <div className="summary-card-label">{isAnnual ? 'Annual' : 'Monthly'} Income</div>
               <div className="summary-card-value income">{formatINR(displayIncome)}</div>
               <div className="summary-card-sub">
@@ -198,7 +196,7 @@ export default function DashboardPage() {
               </div>
             </div>
             <div className="summary-card spent">
-              <span className="summary-card-icon">💸</span>
+              <span className="summary-card-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--danger)' }}><CreditCard size={24} /></span>
               <div className="summary-card-label">Total Spent</div>
               <div className="summary-card-value spent">{formatINR(displaySpent)}</div>
               <div className="summary-card-sub">
@@ -206,7 +204,7 @@ export default function DashboardPage() {
               </div>
             </div>
             <div className="summary-card savings">
-              <span className="summary-card-icon">🏦</span>
+              <span className="summary-card-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)' }}><PiggyBank size={24} /></span>
               <div className="summary-card-label">Savings</div>
               <div className={`summary-card-value ${displaySavings >= 0 ? 'savings' : 'spent'}`}>{formatINR(displaySavings)}</div>
               <div className="summary-card-sub">
@@ -214,7 +212,7 @@ export default function DashboardPage() {
               </div>
             </div>
             <div className="summary-card budget">
-              <span className="summary-card-icon">🎯</span>
+              <span className="summary-card-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--warning)' }}><Target size={24} /></span>
               <div className="summary-card-label">Budget Used</div>
               <div className="summary-card-value" style={{ color: displaySpent > displayBudget ? 'var(--danger)' : 'var(--warning)' }}>
                 {displayBudget > 0 ? ((displaySpent / displayBudget) * 100).toFixed(1) : 0}%
@@ -250,7 +248,7 @@ export default function DashboardPage() {
                       <div key={i} className="flex items-center justify-between" style={{ fontSize: 13 }}>
                         <div className="flex items-center gap-8">
                           <span style={{ width: 10, height: 10, borderRadius: '50%', background: d.color, display: 'inline-block' }} />
-                          <span style={{ color: 'var(--text-secondary)' }}>{d.emoji} {d.name}</span>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--text-secondary)' }}><CategoryIcon name={d.name} size={14} /> {d.name}</span>
                         </div>
                         <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{formatINR(d.value)}</span>
                       </div>
@@ -275,8 +273,8 @@ export default function DashboardPage() {
                   <YAxis tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 11 }} />
                   <Tooltip content={<CustomTooltip />} />
                   <Legend wrapperStyle={{ fontSize: 12, color: 'var(--text-secondary)' }} />
-                  <Bar dataKey="Spent" fill="#6366f1" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="Salary" name="In-Hand" fill="#818cf8" radius={[4, 4, 0, 0]} opacity={0.35} />
+                  <Bar dataKey="Spent" fill="#6750a4" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Salary" name="In-Hand" fill="#eaddff" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -302,7 +300,7 @@ export default function DashboardPage() {
                   <div key={cat.id} className="budget-bar-card">
                     <div className="budget-bar-header">
                       <div className="budget-bar-name">
-                        <span className="budget-bar-emoji">{cat.emoji}</span>
+                        <span className="budget-bar-emoji" style={{ display: 'flex' }}><CategoryIcon name={cat.name} size={14} /></span>
                         {cat.name}
                       </div>
                       <span className={`budget-pct-badge ${status}`}>
@@ -343,7 +341,7 @@ export default function DashboardPage() {
                           background: cat?.color ? `${cat.color}22` : 'var(--bg-input)',
                           display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
                         }}>
-                          {cat?.emoji ?? '💰'}
+                          <CategoryIcon name={cat?.name ?? ''} size={16} />
                         </div>
 
                         {/* Text info */}

@@ -86,28 +86,12 @@ export default function QuickAddSheet() {
     <>
       <button 
         onClick={() => setIsOpen(true)}
+        className="fab"
         style={{
           position: 'fixed',
-          bottom: '24px',
+          bottom: '100px', // Above bottom nav
           right: '24px',
-          width: '56px',
-          height: '56px',
-          borderRadius: '28px',
-          background: 'var(--accent-gradient)',
-          color: 'white',
-          border: 'none',
-          boxShadow: '0 8px 32px var(--accent-glow)',
-          fontSize: '28px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          cursor: 'pointer',
-          zIndex: 90,
-          transition: 'all 0.3s cubic-bezier(0.25, 1, 0.5, 1)'
         }}
-        onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-4px) scale(1.05)' }}
-        onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0) scale(1)' }}
-        onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(2px) scale(0.96)' }}
       >
         +
       </button>
@@ -119,19 +103,22 @@ export default function QuickAddSheet() {
           width: '100%',
           maxWidth: '500px',
           border: 'none',
-          borderRadius: '24px 24px 0 0',
-          background: 'var(--bg-card)',
+          borderRadius: '28px 28px 0 0',
+          background: 'var(--md-sys-color-surface-container-low)',
           padding: '24px',
-          color: 'var(--text-primary)',
-          borderTop: '1px solid var(--border-light)'
+          color: 'var(--md-sys-color-on-surface)',
+          boxShadow: 'var(--elevation-5)',
         }}
       >
+        {/* M3 Drag Handle (visual only) */}
+        <div style={{ width: 32, height: 4, borderRadius: 2, background: 'var(--md-sys-color-outline-variant)', margin: '0 auto 24px auto' }} />
+
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>⚡ Quick Add</h2>
+          <h2 style={{ fontSize: 22, fontWeight: 400, margin: 0, color: 'var(--md-sys-color-on-surface)' }}>Quick Add</h2>
           <button 
             type="button"
             onClick={() => setIsOpen(false)}
-            style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', fontSize: 24, cursor: 'pointer' }}
+            style={{ background: 'transparent', border: 'none', color: 'var(--md-sys-color-on-surface-variant)', fontSize: 24, cursor: 'pointer' }}
           >
             ×
           </button>

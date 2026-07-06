@@ -4,16 +4,18 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
 
+import { LayoutDashboard, PlusCircle, List, BarChart2, Settings, TrendingUp } from 'lucide-react';
+
 const mainItems = [
-  { href: '/',         icon: '📊', label: 'Home'    },
-  { href: '/add',      icon: '➕', label: 'Add'     },
-  { href: '/expenses', icon: '📋', label: 'Log'     },
-  { href: '/reports',  icon: '📈', label: 'Reports' },
+  { href: '/',         icon: <LayoutDashboard size={24} strokeWidth={1.5} />, label: 'Home'    },
+  { href: '/add',      icon: <PlusCircle size={24} strokeWidth={1.5} />,      label: 'Add'     },
+  { href: '/expenses', icon: <List size={24} strokeWidth={1.5} />,            label: 'Log'     },
+  { href: '/reports',  icon: <BarChart2 size={24} strokeWidth={1.5} />,       label: 'Reports' },
 ];
 
 const planItems = [
-  { href: '/settings', icon: '⚙️', label: 'Budget Planner' },
-  { href: '/hike',     icon: '💹', label: 'Hike Planner'   },
+  { href: '/settings', icon: <Settings size={24} strokeWidth={1.5} />,        label: 'Planner' },
+  { href: '/hike',     icon: <TrendingUp size={24} strokeWidth={1.5} />,      label: 'Hikes'   },
 ];
 
 export default function BottomNav() {
@@ -47,8 +49,9 @@ export default function BottomNav() {
             className={`bottom-nav-item ${pathname === item.href ? 'active' : ''}`}
             onClick={() => setOpen(false)}
           >
-            <span className="bottom-nav-icon">{item.icon}</span>
-            <span className="bottom-nav-label">{item.label}</span>
+            <div className="bottom-nav-icon-wrapper">
+              <span className="bottom-nav-icon" style={{ display: 'flex', alignItems: 'center' }}>{item.icon}</span>
+            </div>
           </Link>
         ))}
 
@@ -57,31 +60,29 @@ export default function BottomNav() {
           <button
             onClick={() => setOpen(v => !v)}
             className={`bottom-nav-item ${isPlanActive ? 'active' : ''}`}
-            style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer' }}
+            style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
           >
-            <span className="bottom-nav-icon" style={{ fontSize: 18 }}>
-              {isPlanActive
-                ? (pathname === '/hike' ? '💹' : '⚙️')
-                : '⚙️'}
-            </span>
-            <span className="bottom-nav-label">Plan</span>
+            <div className="bottom-nav-icon-wrapper">
+              <span className="bottom-nav-icon" style={{ display: 'flex', alignItems: 'center' }}>
+                {isPlanActive ? (pathname === '/hike' ? <TrendingUp size={24} strokeWidth={1.5} /> : <Settings size={24} strokeWidth={1.5} />) : <Settings size={24} strokeWidth={1.5} />}
+              </span>
+            </div>
           </button>
 
-          {/* Popup menu — anchored to RIGHT edge of button so it never overflows */}
+          {/* Popup menu — anchored to RIGHT edge of button */}
           {open && (
             <div style={{
               position: 'absolute',
-              bottom: 'calc(100% + 12px)',
-              right: 0,               /* flush with right edge of button */
-              background: 'var(--bg-card)',
-              border: '1px solid var(--border-light)',
-              borderRadius: 'var(--radius-md)',
-              boxShadow: '0 -8px 32px rgba(0,0,0,0.4)',
-              width: 210,
+              bottom: 'calc(100% + 16px)',
+              right: 0,
+              background: 'var(--md-sys-color-surface-container-high)',
+              borderRadius: 'var(--shape-large)',
+              boxShadow: 'var(--elevation-3)',
+              width: 180,
               overflow: 'hidden',
               zIndex: 300,
             }}>
-              <div style={{ padding: '8px 14px 6px', fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              <div style={{ padding: '12px 16px 8px', fontSize: 12, fontWeight: 500, color: 'var(--md-sys-color-on-surface-variant)' }}>
                 Plan
               </div>
               {planItems.map(item => (
@@ -90,16 +91,14 @@ export default function BottomNav() {
                   href={item.href}
                   onClick={() => setOpen(false)}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: 12,
+                    display: 'flex', alignItems: 'center', gap: 16,
                     padding: '12px 16px', textDecoration: 'none',
-                    color: pathname === item.href ? 'var(--accent-primary)' : 'var(--text-primary)',
-                    background: pathname === item.href ? 'rgba(99,102,241,0.1)' : 'transparent',
+                    color: pathname === item.href ? 'var(--md-sys-color-on-secondary-container)' : 'var(--md-sys-color-on-surface)',
+                    background: pathname === item.href ? 'var(--md-sys-color-secondary-container)' : 'transparent',
                     fontSize: 14, fontWeight: 500,
-                    borderBottom: '1px solid var(--border)',
-                    WebkitTapHighlightColor: 'transparent',
                   }}
                 >
-                  <span style={{ fontSize: 20 }}>{item.icon}</span>
+                  <span style={{ fontSize: 20, display: 'flex', alignItems: 'center' }}>{item.icon}</span>
                   {item.label}
                 </Link>
               ))}

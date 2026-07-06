@@ -4,16 +4,18 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
 
+import { LayoutDashboard, PlusCircle, List, BarChart2, Settings, TrendingUp, LogOut, Wallet } from 'lucide-react';
+
 const navItems = [
-  { href: '/',         icon: '📊', label: 'Dashboard'   },
-  { href: '/add',      icon: '➕', label: 'Add Expense' },
-  { href: '/expenses', icon: '📋', label: 'Expense Log' },
-  { href: '/reports',  icon: '📈', label: 'Reports'     },
+  { href: '/',         icon: <LayoutDashboard size={20} strokeWidth={1.5} />, label: 'Dashboard'   },
+  { href: '/add',      icon: <PlusCircle size={20} strokeWidth={1.5} />,      label: 'Add Expense' },
+  { href: '/expenses', icon: <List size={20} strokeWidth={1.5} />,            label: 'Expense Log' },
+  { href: '/reports',  icon: <BarChart2 size={20} strokeWidth={1.5} />,       label: 'Reports'     },
 ];
 
 const settingsItems = [
-  { href: '/settings', icon: '⚙️', label: 'Budget Planner' },
-  { href: '/hike',     icon: '💹', label: 'Hike Planner'   },
+  { href: '/settings', icon: <Settings size={20} strokeWidth={1.5} />,        label: 'Budget Planner' },
+  { href: '/hike',     icon: <TrendingUp size={20} strokeWidth={1.5} />,      label: 'Hike Planner'   },
 ];
 
 export default function Sidebar() {
@@ -31,7 +33,7 @@ export default function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
-        <div className="sidebar-logo-icon">💰</div>
+        <div className="sidebar-logo-icon"><Wallet size={18} strokeWidth={2} /></div>
         <div>
           <div className="sidebar-logo-text">ExpenseIQ</div>
           <div className="sidebar-logo-sub">Finance Tracker</div>
@@ -46,7 +48,7 @@ export default function Sidebar() {
             href={item.href}
             className={`nav-item ${pathname === item.href ? 'active' : ''}`}
           >
-            <span className="nav-item-icon">{item.icon}</span>
+            <span className="nav-item-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{item.icon}</span>
             {item.label}
           </Link>
         ))}
@@ -58,7 +60,7 @@ export default function Sidebar() {
             href={item.href}
             className={`nav-item ${pathname === item.href ? 'active' : ''}`}
           >
-            <span className="nav-item-icon">{item.icon}</span>
+            <span className="nav-item-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{item.icon}</span>
             {item.label}
           </Link>
         ))}
@@ -68,15 +70,10 @@ export default function Sidebar() {
         <button
           onClick={handleLogout}
           disabled={loggingOut}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 8, width: '100%',
-            background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
-            borderRadius: 'var(--radius-sm)', padding: '8px 12px',
-            color: 'var(--danger)', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-            transition: 'all 0.15s',
-          }}
+          className="btn btn-danger"
+          style={{ width: '100%', justifyContent: 'center' }}
         >
-          {loggingOut ? '⏳' : '🚪'} {loggingOut ? 'Signing out…' : 'Sign Out'}
+          {loggingOut ? '⏳ Signing out…' : <><LogOut size={16} style={{ marginRight: 6 }} /> Sign Out</>}
         </button>
       </div>
     </aside>
