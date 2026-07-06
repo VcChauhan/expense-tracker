@@ -136,29 +136,56 @@ export default function ExpensesPage() {
   function ExpenseRow({ exp }: { exp: Expense }) {
     const cat = getCategoryById(exp.categoryId);
     return (
-      <tr key={exp._id}>
-        <td style={{ color: 'var(--text-muted)', fontSize: 13, whiteSpace: 'nowrap' }}>{exp.date}</td>
-        <td>
-          {cat ? (
-            <span className="flex items-center gap-8">
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: cat.color, display: 'inline-block', flexShrink: 0 }} />
-              {cat.emoji} {cat.name}
-            </span>
-          ) : <span style={{ color: 'var(--text-muted)' }}>Unknown</span>}
-        </td>
-        <td style={{ color: 'var(--text-secondary)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {exp.note || '—'}
-        </td>
-        <td className="text-right" style={{ fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
-          {formatINR(exp.amount)}
-        </td>
-        <td>
-          <div className="flex gap-8">
-            <button className="btn btn-secondary btn-icon btn-sm" title="Edit" onClick={() => setEditingExp({ ...exp })}>✏️</button>
-            <button className="btn btn-danger btn-icon btn-sm" title="Delete" onClick={() => handleDelete(exp._id!)}>🗑️</button>
+      <div key={exp._id} className="card card-sm" style={{ padding: '14px 14px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+          {/* Category icon */}
+          <div style={{
+            width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+            background: cat?.color ? `${cat.color}22` : 'var(--bg-input)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
+          }}>
+            {cat?.emoji ?? '💰'}
           </div>
-        </td>
-      </tr>
+
+          {/* Text info */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
+              {cat?.name ?? 'Unknown'}
+            </div>
+            {exp.note ? (
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, wordBreak: 'break-word' }}>
+                {exp.note}
+              </div>
+            ) : null}
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>{exp.date}</div>
+          </div>
+
+          {/* Amount + actions stacked on right */}
+          <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+            <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>
+              {formatINR(exp.amount)}
+            </span>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button
+                onClick={() => setEditingExp({ ...exp })}
+                style={{
+                  padding: '4px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, cursor: 'pointer',
+                  background: 'var(--bg-input)', border: '1px solid var(--border)',
+                  color: 'var(--text-secondary)',
+                }}
+              >✏️ Edit</button>
+              <button
+                onClick={() => handleDelete(exp._id!)}
+                style={{
+                  padding: '4px 8px', fontSize: 11, borderRadius: 6, cursor: 'pointer',
+                  background: 'var(--danger-bg)', border: '1px solid rgba(239,68,68,0.3)',
+                  color: 'var(--danger)',
+                }}
+              >🗑️</button>
+            </div>
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -242,22 +269,13 @@ export default function ExpensesPage() {
           </span>
         </div>
       ) : viewMode === 'monthly' ? (
-        /* ── Monthly flat table ── */
-        <div className="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('date')}>DATE{sortIcon('date')}</th>
-                <th>CATEGORY</th>
-                <th>NOTE</th>
-                <th className="text-right" style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('amount')}>AMOUNT{sortIcon('amount')}</th>
-                <th>ACTIONS</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(exp => <ExpenseRow key={exp._id} exp={exp} />)}
-            </tbody>
-          </table>
+        /* ── Monthly flat list ── */
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 16, padding: '0 4px', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>
+             <span style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('date')}>DATE {sortIcon('date')}</span>
+             <span style={{ cursor: 'pointer', userSelect: 'none', marginLeft: 'auto' }} onClick={() => toggleSort('amount')}>AMOUNT {sortIcon('amount')}</span>
+          </div>
+          {filtered.map(exp => <ExpenseRow key={exp._id} exp={exp} />)}
         </div>
       ) : (
         /* ── Annual grouped view ── */
@@ -281,21 +299,8 @@ export default function ExpensesPage() {
                     <span style={{ fontWeight: 700, color: 'var(--danger)', fontSize: 15 }}>{formatINR(monthTotal)}</span>
                   </div>
                 </div>
-                <div className="table-wrapper" style={{ border: 'none', borderRadius: 0 }}>
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>DATE</th>
-                        <th>CATEGORY</th>
-                        <th>NOTE</th>
-                        <th className="text-right">AMOUNT</th>
-                        <th>ACTIONS</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {exps.map(exp => <ExpenseRow key={exp._id} exp={exp} />)}
-                    </tbody>
-                  </table>
+                <div style={{ padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {exps.map(exp => <ExpenseRow key={exp._id} exp={exp} />)}
                 </div>
               </div>
             );

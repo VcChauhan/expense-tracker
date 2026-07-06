@@ -36,6 +36,16 @@ export interface Expense {
   createdAt: string;
 }
 
+export interface Suggestion {
+  _id: string;
+  smsBody: string;
+  sender: string;
+  amount: number;
+  date: string;
+  status: 'pending' | 'approved' | 'rejected';
+  suggestedCategory?: string;
+}
+
 export interface MonthlyAnalytics {
   categoryTotals: { _id: string; total: number; count: number }[];
   overall: number;

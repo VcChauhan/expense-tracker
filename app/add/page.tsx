@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { formatINR, Settings, Expense } from '@/lib/types';
+import { formatINR, Settings, Expense, Suggestion } from '@/lib/types';
 
 export default function AddExpensePage() {
   const [settings, setSettings]             = useState<Settings | null>(null);
   const [recentExpenses, setRecentExpenses] = useState<Expense[]>([]);
+  const [suggestions, setSuggestions]       = useState<Suggestion[]>([]);
   const [loading, setLoading]               = useState(false);
   const [toast, setToast]                   = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
   const [editingId, setEditingId]           = useState<string | null>(null);
@@ -20,7 +21,16 @@ export default function AddExpensePage() {
       if (s.categories?.length) setForm(f => ({ ...f, categoryId: s.categories[0].id }));
     });
     fetchRecent();
+    fetchSuggestions();
   }, []);
+
+  async function fetchSuggestions() {
+    try {
+      const res = await fetch('/api/suggestions');
+      const data = await res.json();
+      setSuggestions(Array.isArray(data) ? data : []);
+    } catch { setSuggestions([]); }
+  }
 
   async function fetchRecent() {
     try {
@@ -81,6 +91,36 @@ export default function AddExpensePage() {
     setForm({ date: today, categoryId: settings?.categories[0]?.id ?? '', amount: '', note: '' });
   }
 
+  async function handleActionSuggestion(sug: Suggestion, action: 'approve' | 'reject') {
+    if (action === 'reject') {
+      try {
+        await fetch(`/api/suggestions/${sug._id}`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'rejected' }),
+        });
+        fetchSuggestions();
+      } catch {}
+      return;
+    }
+    
+    // approve populates the form and removes it from suggestions list
+    setForm({
+      date: sug.date,
+      categoryId: sug.suggestedCategory || settings?.categories[0]?.id || '',
+      amount: String(sug.amount),
+      note: `SMS: ${sug.smsBody.substring(0, 30)}...`,
+    });
+    
+    try {
+       await fetch(`/api/suggestions/${sug._id}`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'approved' }),
+       });
+       fetchSuggestions();
+       window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch {}
+  }
+
   const getCat = (id: string) => settings?.categories.find(c => c.id === id);
 
   return (
@@ -89,6 +129,49 @@ export default function AddExpensePage() {
         <h1 className="page-title">{editingId ? '✏️ Edit Expense' : '➕ Add Expense'}</h1>
         <p className="page-subtitle">Log a new expense entry</p>
       </div>
+
+      {/* ── Pending SMS Suggestions ── */}
+      {suggestions.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <h2 style={{ fontSize: 16, fontWeight: 600, color: 'var(--warning)', margin: '0 0 14px' }}>
+            📬 Suggested from SMS
+          </h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {suggestions.map(sug => (
+              <div key={sug._id} className="card card-sm" style={{ padding: '14px', border: '1px solid var(--warning-bg)' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
+                      {sug.sender}
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, wordBreak: 'break-word' }}>
+                      "{sug.smsBody}"
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>{sug.date}</div>
+                  </div>
+                  <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+                    <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>
+                      {formatINR(sug.amount)}
+                    </span>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button
+                        type="button"
+                        onClick={() => handleActionSuggestion(sug, 'approve')}
+                        style={{ padding: '4px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, cursor: 'pointer', background: 'var(--success-bg)', color: 'var(--success)', border: '1px solid var(--success-bg)' }}
+                      >✓ Add</button>
+                      <button
+                        type="button"
+                        onClick={() => handleActionSuggestion(sug, 'reject')}
+                        style={{ padding: '4px 8px', fontSize: 11, borderRadius: 6, cursor: 'pointer', background: 'var(--bg-input)', border: 'none', color: 'var(--text-secondary)' }}
+                      >✕</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── Form card ── */}
       <div className="card mb-24">

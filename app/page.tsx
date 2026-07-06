@@ -327,39 +327,44 @@ export default function DashboardPage() {
                   View all →
                 </Link>
               </div>
-              <div className="table-wrapper">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Date</th>
-                      <th>Category</th>
-                      <th>Note</th>
-                      <th className="text-right">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentExpenses.map(exp => {
-                      const cat = getCategoryById(exp.categoryId);
-                      return (
-                        <tr key={exp._id}>
-                          <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>{exp.date}</td>
-                          <td>
-                            {cat ? (
-                              <span className="flex items-center gap-8">
-                                <span style={{ width: 8, height: 8, borderRadius: '50%', background: cat.color, display: 'inline-block' }} />
-                                {cat.emoji} {cat.name}
-                              </span>
-                            ) : <span className="text-muted">Unknown</span>}
-                          </td>
-                          <td style={{ color: 'var(--text-muted)' }}>{exp.note || '—'}</td>
-                          <td className="text-right primary" style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {recentExpenses.map(exp => {
+                  const cat = getCategoryById(exp.categoryId);
+                  return (
+                    <div key={exp._id} className="card card-sm" style={{ padding: '14px 14px' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                        {/* Category icon */}
+                        <div style={{
+                          width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+                          background: cat?.color ? `${cat.color}22` : 'var(--bg-input)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
+                        }}>
+                          {cat?.emoji ?? '💰'}
+                        </div>
+
+                        {/* Text info */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
+                            {cat?.name ?? 'Unknown'}
+                          </div>
+                          {exp.note ? (
+                            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, wordBreak: 'break-word' }}>
+                              {exp.note}
+                            </div>
+                          ) : null}
+                          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>{exp.date}</div>
+                        </div>
+
+                        {/* Amount */}
+                        <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+                          <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>
                             {formatINR(exp.amount)}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
