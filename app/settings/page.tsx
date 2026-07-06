@@ -361,7 +361,7 @@ export default function SettingsPage() {
           </div>
         )}
 
-        <div className="table-wrapper">
+        <div className="table-wrapper mobile-card-table">
           <table>
             <thead>
               <tr>
@@ -376,8 +376,8 @@ export default function SettingsPage() {
             <tbody>
               {categories.map((cat, idx) => (
                 <tr key={cat.id}>
-                  <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>{idx + 1}</td>
-                  <td>
+                  <td data-label="#" className="hide-on-mobile" style={{ color: 'var(--text-muted)', fontSize: 13 }}>{idx + 1}</td>
+                  <td data-label="Category">
                     {editingCat?.id === cat.id ? (
                       <div className="flex items-center gap-8">
                         <input type="text" className="form-input" style={{ width: 130, padding: '6px 10px', fontSize: 13 }}
@@ -395,7 +395,7 @@ export default function SettingsPage() {
                       </span>
                     )}
                   </td>
-                  <td>
+                  <td data-label="Budget">
                     {editingCat?.id === cat.id ? (
                       <input type="number" className="form-input" style={{ width: 110, padding: '6px 10px', fontSize: 13 }}
                         value={editingCat.monthlyBudget} onChange={e => setEditingCat({ ...editingCat, monthlyBudget: parseFloat(e.target.value) || 0 })} />
@@ -403,16 +403,16 @@ export default function SettingsPage() {
                       <span style={{ fontWeight: 600, color: 'var(--warning)' }}>{formatINR(cat.monthlyBudget)}</span>
                     )}
                   </td>
-                  <td style={{ color: 'var(--text-secondary)' }}>
+                  <td data-label="% of In-Hand" style={{ color: 'var(--text-secondary)' }}>
                     {breakdown.monthlyInhand > 0 ? ((cat.monthlyBudget / breakdown.monthlyInhand) * 100).toFixed(1) : 0}%
                   </td>
-                  <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>
+                  <td data-label="Notes" className="hide-on-mobile" style={{ color: 'var(--text-muted)', fontSize: 13 }}>
                     {editingCat?.id === cat.id ? (
                       <input type="text" className="form-input" style={{ padding: '6px 10px', fontSize: 13 }}
                         value={editingCat.notes} onChange={e => setEditingCat({ ...editingCat, notes: e.target.value })} />
                     ) : cat.notes || '—'}
                   </td>
-                  <td>
+                  <td data-label="Actions">
                     <div className="flex gap-8">
                       {editingCat?.id === cat.id ? (
                         <>
@@ -422,8 +422,8 @@ export default function SettingsPage() {
                       ) : (
                         <>
                           <button className="btn btn-secondary btn-icon btn-sm" onClick={() => setEditingCat({ ...cat })} title="Edit">✏️</button>
-                          <button className="btn btn-secondary btn-icon btn-sm" onClick={() => moveCat(cat.id, -1)} disabled={idx === 0} title="Move up">↑</button>
-                          <button className="btn btn-secondary btn-icon btn-sm" onClick={() => moveCat(cat.id, 1)} disabled={idx === categories.length - 1} title="Move down">↓</button>
+                          <button className="btn btn-secondary btn-icon btn-sm hide-on-mobile" onClick={() => moveCat(cat.id, -1)} disabled={idx === 0} title="Move up">↑</button>
+                          <button className="btn btn-secondary btn-icon btn-sm hide-on-mobile" onClick={() => moveCat(cat.id, 1)} disabled={idx === categories.length - 1} title="Move down">↓</button>
                           <button className="btn btn-danger btn-icon btn-sm" onClick={() => deleteCategory(cat.id)} title="Delete">🗑️</button>
                         </>
                       )}
@@ -432,16 +432,16 @@ export default function SettingsPage() {
                 </tr>
               ))}
               <tr style={{ background: 'var(--bg-secondary)', borderTop: '2px solid var(--border-light)' }}>
-                <td colSpan={2} style={{ fontWeight: 700, color: 'var(--text-primary)' }}>TOTAL BUDGETED</td>
-                <td style={{ fontWeight: 700, color: budgetPct > 100 ? 'var(--danger)' : 'var(--warning)' }}>{formatINR(totalBudget)}</td>
-                <td style={{ fontWeight: 700, color: budgetPct > 100 ? 'var(--danger)' : 'var(--text-secondary)' }}>{budgetPct.toFixed(1)}%</td>
-                <td colSpan={2} />
+                <td data-label="Summary" className="hide-on-mobile" colSpan={2} style={{ fontWeight: 700, color: 'var(--text-primary)' }}>TOTAL BUDGETED</td>
+                <td data-label="Total Budgeted" style={{ fontWeight: 700, color: budgetPct > 100 ? 'var(--danger)' : 'var(--warning)' }}>{formatINR(totalBudget)}</td>
+                <td data-label="% of In-Hand" style={{ fontWeight: 700, color: budgetPct > 100 ? 'var(--danger)' : 'var(--text-secondary)' }}>{budgetPct.toFixed(1)}%</td>
+                <td className="hide-on-mobile" colSpan={2} />
               </tr>
               <tr style={{ background: 'var(--bg-secondary)' }}>
-                <td colSpan={2} style={{ fontWeight: 700, color: 'var(--success)' }}>💰 EXPECTED SAVINGS</td>
-                <td style={{ fontWeight: 700, color: remaining >= 0 ? 'var(--success)' : 'var(--danger)' }}>{formatINR(remaining)}</td>
-                <td style={{ color: 'var(--text-muted)' }}>{breakdown.monthlyInhand > 0 ? (100 - budgetPct).toFixed(1) : 0}%</td>
-                <td colSpan={2} style={{ color: 'var(--text-muted)', fontSize: 12 }}>In-hand − Total Budget</td>
+                <td data-label="Summary" className="hide-on-mobile" colSpan={2} style={{ fontWeight: 700, color: 'var(--success)' }}>💰 EXPECTED SAVINGS</td>
+                <td data-label="Expected Savings" style={{ fontWeight: 700, color: remaining >= 0 ? 'var(--success)' : 'var(--danger)' }}>{formatINR(remaining)}</td>
+                <td data-label="% Savings" style={{ color: 'var(--text-muted)' }}>{breakdown.monthlyInhand > 0 ? (100 - budgetPct).toFixed(1) : 0}%</td>
+                <td className="hide-on-mobile" colSpan={2} style={{ color: 'var(--text-muted)', fontSize: 12 }}>In-hand − Total Budget</td>
               </tr>
             </tbody>
           </table>

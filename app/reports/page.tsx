@@ -197,9 +197,9 @@ export default function ReportsPage() {
             <thead>
               <tr>
                 <th>Category</th>
-                {SHORT_MONTHS.map(m => <th key={m} className="text-right" style={{ minWidth: 70 }}>{m}</th>)}
+                {SHORT_MONTHS.map(m => <th key={m} className="text-right hide-on-mobile" style={{ minWidth: 70 }}>{m}</th>)}
                 <th className="text-right" style={{ minWidth: 90 }}>Annual</th>
-                <th className="text-right">Budget/mo</th>
+                <th className="text-right hide-on-mobile">Budget/mo</th>
               </tr>
             </thead>
             <tbody>
@@ -218,7 +218,7 @@ export default function ReportsPage() {
                     {SHORT_MONTHS.map((_, i) => {
                       const v = getCatMonthSpend(cat.id, i);
                       return (
-                        <td key={i} className="text-right" style={{ fontSize: 13, color: v > 0 ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                        <td key={i} className="text-right hide-on-mobile" style={{ fontSize: 13, color: v > 0 ? 'var(--text-primary)' : 'var(--text-muted)' }}>
                           {v > 0 ? `₹${(v / 1000).toFixed(1)}k` : '—'}
                         </td>
                       );
@@ -226,7 +226,7 @@ export default function ReportsPage() {
                     <td className="text-right" style={{ fontWeight: 700, color: overBudget ? 'var(--danger)' : 'var(--success)' }}>
                       {formatINR(annual)}
                     </td>
-                    <td className="text-right" style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                    <td className="text-right hide-on-mobile" style={{ fontSize: 13, color: 'var(--text-muted)' }}>
                       {formatINR(cat.monthlyBudget)}
                     </td>
                   </tr>
@@ -239,7 +239,7 @@ export default function ReportsPage() {
                   const mm = String(i + 1).padStart(2, '0');
                   const v = (analytics?.monthTotals ?? []).find(x => x._id === mm)?.total ?? 0;
                   return (
-                    <td key={i} className="text-right" style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 13 }}>
+                    <td key={i} className="text-right hide-on-mobile" style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 13 }}>
                       {v > 0 ? `₹${(v / 1000).toFixed(1)}k` : '—'}
                     </td>
                   );
@@ -247,7 +247,7 @@ export default function ReportsPage() {
                 <td className="text-right" style={{ fontWeight: 700, color: 'var(--danger)', fontSize: 15 }}>
                   {formatINR(grandTotal)}
                 </td>
-                <td className="text-right" style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                <td className="text-right hide-on-mobile" style={{ fontSize: 13, color: 'var(--text-muted)' }}>
                   {formatINR((settings?.categories ?? []).reduce((s, c) => s + c.monthlyBudget, 0))}
                 </td>
               </tr>
