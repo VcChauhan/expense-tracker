@@ -146,7 +146,7 @@ export default function ExpensesPage() {
             background: cat?.color ? `${cat.color}22` : 'var(--bg-input)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
           }}>
-            <CategoryIcon name={cat?.name ?? ''} size={20} />
+            <CategoryIcon name={cat?.name ?? ''} note={exp.note} size={20} />
           </div>
 
           {/* Text info */}

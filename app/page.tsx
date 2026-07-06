@@ -341,7 +341,7 @@ export default function DashboardPage() {
                           background: cat?.color ? `${cat.color}22` : 'var(--bg-input)',
                           display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
                         }}>
-                          <CategoryIcon name={cat?.name ?? ''} size={16} />
+                          <CategoryIcon name={cat?.name ?? ''} note={exp.note} size={16} />
                         </div>
 
                         {/* Text info */}

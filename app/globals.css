@@ -671,11 +671,12 @@ tbody td {
   bottom: 16px;
   left: 16px;
   right: 16px;
-  height: 80px;
+  height: 72px;
   background: var(--md-sys-color-surface-container);
   border-radius: var(--shape-full);
   z-index: 200;
-  padding: 0 16px;
+  padding: 8px;
+  gap: 8px;
   box-shadow: var(--elevation-3);
   border: none;
 }
@@ -686,31 +687,23 @@ tbody td {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
   color: var(--md-sys-color-on-surface-variant);
   text-decoration: none;
-  transition: color 0.2s;
+  transition: all 0.2s;
   min-width: 0;
+  height: 100%;
+  border-radius: var(--shape-full);
 }
 
-/* The M3 pill indicator */
 .bottom-nav-icon-wrapper {
-  width: 64px;
-  height: 32px;
-  border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.2s;
-}
-
-.bottom-nav-item.active .bottom-nav-icon-wrapper {
-  background: var(--md-sys-color-secondary-container);
-  color: var(--md-sys-color-on-secondary-container);
 }
 
 .bottom-nav-item.active {
-  color: var(--md-sys-color-on-surface);
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
 }
 
 .bottom-nav-icon {
