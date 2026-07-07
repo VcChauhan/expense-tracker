@@ -80,13 +80,10 @@ Respond strictly with JSON matching this schema.
         if (response.text) {
           const parsed = JSON.parse(response.text);
           
-          // If Gemini determines it's not a real expense, abort suggestion creation silently
-          if (parsed.isExpense === false) {
-            return NextResponse.json({ message: 'Ignored non-expense transaction' }, { status: 200 });
-          }
-
           suggestedCategory = parsed.categoryId;
-          suggestedLabel = parsed.label;
+          suggestedLabel = parsed.isExpense === false 
+            ? `⚠️ Ignore: ${parsed.label}` 
+            : parsed.label;
         }
       } catch (aiError) {
         console.error('Gemini AI failed, skipping auto-categorization:', aiError);
