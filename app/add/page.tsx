@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { formatINR, Settings, Expense, Suggestion } from '@/lib/types';
 import { Edit2, Trash2, FileText, CheckCircle2, XCircle } from 'lucide-react';
@@ -22,7 +22,7 @@ export default function AddExpensePage() {
   // For reviewing a suggestion in a popup
   const [reviewSuggestion, setReviewSuggestion] = useState<Suggestion | null>(null);
   const [reviewForm, setReviewForm] = useState({ date: today, categoryId: '', amount: '', note: '' });
-  const reviewDialogRef = React.useRef<HTMLDialogElement>(null);
+  const reviewDialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
     fetch('/api/settings').then(r => r.json()).then(s => {
