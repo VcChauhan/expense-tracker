@@ -102,9 +102,9 @@ Respond strictly with a JSON array matching this schema:
     return NextResponse.json({ insights: [] }, { headers });
   } catch (error: any) {
     if (error?.status === 429 || error?.message?.includes('RESOURCE_EXHAUSTED') || error?.message?.includes('429')) {
-      return NextResponse.json({ insights: [{ type: "hike_advice", message: "Looks like a great hike! (AI insights temporarily paused due to API limits)." }] }, { headers });
+      return NextResponse.json({ insights: [{ type: "hike_advice", message: "Looks like a great hike! (AI insights temporarily paused due to API limits)." }] });
     }
     console.error('Error generating hike insights:', error);
-    return NextResponse.json({ insights: [] }, { headers });
+    return NextResponse.json({ insights: [] });
   }
 }

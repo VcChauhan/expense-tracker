@@ -99,9 +99,9 @@ Respond strictly with a JSON array matching this schema:
     return NextResponse.json({ insights: [] }, { headers });
   } catch (error: any) {
     if (error?.status === 429 || error?.message?.includes('RESOURCE_EXHAUSTED') || error?.message?.includes('429')) {
-      return NextResponse.json({ insights: [] }, { headers }); // Silent fail for inline insights
+      return NextResponse.json({ insights: [] }); // Silent fail for inline insights
     }
     console.error('Error generating budget insights:', error);
-    return NextResponse.json({ insights: [] }, { headers });
+    return NextResponse.json({ insights: [] });
   }
 }
