@@ -5,6 +5,17 @@ import Settings from '@/lib/models/Settings';
 import Expense from '@/lib/models/Expense';
 import OpenAI from "openai";
 
+function scrubSms(text: string): string {
+  if (!text) return text;
+  return text
+    // Redact masked account numbers (e.g., XX1234, XXXXX1234)
+    .replace(/[Xx]{2,}\d+/g, '[ACCOUNT]')
+    // Redact long sequences of digits (8+ digits: phone numbers, customer IDs, etc.)
+    .replace(/\b\d{8,}\b/g, '[ID]')
+    // Redact UPI routing strings (e.g. UPI/P2A/367680408468/)
+    .replace(/UPI\/[a-zA-Z0-9-]+\/[a-zA-Z0-9-]+\/?/gi, 'UPI/[REDACTED]/');
+}
+
 export async function GET() {
   try {
     await connectMongo();
@@ -39,10 +50,11 @@ export async function POST(req: Request) {
 
         const categoriesString = categories.map((c: any) => `${c.name} (ID: ${c.id})`).join(', ');
         const habitsString = recentExpenses.map(e => `Amount: ${e.amount}, Note: ${e.note}, CategoryID: ${e.categoryId}`).join('\n');
+        const safeSms = scrubSms(data.smsBody);
 
         const prompt = `
 Analyze this incoming SMS transaction:
-SMS Body: "${data.smsBody}"
+SMS Body: "${safeSms}"
 Amount: ${data.amount}
 
 Available Categories to choose from:
