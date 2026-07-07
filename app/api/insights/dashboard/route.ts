@@ -39,8 +39,8 @@ export async function GET(req: Request) {
 
     const monthStr = month.toString().padStart(2, '0');
     
-    let currentExpenses = [];
-    let historicalExpenses = [];
+    let currentExpenses: any[] = [];
+    let historicalExpenses: any[] = [];
 
     if (scope === 'annual') {
       const regex = new RegExp(`^${year}-`);
