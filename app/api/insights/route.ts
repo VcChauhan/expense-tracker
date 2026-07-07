@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import connectMongo from '@/lib/mongodb';
 import Expense from '@/lib/models/Expense';
 import Settings from '@/lib/models/Settings';
-import { GoogleGenAI, Type } from '@google/genai';
+import OpenAI from "openai";
 
 export async function GET(req: Request) {
   try {
@@ -14,8 +14,8 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Missing month/year' }, { status: 400 });
     }
 
-    if (!process.env.GEMINI_API_KEY) {
-      return NextResponse.json({ insight: "To enable Smart Insights, please add a GEMINI_API_KEY to your environment variables." });
+    if (!process.env.GROQ_API_KEY) {
+      return NextResponse.json({ insight: "To enable Smart Insights, please add a GROQ_API_KEY to your environment variables." });
     }
 
     await connectMongo();
@@ -34,7 +34,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ insight: "You haven't logged any expenses for this month yet. Start tracking to get personalized insights!" });
     }
 
-    // Prepare data for Gemini
+    // Prepare data for Groq
     const totalSpent = expenses.reduce((sum, e) => sum + e.amount, 0);
     const salary = settings?.monthlySalary || 0;
     
@@ -65,28 +65,29 @@ Do not use robotic formatting (no bullet points). Use a conversational, friendly
 Respond strictly with a JSON object containing a single key "insight".
 `;
 
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-      config: {
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            insight: { type: Type.STRING }
-          }
-        }
-      }
+    const client = new OpenAI({
+      apiKey: process.env.GROQ_API_KEY,
+      baseURL: "https://api.groq.com/openai/v1",
     });
 
-    if (response.text) {
-      const parsed = JSON.parse(response.text);
+    const response = await client.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      messages: [{ role: 'user', content: prompt }],
+      response_format: { type: "json_object" }
+    });
+
+    const responseContent = response.choices[0]?.message?.content;
+
+    if (responseContent) {
+      const parsed = JSON.parse(responseContent);
       return NextResponse.json({ insight: parsed.insight });
     }
 
     return NextResponse.json({ insight: "Everything looks good this month!" });
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.status === 429 || error?.message?.includes('RESOURCE_EXHAUSTED') || error?.message?.includes('429')) {
+      return NextResponse.json({ insight: "You're spending wisely! (AI insights are temporarily paused due to API quota limits)." });
+    }
     console.error('Error generating insights:', error);
     return NextResponse.json({ error: 'Failed to generate insights' }, { status: 500 });
   }

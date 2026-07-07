@@ -5,7 +5,7 @@ const SESSION_COOKIE = 'iq-session';
 // Paths that never require auth
 const PUBLIC = ['/login', '/api/auth'];
 
-export function proxy(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Pass through public paths and static assets
@@ -13,8 +13,16 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const session = request.cookies.get(SESSION_COOKIE)?.value;
   const secret  = process.env.AUTH_SECRET;
+
+  // 1. Check for valid Authorization header (for Android app / webhooks)
+  const authHeader = request.headers.get('authorization');
+  if (authHeader && authHeader === `Bearer ${secret}`) {
+    return NextResponse.next();
+  }
+
+  // 2. Check for valid session cookie (for web UI)
+  const session = request.cookies.get(SESSION_COOKIE)?.value;
 
   if (!session || !secret || session !== secret) {
     const loginUrl = new URL('/login', request.url);

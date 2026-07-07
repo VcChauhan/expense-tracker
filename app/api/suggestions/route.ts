@@ -3,7 +3,7 @@ import connectMongo from '@/lib/mongodb';
 import Suggestion from '@/lib/models/Suggestion';
 import Settings from '@/lib/models/Settings';
 import Expense from '@/lib/models/Expense';
-import { GoogleGenAI, Type } from '@google/genai';
+import OpenAI from "openai";
 
 export async function GET() {
   try {
@@ -30,8 +30,8 @@ export async function POST(req: Request) {
     let suggestedCategory = undefined;
     let suggestedLabel = undefined;
 
-    // Use Gemini if API key is present
-    if (process.env.GEMINI_API_KEY) {
+    // Use Groq if API key is present
+    if (process.env.GROQ_API_KEY) {
       try {
         const settings = await Settings.findOne();
         const categories = settings?.categories || [];
@@ -56,29 +56,29 @@ Task:
 2. If it is an expense, select the most appropriate Category ID from the available list based on the SMS text and past habits.
 3. Generate a short, crisp label/note (max 4 words) describing the transaction (e.g. "Swiggy Order", "Uber Ride", "Netflix Subscription").
 
-Respond strictly with JSON matching this schema.
+Respond strictly with JSON matching this schema:
+{
+  "isExpense": boolean,
+  "categoryId": string,
+  "label": string
+}
 `;
 
-        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-        const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: prompt,
-          config: {
-            responseMimeType: 'application/json',
-            responseSchema: {
-              type: Type.OBJECT,
-              properties: {
-                isExpense: { type: Type.BOOLEAN, description: "False if this is a credit card bill, self-transfer, or non-expense" },
-                categoryId: { type: Type.STRING },
-                label: { type: Type.STRING }
-              },
-              required: ["isExpense"]
-            }
-          }
+        const client = new OpenAI({
+          apiKey: process.env.GROQ_API_KEY,
+          baseURL: "https://api.groq.com/openai/v1",
         });
 
-        if (response.text) {
-          const parsed = JSON.parse(response.text);
+        const response = await client.chat.completions.create({
+          model: 'llama-3.3-70b-versatile',
+          messages: [{ role: 'user', content: prompt }],
+          response_format: { type: "json_object" }
+        });
+
+        const responseContent = response.choices[0]?.message?.content;
+        
+        if (responseContent) {
+          const parsed = JSON.parse(responseContent);
           
           suggestedCategory = parsed.categoryId;
           suggestedLabel = parsed.isExpense === false 
@@ -86,7 +86,7 @@ Respond strictly with JSON matching this schema.
             : parsed.label;
         }
       } catch (aiError) {
-        console.error('Gemini AI failed, skipping auto-categorization:', aiError);
+        console.error('Groq AI failed, skipping auto-categorization:', aiError);
       }
     }
 
