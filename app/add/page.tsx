@@ -18,15 +18,30 @@ export default function AddExpensePage() {
 
   const today = new Date().toISOString().split('T')[0];
   const [form, setForm] = useState({ date: today, categoryId: '', amount: '', note: '' });
+  
+  // For reviewing a suggestion in a popup
+  const [reviewSuggestion, setReviewSuggestion] = useState<Suggestion | null>(null);
+  const [reviewForm, setReviewForm] = useState({ date: today, categoryId: '', amount: '', note: '' });
+  const reviewDialogRef = React.useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
     fetch('/api/settings').then(r => r.json()).then(s => {
       setSettings(s);
-      if (s.categories?.length) setForm(f => ({ ...f, categoryId: s.categories[0].id }));
+      if (s.categories?.length) {
+        setForm(f => ({ ...f, categoryId: s.categories[0].id }));
+        setReviewForm(f => ({ ...f, categoryId: s.categories[0].id }));
+      }
     });
     fetchRecent();
     fetchSuggestions();
   }, []);
+
+  useEffect(() => {
+    const dialog = reviewDialogRef.current;
+    if (!dialog) return;
+    if (reviewSuggestion) dialog.showModal();
+    else dialog.close();
+  }, [reviewSuggestion]);
 
   async function fetchSuggestions() {
     try {
@@ -105,30 +120,43 @@ export default function AddExpensePage() {
     if (action === 'reject') {
       try {
         await fetch(`/api/suggestions/${sug._id}`, {
-          method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: 'rejected' }),
+          method: 'DELETE',
         });
         fetchSuggestions();
       } catch {}
       return;
     }
     
-    // approve populates the form and removes it from suggestions list
-    setForm({
+    // approve opens the popup modal
+    setReviewForm({
       date: sug.date,
       categoryId: sug.suggestedCategory || settings?.categories[0]?.id || '',
       amount: String(sug.amount),
       note: sug.suggestedLabel || `SMS: ${sug.smsBody.substring(0, 30)}...`,
     });
-    
+    setReviewSuggestion(sug);
+  }
+
+  async function submitReviewForm(e: React.FormEvent) {
+    e.preventDefault();
+    if (!reviewSuggestion || !reviewForm.amount || parseFloat(reviewForm.amount) <= 0) return;
+    setLoading(true);
     try {
-       await fetch(`/api/suggestions/${sug._id}`, {
-          method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: 'approved' }),
-       });
-       fetchSuggestions();
-       window.scrollTo({ top: 0, behavior: 'smooth' });
-    } catch {}
+      // 1. Add Expense
+      await fetch('/api/expenses', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...reviewForm, amount: parseFloat(reviewForm.amount) }),
+      });
+      // 2. Delete the suggestion from DB
+      await fetch(`/api/suggestions/${reviewSuggestion._id}`, {
+        method: 'DELETE',
+      });
+      showToast('Expense added!', 'success');
+      setReviewSuggestion(null);
+      fetchRecent();
+      fetchSuggestions();
+    } catch { showToast('Something went wrong', 'error'); }
+    finally { setLoading(false); }
   }
 
   const getCat = (id: string) => settings?.categories.find(c => c.id === id);
@@ -351,6 +379,68 @@ export default function AddExpensePage() {
         onConfirm={confirmDelete}
         onCancel={() => setConfirmDialog(null)}
       />
+
+      {/* ── Review Suggestion Modal ── */}
+      <dialog 
+        ref={reviewDialogRef}
+        style={{
+          margin: 'auto auto 0 auto',
+          width: '100%',
+          maxWidth: '500px',
+          border: 'none',
+          borderRadius: '24px 24px 0 0',
+          background: 'var(--bg-card)',
+          padding: '24px',
+          color: 'var(--text-primary)',
+          boxShadow: '0 -8px 32px rgba(0,0,0,0.1)',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>Review Suggestion</h2>
+          <button 
+            type="button"
+            onClick={() => setReviewSuggestion(null)}
+            style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', fontSize: 24, cursor: 'pointer' }}
+          >
+            ×
+          </button>
+        </div>
+
+        <form onSubmit={submitReviewForm}>
+          <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+            <div className="form-group" style={{ margin: 0, flex: 1 }}>
+              <input type="number" step="0.01" className="form-input" style={{ fontSize: 24, fontWeight: 700, padding: '16px' }}
+                placeholder="₹ 0.00" value={reviewForm.amount}
+                onChange={e => setReviewForm(f => ({ ...f, amount: e.target.value }))} required autoFocus />
+            </div>
+            <div className="form-group" style={{ margin: 0, width: '140px' }}>
+              <input type="date" className="form-input" style={{ height: '100%', padding: '0 12px' }}
+                value={reviewForm.date}
+                onChange={e => setReviewForm(f => ({ ...f, date: e.target.value }))} required />
+            </div>
+          </div>
+          
+          <div className="form-group" style={{ marginBottom: 16 }}>
+            <select className="form-select"
+              value={reviewForm.categoryId}
+              onChange={e => setReviewForm(f => ({ ...f, categoryId: e.target.value }))} required>
+              {(settings?.categories ?? []).map(cat => (
+                <option key={cat.id} value={cat.id}>{cat.emoji} {cat.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group" style={{ marginBottom: 24 }}>
+            <input type="text" className="form-input"
+              placeholder="Note (optional)" value={reviewForm.note}
+              onChange={e => setReviewForm(f => ({ ...f, note: e.target.value }))} />
+          </div>
+
+          <button type="submit" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '14px' }} disabled={loading}>
+            {loading ? <span className="spinner" style={{ width: 16, height: 16 }} /> : 'Confirm & Add Expense'}
+          </button>
+        </form>
+      </dialog>
     </div>
   );
 }
