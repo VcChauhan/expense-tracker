@@ -4,10 +4,11 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-import { LayoutDashboard, PlusCircle, List, BarChart2, Settings, TrendingUp, LogOut, Wallet } from 'lucide-react';
+import { LayoutDashboard, PlusCircle, List, BarChart2, Settings, TrendingUp, LogOut, Wallet, Sparkles } from 'lucide-react';
 
 const navItems = [
   { href: '/',         icon: <LayoutDashboard size={20} strokeWidth={1.5} />, label: 'Dashboard'   },
+  { href: '/chat',     icon: <Sparkles size={20} strokeWidth={1.5} />,        label: 'AI Assistant' },
   { href: '/add',      icon: <PlusCircle size={20} strokeWidth={1.5} />,      label: 'Add Expense' },
   { href: '/expenses', icon: <List size={20} strokeWidth={1.5} />,            label: 'Expense Log' },
   { href: '/reports',  icon: <BarChart2 size={20} strokeWidth={1.5} />,       label: 'Reports'     },
