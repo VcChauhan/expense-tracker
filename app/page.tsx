@@ -222,7 +222,7 @@ export default function DashboardPage() {
           </div>
 
           {/* AI Insights */}
-          {!isAnnual && <AiInsights month={selectedMonth} year={selectedYear} />}
+          <AiInsights month={selectedMonth} year={selectedYear} scope={viewMode} />
 
           {/* Charts */}
           <div className="charts-grid mb-32">

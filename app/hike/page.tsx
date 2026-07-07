@@ -7,6 +7,7 @@ import { computeSalaryBreakdown } from '@/lib/taxUtils';
 import { TrendingUp, Wallet, Folder, RefreshCw, Check, History, CheckCircle2, XCircle } from 'lucide-react';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { CategoryIcon } from '@/components/CategoryIcon';
+import AiInsights from '@/components/AiInsights';
 
 interface HikeCategory {
   id: string;
@@ -56,9 +57,17 @@ export default function HikePage() {
   const [toast, setToast]               = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean; pct: number } | null>(null);
 
-  // Hike inputs
   const [hikePercent, setHikePercent]   = useState<string>('20');
+  const [debouncedHikePercent, setDebouncedHikePercent] = useState<number>(20);
   const [hikeYear, setHikeYear]         = useState(now.getFullYear());
+
+  // Debounce hikePercent changes
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedHikePercent(parseFloat(hikePercent) || 0);
+    }, 1000);
+    return () => clearTimeout(handler);
+  }, [hikePercent]);
 
   // Editable category budgets
   const [hikeCategories, setHikeCategories] = useState<HikeCategory[]>([]);
@@ -311,6 +320,8 @@ export default function HikePage() {
             </button>
           </div>
         </div>
+
+        <AiInsights context="hike" year={hikeYear} hikePercent={debouncedHikePercent} />
 
         <div className="table-wrapper">
           <table>

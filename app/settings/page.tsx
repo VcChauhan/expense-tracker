@@ -4,9 +4,14 @@ import { useState, useEffect, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { formatINR, Settings, Category } from '@/lib/types';
 import { computeSalaryBreakdown } from '@/lib/taxUtils';
-import { Save, Wallet, Folder, Edit2, ArrowUp, ArrowDown, Trash2, CheckCircle2, XCircle } from 'lucide-react';
+import { Save, Wallet, Folder, Edit2, ArrowUp, ArrowDown, Trash2, CheckCircle2, XCircle, Sparkles } from 'lucide-react';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { ConfirmModal } from '@/components/ConfirmModal';
+
+interface BudgetInsight {
+  categoryId: string;
+  message: string;
+}
 
 const PRESET_COLORS = [
   '#6366f1', '#8b5cf6', '#ec4899', '#ef4444', '#f97316',
@@ -47,6 +52,7 @@ export default function SettingsPage() {
   const [newCat, setNewCat] = useState<Omit<Category, 'id'>>({
     name: '', emoji: '', monthlyBudget: 0, notes: '', color: '#6366f1'
   });
+  const [budgetInsights, setBudgetInsights] = useState<BudgetInsight[]>([]);
 
   useEffect(() => {
     fetch('/api/settings').then(r => r.json()).then(s => {
@@ -62,6 +68,15 @@ export default function SettingsPage() {
       }
       setLoading(false);
     });
+
+    // Fetch inline AI insights
+    const now = new Date();
+    fetch(`/api/insights/budget?month=${now.getMonth() + 1}&year=${now.getFullYear()}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.insights) setBudgetInsights(data.insights);
+      })
+      .catch(console.error);
   }, []);
 
   // Live salary breakdown computed client-side for instant feedback
@@ -386,7 +401,20 @@ export default function SettingsPage() {
                       <span className="flex items-center gap-8">
                         <span style={{ width: 10, height: 10, borderRadius: '50%', background: cat.color, display: 'inline-block', flexShrink: 0 }} />
                         <span style={{ display: 'flex' }}><CategoryIcon name={cat.name} size={18} /></span>
-                        <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{cat.name}</span>
+                        <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{cat.name}</span>
+                          {(() => {
+                            const insight = budgetInsights.find(i => i.categoryId === cat.id);
+                            if (insight) {
+                              return (
+                                <span style={{ fontSize: 11, color: 'var(--accent-primary)', display: 'flex', alignItems: 'center', gap: 4, maxWidth: 220, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={insight.message}>
+                                  <Sparkles size={10} style={{ flexShrink: 0 }} /> {insight.message}
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
+                        </span>
                       </span>
                     )}
                   </td>

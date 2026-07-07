@@ -8,6 +8,7 @@ import {
 import { formatINR, SHORT_MONTHS, MONTHS, Settings, AnnualAnalytics } from '@/lib/types';
 import { Wallet, CreditCard, PiggyBank, CalendarDays } from 'lucide-react';
 import { CategoryIcon } from '@/components/CategoryIcon';
+import AiInsights from '@/components/AiInsights';
 
 const ChartTooltip = ({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number; color: string }[]; label?: string }) => {
   if (active && payload && payload.length) {
@@ -158,6 +159,9 @@ export default function ReportsPage() {
         <div className="flex items-center justify-between mb-16" style={{ gap: 8 }}>
           <h2 className="chart-title" style={{ margin: 0, flexShrink: 0 }}>Category Trends</h2>
         </div>
+        
+        <AiInsights context="reports" scope="annual" year={selectedYear} />
+        
         <div className="filter-scroll mb-16">
             <button
               className={`btn btn-sm ${!activeCategory ? 'btn-primary' : 'btn-secondary'}`}
