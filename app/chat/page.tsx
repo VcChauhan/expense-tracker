@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Send, Trash2, Sparkles, TrendingUp, Search } from 'lucide-react';
+import { Send, Trash2, Sparkles, TrendingUp, Search, CheckCircle2 } from 'lucide-react';
 import { ConfirmModal } from '@/components/ConfirmModal';
 
 interface Message {
@@ -9,6 +9,58 @@ interface Message {
   role: 'user' | 'ai';
   content: string;
   metadata?: any;
+}
+
+function DraftExpenseCard({ data }: { data: any }) {
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  if (success) {
+    return (
+      <div style={{ marginTop: 12, padding: 12, borderRadius: 'var(--shape-medium)', background: 'var(--md-sys-color-primary-container)', color: 'var(--md-sys-color-on-primary-container)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 500 }}>
+          <CheckCircle2 size={18} /> Expense Confirmed!
+        </div>
+      </div>
+    );
+  }
+
+  const handleConfirm = async () => {
+    setLoading(true);
+    try {
+      await fetch('/api/expenses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: data.amount,
+          categoryId: data.categoryId,
+          accountId: data.accountId,
+          note: data.note,
+          date: data.date
+        })
+      });
+      setSuccess(true);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ marginTop: 12, padding: 16, borderRadius: 'var(--shape-large)', background: 'var(--md-sys-color-surface)', border: '1px solid var(--md-sys-color-outline-variant)', color: 'var(--md-sys-color-on-surface)' }}>
+      <div style={{ fontSize: 24, fontWeight: 700, marginBottom: 12, color: 'var(--md-sys-color-primary)' }}>₹{data.amount.toFixed(2)}</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--md-sys-color-on-surface-variant)' }}>Category</span><span>{data.emoji} {data.categoryName}</span></div>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--md-sys-color-on-surface-variant)' }}>Account</span><span>{data.accountName || 'Cash / None'}</span></div>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--md-sys-color-on-surface-variant)' }}>Note</span><span style={{ textAlign: 'right' }}>{data.note}</span></div>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--md-sys-color-on-surface-variant)' }}>Date</span><span>{data.date}</span></div>
+      </div>
+      <button onClick={handleConfirm} disabled={loading} style={{ width: '100%', marginTop: 16, padding: 12, borderRadius: 24, background: 'var(--md-sys-color-primary)', color: 'var(--md-sys-color-on-primary)', border: 'none', fontWeight: 600, cursor: loading ? 'default' : 'pointer' }}>
+        {loading ? 'Adding...' : 'Confirm & Add'}
+      </button>
+    </div>
+  );
 }
 
 export default function ChatPage() {
@@ -132,6 +184,10 @@ export default function ChatPage() {
           </div>
         </div>
       );
+    }
+
+    if (meta.type === 'draft_expense' && meta.data) {
+      return <DraftExpenseCard data={meta.data} />;
     }
 
     return null;

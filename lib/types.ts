@@ -9,6 +9,14 @@ export interface Category {
   color: string;
 }
 
+export interface Account {
+  id: string;
+  name: string;
+  type: 'credit_card' | 'bank' | 'cash';
+  last4Digits?: string;
+  color: string;
+}
+
 export interface Settings {
   _id?: string;
   annualSalary: number;
@@ -24,6 +32,7 @@ export interface Settings {
   taxableIncome?: number;
   effectiveTaxRate?: number;
   categories: Category[];
+  accounts?: Account[];
   updatedAt?: string;
 }
 
@@ -31,6 +40,7 @@ export interface Expense {
   _id: string;
   date: string;
   categoryId: string;
+  accountId?: string;
   amount: number;
   note: string;
   createdAt: string;
@@ -44,6 +54,7 @@ export interface Suggestion {
   date: string;
   status: 'pending' | 'approved' | 'rejected';
   suggestedCategory?: string;
+  suggestedAccount?: string;
   suggestedLabel?: string;
 }
 

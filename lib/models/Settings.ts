@@ -9,6 +9,14 @@ export interface ICategory {
   color: string;
 }
 
+export interface IAccount {
+  id: string;
+  name: string;
+  type: 'credit_card' | 'bank' | 'cash';
+  last4Digits?: string;
+  color: string;
+}
+
 export interface ISettings extends Document {
   annualSalary: number;
   monthlySalary: number;       // computed in-hand monthly
@@ -25,6 +33,7 @@ export interface ISettings extends Document {
   taxableIncome: number;
   effectiveTaxRate: number;
   categories: ICategory[];
+  accounts: IAccount[];
   updatedAt: Date;
 }
 
@@ -35,6 +44,14 @@ const CategorySchema = new Schema<ICategory>({
   monthlyBudget: { type: Number, required: true, default: 0 },
   notes: { type: String, default: '' },
   color: { type: String, default: '#6366f1' },
+});
+
+const AccountSchema = new Schema<IAccount>({
+  id: { type: String, required: true },
+  name: { type: String, required: true },
+  type: { type: String, enum: ['credit_card', 'bank', 'cash'], default: 'bank' },
+  last4Digits: { type: String, default: '' },
+  color: { type: String, default: '#8b5cf6' },
 });
 
 const SettingsSchema = new Schema<ISettings>(
@@ -52,6 +69,7 @@ const SettingsSchema = new Schema<ISettings>(
     taxableIncome:    { type: Number, default: 0 },
     effectiveTaxRate: { type: Number, default: 0 },
     categories:       { type: [CategorySchema], default: [] },
+    accounts:         { type: [AccountSchema], default: [] },
   },
   { timestamps: true }
 );

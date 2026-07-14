@@ -39,6 +39,7 @@ export async function POST(req: Request) {
     await connectMongo();
 
     let suggestedCategory = undefined;
+    let suggestedAccount = undefined;
     let suggestedLabel = undefined;
 
     // Use Groq if API key is present
@@ -46,9 +47,11 @@ export async function POST(req: Request) {
       try {
         const settings = await Settings.findOne();
         const categories = settings?.categories || [];
+        const accounts = settings?.accounts || [];
         const recentExpenses = await Expense.find().sort({ createdAt: -1 }).limit(50);
 
         const categoriesString = categories.map((c: any) => `${c.name} (ID: ${c.id})`).join(', ');
+        const accountsString = accounts.map((a: any) => `${a.name} ${a.last4Digits ? `(..${a.last4Digits})` : ''} (ID: ${a.id})`).join(', ');
         const habitsString = recentExpenses.map(e => `Amount: ${e.amount}, Note: ${e.note}, CategoryID: ${e.categoryId}`).join('\n');
         const safeSms = scrubSms(data.smsBody);
 
@@ -56,22 +59,28 @@ export async function POST(req: Request) {
 Analyze this incoming SMS transaction:
 SMS Body: "${safeSms}"
 Amount: ${data.amount}
+Sender: ${data.sender}
 
-Available Categories to choose from:
+Available Categories:
 ${categoriesString}
+
+Available Accounts/Payment Methods:
+${accountsString || 'None configured'}
 
 User's recent transaction habits:
 ${habitsString}
 
 Task:
 1. Determine if this transaction is an actual expense. If it is a credit card bill payment, a transfer to another of the user's own accounts, or an investment, it is NOT an expense (set "isExpense": false).
-2. If it is an expense, select the most appropriate Category ID from the available list based on the SMS text and past habits.
-3. Generate a short, crisp label/note (max 4 words) describing the transaction (e.g. "Swiggy Order", "Uber Ride", "Netflix Subscription").
+2. If it is an expense, select the most appropriate Category ID based on the SMS text and past habits.
+3. If it is an expense, select the most appropriate Account ID from the available accounts based on the SMS text (e.g. looking for matching last 4 digits like 3249, or bank name). If no match, leave it null.
+4. Generate a short, crisp label/note (max 4 words) describing the transaction (e.g. "Swiggy Order", "Uber Ride").
 
 Respond strictly with JSON matching this schema:
 {
   "isExpense": boolean,
   "categoryId": string,
+  "accountId": string | null,
   "label": string
 }
 `;
@@ -93,6 +102,7 @@ Respond strictly with JSON matching this schema:
           const parsed = JSON.parse(responseContent);
           
           suggestedCategory = parsed.categoryId;
+          suggestedAccount = parsed.accountId;
           suggestedLabel = parsed.isExpense === false 
             ? `⚠️ Ignore: ${parsed.label}` 
             : parsed.label;
@@ -109,6 +119,7 @@ Respond strictly with JSON matching this schema:
       date: data.date,
       status: 'pending',
       suggestedCategory,
+      suggestedAccount,
       suggestedLabel,
     });
 

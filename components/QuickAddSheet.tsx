@@ -12,7 +12,7 @@ export default function QuickAddSheet() {
   const [settings, setSettings] = useState<Settings | null>(null);
   
   const today = new Date().toISOString().split('T')[0];
-  const [form, setForm] = useState({ date: today, categoryId: '', amount: '', note: '' });
+  const [form, setForm] = useState({ date: today, categoryId: '', accountId: '', amount: '', note: '' });
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   // If on the /add page, hide the FAB because they are already there
@@ -22,6 +22,7 @@ export default function QuickAddSheet() {
     fetch('/api/settings').then(r => r.json()).then(s => {
       setSettings(s);
       if (s.categories?.length) setForm(f => ({ ...f, categoryId: s.categories[0].id }));
+      if (s.accounts?.length) setForm(f => ({ ...f, accountId: s.accounts[0].id }));
     });
   }, []);
 
@@ -69,7 +70,7 @@ export default function QuickAddSheet() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...form, amount: parseFloat(form.amount) }),
       });
-      setForm({ date: today, categoryId: settings?.categories[0]?.id ?? '', amount: '', note: '' });
+      setForm({ date: today, categoryId: settings?.categories[0]?.id ?? '', accountId: settings?.accounts?.[0]?.id ?? '', amount: '', note: '' });
       setIsOpen(false);
       // Trigger a soft refresh to update current page data
       router.refresh();
@@ -142,6 +143,19 @@ export default function QuickAddSheet() {
               ))}
             </select>
           </div>
+
+          {(settings?.accounts?.length ?? 0) > 0 && (
+            <div className="form-group" style={{ marginBottom: 16 }}>
+              <select className="form-select"
+                value={form.accountId}
+                onChange={e => setForm(f => ({ ...f, accountId: e.target.value }))}>
+                <option value="">Cash / None</option>
+                {settings?.accounts?.map(acc => (
+                  <option key={acc.id} value={acc.id}>{acc.name} {acc.last4Digits ? `(..${acc.last4Digits})` : ''}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="form-group" style={{ marginBottom: 24 }}>
             <input type="text" className="form-input"

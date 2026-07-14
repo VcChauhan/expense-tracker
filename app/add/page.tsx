@@ -17,11 +17,11 @@ export default function AddExpensePage() {
   const [confirmDialog, setConfirmDialog]   = useState<{ isOpen: boolean; id: string } | null>(null);
 
   const today = new Date().toISOString().split('T')[0];
-  const [form, setForm] = useState({ date: today, categoryId: '', amount: '', note: '' });
+  const [form, setForm] = useState({ date: today, categoryId: '', accountId: '', amount: '', note: '' });
   
   // For reviewing a suggestion in a popup
   const [reviewSuggestion, setReviewSuggestion] = useState<Suggestion | null>(null);
-  const [reviewForm, setReviewForm] = useState({ date: today, categoryId: '', amount: '', note: '' });
+  const [reviewForm, setReviewForm] = useState({ date: today, categoryId: '', accountId: '', amount: '', note: '' });
   const reviewDialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -30,6 +30,10 @@ export default function AddExpensePage() {
       if (s.categories?.length) {
         setForm(f => ({ ...f, categoryId: s.categories[0].id }));
         setReviewForm(f => ({ ...f, categoryId: s.categories[0].id }));
+      }
+      if (s.accounts?.length) {
+        setForm(f => ({ ...f, accountId: s.accounts[0].id }));
+        setReviewForm(f => ({ ...f, accountId: s.accounts[0].id }));
       }
     });
     fetchRecent();
@@ -86,7 +90,7 @@ export default function AddExpensePage() {
         });
         showToast('Expense added!', 'success');
       }
-      setForm({ date: today, categoryId: settings?.categories[0]?.id ?? '', amount: '', note: '' });
+      setForm({ date: today, categoryId: settings?.categories[0]?.id ?? '', accountId: settings?.accounts?.[0]?.id ?? '', amount: '', note: '' });
       fetchRecent();
     } catch { showToast('Something went wrong', 'error'); }
     finally   { setLoading(false); }
@@ -94,7 +98,7 @@ export default function AddExpensePage() {
 
   function handleEdit(exp: Expense) {
     setEditingId(exp._id);
-    setForm({ date: exp.date, categoryId: exp.categoryId, amount: String(exp.amount), note: exp.note });
+    setForm({ date: exp.date, categoryId: exp.categoryId, accountId: exp.accountId || '', amount: String(exp.amount), note: exp.note });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -113,7 +117,7 @@ export default function AddExpensePage() {
 
   function cancelEdit() {
     setEditingId(null);
-    setForm({ date: today, categoryId: settings?.categories[0]?.id ?? '', amount: '', note: '' });
+    setForm({ date: today, categoryId: settings?.categories[0]?.id ?? '', accountId: settings?.accounts?.[0]?.id ?? '', amount: '', note: '' });
   }
 
   async function handleActionSuggestion(sug: Suggestion, action: 'approve' | 'reject') {
@@ -131,6 +135,7 @@ export default function AddExpensePage() {
     setReviewForm({
       date: sug.date,
       categoryId: sug.suggestedCategory || settings?.categories[0]?.id || '',
+      accountId: settings?.accounts?.[0]?.id || '',
       amount: String(sug.amount),
       note: sug.suggestedLabel || `SMS: ${sug.smsBody.substring(0, 30)}...`,
     });
@@ -248,6 +253,20 @@ export default function AddExpensePage() {
             </select>
           </div>
 
+          {(settings?.accounts?.length ?? 0) > 0 && (
+            <div className="form-group">
+              <label className="form-label" htmlFor="expense-account">Payment Method</label>
+              <select id="expense-account" className="form-select"
+                value={form.accountId}
+                onChange={e => setForm(f => ({ ...f, accountId: e.target.value }))}>
+                <option value="">Cash / None</option>
+                {settings?.accounts?.map(acc => (
+                  <option key={acc.id} value={acc.id}>{acc.name} {acc.last4Digits ? `(..${acc.last4Digits})` : ''}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div className="form-group">
             <label className="form-label" htmlFor="expense-amount">Amount (₹)</label>
             <input id="expense-amount" type="number" min="0" step="0.01" className="form-input"
@@ -334,7 +353,15 @@ export default function AddExpensePage() {
                           {exp.note}
                         </div>
                       ) : null}
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>{exp.date}</div>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 3 }}>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{exp.date}</div>
+                        {exp.accountId && settings?.accounts?.find(a => a.id === exp.accountId) && (
+                          <div style={{ fontSize: 10, color: 'var(--text-secondary)', background: 'var(--bg-input)', padding: '2px 6px', borderRadius: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: settings.accounts.find(a => a.id === exp.accountId)!.color }} />
+                            {settings.accounts.find(a => a.id === exp.accountId)!.name}
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     {/* Amount + actions stacked on right */}
@@ -429,6 +456,19 @@ export default function AddExpensePage() {
               ))}
             </select>
           </div>
+
+          {(settings?.accounts?.length ?? 0) > 0 && (
+            <div className="form-group" style={{ marginBottom: 16 }}>
+              <select className="form-select"
+                value={reviewForm.accountId}
+                onChange={e => setReviewForm(f => ({ ...f, accountId: e.target.value }))}>
+                <option value="">Cash / None</option>
+                {settings?.accounts?.map(acc => (
+                  <option key={acc.id} value={acc.id}>{acc.name} {acc.last4Digits ? `(..${acc.last4Digits})` : ''}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="form-group" style={{ marginBottom: 24 }}>
             <input type="text" className="form-input"

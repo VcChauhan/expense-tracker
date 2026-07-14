@@ -23,6 +23,7 @@ export default function ExpensesPage() {
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
   const [selectedYear, setSelectedYear]   = useState(now.getFullYear());
   const [filterCategory, setFilterCategory] = useState('');
+  const [filterAccount, setFilterAccount] = useState('');
   const [sortBy, setSortBy]               = useState<SortField>('date');
   const [sortDir, setSortDir]             = useState<SortDir>('desc');
 
@@ -48,6 +49,7 @@ export default function ExpensesPage() {
       // For monthly view, add month param
       if (viewMode === 'monthly') params.set('month', String(selectedMonth));
       if (filterCategory) params.set('categoryId', filterCategory);
+      if (filterAccount) params.set('accountId', filterAccount);
 
       const res  = await fetch(`/api/expenses?${params}`);
       const data = await res.json();
@@ -55,7 +57,7 @@ export default function ExpensesPage() {
     } finally {
       setLoading(false);
     }
-  }, [viewMode, selectedMonth, selectedYear, filterCategory]);
+  }, [viewMode, selectedMonth, selectedYear, filterCategory, filterAccount]);
 
   useEffect(() => { fetchExpenses(); }, [fetchExpenses]);
 
@@ -167,7 +169,15 @@ export default function ExpensesPage() {
                 {exp.note}
               </div>
             ) : null}
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>{exp.date}</div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 3 }}>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{exp.date}</div>
+              {exp.accountId && settings?.accounts?.find(a => a.id === exp.accountId) && (
+                <div style={{ fontSize: 10, color: 'var(--text-secondary)', background: 'var(--bg-input)', padding: '2px 6px', borderRadius: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: settings.accounts.find(a => a.id === exp.accountId)!.color }} />
+                  {settings.accounts.find(a => a.id === exp.accountId)!.name}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Amount + actions stacked on right */}
@@ -201,8 +211,8 @@ export default function ExpensesPage() {
         <p className="page-subtitle">All your recorded expenses</p>
       </div>
 
-      {/* Controls Area (2x2 Grid) */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 }}>
+      {/* Controls Area (Responsive Grid) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 24 }}>
         
         {/* Top Left: Period */}
         <div className="period-selector" style={{ display: 'flex', width: '100%', overflow: 'hidden' }}>
@@ -248,7 +258,19 @@ export default function ExpensesPage() {
           ))}
         </select>
 
-        {/* Bottom Right: Total */}
+        <select
+          className="form-select"
+          style={{ width: '100%', margin: 0, fontSize: 13, padding: '10px 30px 10px 12px' }}
+          value={filterAccount}
+          onChange={e => setFilterAccount(e.target.value)}
+        >
+          <option value="">All Accounts</option>
+          {(settings?.accounts ?? []).map(a => (
+            <option key={a.id} value={a.id}>{a.name}</option>
+          ))}
+        </select>
+
+        {/* Total */}
         <div className="card card-sm" style={{ padding: '8px 12px', background: 'var(--md-sys-color-surface-container-high)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
           <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{filtered.length} entries</span>
           <span style={{ fontWeight: 700, color: 'var(--danger)', fontSize: 14 }}>{formatINR(totalSpent)}</span>
@@ -322,6 +344,16 @@ export default function ExpensesPage() {
                 onChange={e => setEditingExp({ ...editingExp, categoryId: e.target.value })}>
                 {(settings?.categories ?? []).map(c => (
                   <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Payment Method</label>
+              <select className="form-select" value={editingExp.accountId || ''}
+                onChange={e => setEditingExp({ ...editingExp, accountId: e.target.value })}>
+                <option value="">Cash / None</option>
+                {(settings?.accounts ?? []).map(a => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
                 ))}
               </select>
             </div>

@@ -7,7 +7,7 @@ import RateLimit from '@/lib/models/RateLimit';
 import ChatHistory from '@/lib/models/ChatHistory';
 import OpenAI from "openai";
 
-const ALLOWED_ACTIONS = ['query_expenses', 'top_expenses', 'affordability_check', 'general_advice'];
+const ALLOWED_ACTIONS = ['query_expenses', 'top_expenses', 'affordability_check', 'general_advice', 'add_expense'];
 
 function escapeRegExp(string: string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
@@ -66,7 +66,8 @@ export async function POST(req: Request) {
 
     // 3. System Prompt & Tool Calling
     const settings = await Settings.findOne();
-    const categoriesList = settings?.categories?.map((c: any) => c.name).join(', ') || '';
+    const categoriesList = settings?.categories?.map((c: any) => `${c.name} (ID: ${c.id})`).join(', ') || 'No categories';
+    const accountsList = settings?.accounts?.map((a: any) => `${a.name} ${a.last4Digits ? `(..${a.last4Digits})` : ''} (ID: ${a.id})`).join(', ') || 'No accounts';
 
     const systemPrompt = `
 You are a highly intelligent personal finance assistant integrated into an Expense Tracker app.
@@ -82,20 +83,38 @@ Schemas:
 2. top_expenses: For asking what the biggest expenses are.
 { "action": "top_expenses", "filters": { "startDate": "YYYY-MM-DD", "endDate": "YYYY-MM-DD" }, "limit": 5 }
 
-3. affordability_check: For asking if they can afford an upcoming expense.
-{ "action": "affordability_check", "params": { "targetAmount": 10000, "targetDate": "YYYY-MM-DD" } }
-
-4. general_advice: For general greetings or chat.
-{ "action": "general_advice", "params": { "response": "Hello!" } }
+You are a highly intelligent and helpful personal finance assistant.
+Your goal is to help the user understand their expenses and manage their budget.
 
 Rules:
 - The user's exact categories are: ${categoriesList}.
-- IMPORTANT: If the user asks about a general topic (like "food", "dining"), you MUST intuitively map it to the closest matching category from the list above (e.g., "Groceries") and pass it as the "category" filter.
+- The user's exact accounts/payment methods are: ${accountsList}.
+- IMPORTANT: If the user asks about a general topic (like "food", "dining"), you MUST intuitively map it to the closest matching category ID (like "Groceries"). Do NOT just use the keyword as a category filter.
 - ONLY use exact category names from the list for the "category" filter.
 - If the user asks for "highest", "biggest", or "top" expenses, you MUST use the "top_expenses" action.
 - If the user asks a question relative to time (e.g. "this year", "last month"), use today's date (${now.toISOString().split('T')[0]}) to calculate exact YYYY-MM-DD start/end dates.
 - Do NOT include any text outside the JSON object.
 - The user's message is: "${message}"
+
+Action Schema:
+{
+  "action": "string",
+  "filters": { ... },
+  "params": { 
+     "add_expense": {
+        "type": "object",
+        "description": "Call this to add a new expense to the database. Useful when the user says 'I spent X on Y' or pastes a bank SMS.",
+        "properties": {
+          "amount": { "type": "number", "description": "The amount spent." },
+          "note": { "type": "string", "description": "A short note or vendor name (max 4 words)." },
+          "categoryId": { "type": "string", "description": "The closest matching category ID from the user's categories list." },
+          "accountId": { "type": "string", "description": "The closest matching account ID from the user's accounts list, if detected from text (e.g. matching last 4 digits). If none found, leave null." },
+          "date": { "type": "string", "description": "The date of the transaction in YYYY-MM-DD format. Defaults to today." }
+        },
+        "required": ["amount", "categoryId"]
+      }
+   }
+}
 `;
 
     const client = new OpenAI({
@@ -195,6 +214,29 @@ Rules:
     }
     else if (action === 'general_advice') {
       finalContent = parsed.params?.response || "I'm here to help with your finances!";
+    }
+    else if (action === 'add_expense') {
+      const { amount, note, categoryId, accountId, date } = parsed.params;
+      
+      const cat = settings?.categories?.find((c: any) => c.id === categoryId);
+      const acc = settings?.accounts?.find((a: any) => a.id === accountId);
+      const categoryName = cat ? cat.name : (settings?.categories?.[0]?.name || 'Unknown');
+      const emoji = cat ? cat.emoji : '📝';
+
+      finalContent = "I've drafted an expense for you. Please confirm the details below.";
+      finalMetadata = { 
+        type: 'draft_expense', 
+        data: { 
+          amount: parseFloat(amount) || 0, 
+          note: note || 'Expense', 
+          categoryId: cat ? cat.id : (settings?.categories?.[0]?.id || ''),
+          accountId: acc ? acc.id : null,
+          categoryName,
+          accountName: acc ? acc.name : 'Cash / None',
+          emoji,
+          date: date || now.toISOString().split('T')[0] 
+        } 
+      };
     }
 
     // Save AI response

@@ -7,6 +7,7 @@ export interface ISuggestion extends Document {
   date: string;
   status: 'pending' | 'approved' | 'rejected';
   suggestedCategory?: string; // Optional: an initial guess for the category ID
+  suggestedAccount?: string;  // Optional: an initial guess for the account ID
   suggestedLabel?: string;    // Optional: AI-generated transaction label
 }
 
@@ -17,6 +18,7 @@ const SuggestionSchema = new Schema<ISuggestion>({
   date: { type: String, required: true },
   status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
   suggestedCategory: { type: String, required: false },
+  suggestedAccount: { type: String, required: false },
   suggestedLabel: { type: String, required: false },
 }, { timestamps: true });
 
