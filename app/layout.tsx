@@ -1,15 +1,15 @@
 import type { Metadata, Viewport } from 'next';
-import { Roboto } from 'next/font/google';
+import { Inter } from 'next/font/google';
 import './globals.css';
 import Sidebar from '@/components/Sidebar';
 import BottomNav from '@/components/BottomNav';
 import QuickAddSheet from '@/components/QuickAddSheet';
 
-const roboto = Roboto({
-  weight: ['400', '500', '700'],
+const inter = Inter({
+  weight: ['300', '400', '500', '600', '700', '800', '900'],
   subsets: ['latin'],
   display: 'swap',
-  variable: '--font-roboto',
+  variable: '--font-inter',
 });
 
 export const metadata: Metadata = {
@@ -32,13 +32,13 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   viewportFit: 'cover',
-  themeColor: '#6366f1',
+  themeColor: '#0A0A0F',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={roboto.variable}>
+      <body className={inter.variable} style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
         <div className="app-layout">
           <Sidebar />
           <main className="main-content">
