@@ -3,7 +3,6 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import Sidebar from '@/components/Sidebar';
 import BottomNav from '@/components/BottomNav';
-import MobileHeader from '@/components/MobileHeader';
 import QuickAddSheet from '@/components/QuickAddSheet';
 
 const inter = Inter({
@@ -43,7 +42,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <div className="app-layout">
           <Sidebar />
           <div className="main-content">
-            <MobileHeader />
             <main>
               {children}
             </main>

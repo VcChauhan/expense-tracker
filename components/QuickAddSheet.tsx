@@ -33,9 +33,15 @@ export default function QuickAddSheet() {
 
     if (isOpen) {
       dialog.showModal();
+      document.body.style.overflow = 'hidden';
     } else {
       dialog.close();
+      document.body.style.overflow = '';
     }
+
+    return () => {
+      document.body.style.overflow = '';
+    };
   }, [isOpen]);
 
   const latestForm = useRef(form);
@@ -224,6 +230,29 @@ export default function QuickAddSheet() {
               </div>
             </div>
           )}
+
+          {/* Note and Date Inputs */}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+            <input 
+              type="date"
+              value={form.date}
+              onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
+              style={{
+                flexShrink: 0, padding: '12px', borderRadius: 'var(--r-md)', background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                color: 'var(--text-primary)', fontSize: 14, outline: 'none'
+              }}
+            />
+            <input 
+              type="text"
+              placeholder="Notes (optional)"
+              value={form.note}
+              onChange={e => setForm(f => ({ ...f, note: e.target.value }))}
+              style={{
+                flex: 1, padding: '12px', borderRadius: 'var(--r-md)', background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                color: 'var(--text-primary)', fontSize: 14, outline: 'none', minWidth: 0
+              }}
+            />
+          </div>
 
           {/* Keypad */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 24 }}>
