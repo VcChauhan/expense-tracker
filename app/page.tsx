@@ -10,6 +10,7 @@ import { CalendarDays, PlusCircle, Wallet, CreditCard, PiggyBank, Target, Trendi
 import { formatINR, MONTHS, SHORT_MONTHS, getBudgetStatus, Settings, Expense } from '@/lib/types';
 import AiInsights from '@/components/AiInsights';
 import { CategoryIcon } from '@/components/CategoryIcon';
+import { FocusWheel, WheelData } from '@/components/FocusWheel';
 
 interface CategoryTotal { _id: string; total: number; count: number; }
 interface MonthTotal    { _id: string; total: number; count: number; }
@@ -52,83 +53,6 @@ const PieTooltip = ({ active, payload }: any) => {
     </div>
   );
 };
-
-// ── FocusWheel SVG ──────────────────────────────────────────────────────────
-function FocusWheel({ categories, spentMap, totalSpent, totalBudget, size = 200 }: { categories: any[], spentMap: Record<string, number>, totalSpent: number, totalBudget: number, size?: number }) {
-  const strokeWidth = 16;
-  const radius = (size - strokeWidth) / 2;
-  const center = size / 2;
-  const gapAngle = 4; // degrees
-  const gapRad = (gapAngle * Math.PI) / 180;
-  
-  const budgetPct = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
-  const statusColor = budgetPct >= 100 ? 'var(--danger)' : budgetPct >= 80 ? 'var(--warning)' : 'var(--success)';
-
-  let currentAngle = -Math.PI / 2; // Start at top
-  const activeCategories = categories.filter(c => c.monthlyBudget > 0);
-  
-  if (activeCategories.length === 0) {
-    return (
-      <div style={{ width: size, height: size, position: 'relative' }}>
-        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-           <circle cx={center} cy={center} r={radius} fill="none" stroke="var(--border)" strokeWidth={strokeWidth} />
-        </svg>
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          <span style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-primary)' }}>{formatINR(totalSpent)}</span>
-          <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>of {formatINR(totalBudget)} budget</span>
-          <span style={{ fontSize: 12, fontWeight: 600, color: statusColor, marginTop: 4 }}>{budgetPct.toFixed(0)}% used</span>
-        </div>
-      </div>
-    );
-  }
-
-  const segmentAngle = (2 * Math.PI - (activeCategories.length * gapRad)) / activeCategories.length;
-
-  return (
-    <div style={{ width: size, height: size, position: 'relative' }}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-        {activeCategories.map((cat, i) => {
-          const cap = cat.monthlyBudget;
-          const spent = spentMap[cat.id] || 0;
-          const pct = cap > 0 ? Math.min(spent / cap, 1) : 0;
-          
-          const startX = center + radius * Math.cos(currentAngle);
-          const startY = center + radius * Math.sin(currentAngle);
-          
-          const trackEndAngle = currentAngle + segmentAngle;
-          const trackEndX = center + radius * Math.cos(trackEndAngle);
-          const trackEndY = center + radius * Math.sin(trackEndAngle);
-          const largeArc = segmentAngle > Math.PI ? 1 : 0;
-          
-          const trackPath = `M ${startX} ${startY} A ${radius} ${radius} 0 ${largeArc} 1 ${trackEndX} ${trackEndY}`;
-          
-          const fillAngle = currentAngle + (segmentAngle * pct);
-          const fillEndX = center + radius * Math.cos(fillAngle);
-          const fillEndY = center + radius * Math.sin(fillAngle);
-          const fillLargeArc = (segmentAngle * pct) > Math.PI ? 1 : 0;
-          
-          const fillPath = pct > 0 ? `M ${startX} ${startY} A ${radius} ${radius} 0 ${fillLargeArc} 1 ${fillEndX} ${fillEndY}` : '';
-          
-          currentAngle = trackEndAngle + gapRad;
-
-          return (
-            <g key={cat.id}>
-              <path d={trackPath} fill="none" stroke={cat.color} strokeWidth={strokeWidth} strokeOpacity={0.15} strokeLinecap="round" />
-              {pct > 0 && (
-                <path d={fillPath} fill="none" stroke={cat.color} strokeWidth={strokeWidth} strokeLinecap="round" />
-              )}
-            </g>
-          );
-        })}
-      </svg>
-      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-        <span style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.5px' }}>{formatINR(totalSpent)}</span>
-        <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>of {formatINR(totalBudget)} budget</span>
-        <span style={{ fontSize: 13, fontWeight: 600, color: statusColor, marginTop: 4 }}>{budgetPct.toFixed(0)}% used</span>
-      </div>
-    </div>
-  );
-}
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -271,47 +195,48 @@ export default function DashboardPage() {
       ) : (
         <>
           {/* ── Hero FocusWheel Card ── */}
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 20, padding: 24, marginBottom: 24, display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
-            <FocusWheel categories={settings?.categories ?? []} spentMap={activeTotalsMap} totalSpent={displaySpent} totalBudget={displayBudget} size={200} />
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginTop: 24, width: '100%' }}>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 11, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Income</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--success)' }}>{formatINR(displayIncome)}</div>
-              </div>
-              <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border)', borderRight: '1px solid var(--border)', padding: '0 24px' }}>
-                <div style={{ fontSize: 11, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Budget</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{formatINR(displayBudget)}</div>
-              </div>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 11, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Safe/Day</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: safePerDay > 0 ? 'var(--success)' : 'var(--danger)' }}>₹{Math.max(0, safePerDay).toFixed(0)}</div>
-              </div>
+          {/* ── Hero FocusWheel Card ── */}
+          <div style={{ position: 'relative', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 20, padding: '48px 24px', marginBottom: 24, display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+            
+            {/* Top Left Complication */}
+            <div style={{ position: 'absolute', top: 24, left: 24, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+              <span style={{ fontSize: 11, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Income</span>
+              <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--success)' }}>{formatINR(displayIncome)}</span>
             </div>
-          </div>
 
-          {/* ── Stat Cards Row ── */}
-          <div style={{ display: 'flex', gap: 12, marginBottom: 24, overflowX: 'auto', paddingBottom: 4 }}>
-            <div style={{ flex: 1, minWidth: 100, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, padding: 14 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--success)', marginBottom: 8 }}>
-                <TrendingUp size={16} />
-                <span style={{ fontSize: 12, fontWeight: 600 }}>Income</span>
-              </div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--success)' }}>{formatINR(displayIncome)}</div>
+            {/* Top Right Complication */}
+            <div style={{ position: 'absolute', top: 24, right: 24, display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+              <span style={{ fontSize: 11, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Safe/Day</span>
+              <span style={{ fontSize: 16, fontWeight: 700, color: safePerDay > 0 ? 'var(--success)' : 'var(--danger)' }}>₹{Math.max(0, safePerDay).toFixed(0)}</span>
             </div>
-            <div style={{ flex: 1, minWidth: 100, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, padding: 14 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-secondary)', marginBottom: 8 }}>
-                <CreditCard size={16} />
-                <span style={{ fontSize: 12, fontWeight: 600 }}>Spent</span>
-              </div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)' }}>{formatINR(displaySpent)}</div>
+
+            {/* Bottom Left Complication */}
+            <div style={{ position: 'absolute', bottom: 24, left: 24, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+              <span style={{ fontSize: 11, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Saved</span>
+              <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--accent)' }}>{formatINR(displaySavings)}</span>
             </div>
-            <div style={{ flex: 1, minWidth: 100, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, padding: 14 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--accent)', marginBottom: 8 }}>
-                <PiggyBank size={16} />
-                <span style={{ fontSize: 12, fontWeight: 600 }}>Saved</span>
-              </div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--accent)' }}>{formatINR(displaySavings)}</div>
+
+            {/* Bottom Right Complication */}
+            <div style={{ position: 'absolute', bottom: 24, right: 24, display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+              <span style={{ fontSize: 11, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Limit</span>
+              <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>{formatINR(displayBudget)}</span>
             </div>
+
+            <FocusWheel 
+              data={(settings?.categories ?? []).map(cat => ({
+                label: cat.name,
+                icon: cat.name,
+                color: cat.color,
+                current: activeTotalsMap[cat.id] ?? 0,
+                limit: isAnnual ? cat.monthlyBudget * 12 : cat.monthlyBudget
+              }))} 
+              size={320}
+              strokeWidth={60}
+            >
+              <span style={{ fontSize: 36, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.5px' }}>{formatINR(displaySpent)}</span>
+              <span style={{ fontSize: 16, color: 'var(--text-secondary)', marginTop: 4 }}>of {formatINR(displayBudget)} budget</span>
+              <span style={{ fontSize: 16, fontWeight: 600, color: budgetPct >= 100 ? 'var(--danger)' : budgetPct >= 80 ? 'var(--warning)' : 'var(--success)', marginTop: 8 }}>{budgetPct.toFixed(0)}% used</span>
+            </FocusWheel>
           </div>
 
           {/* ── AI Insights Section ── */}
