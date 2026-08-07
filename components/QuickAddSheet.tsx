@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Settings } from '@/lib/types';
 import { useRouter, usePathname } from 'next/navigation';
+import { CategoryIcon } from './CategoryIcon';
 
 export default function QuickAddSheet() {
   const router = useRouter();
@@ -16,7 +17,7 @@ export default function QuickAddSheet() {
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   // If on the /add page, hide the FAB because they are already there
-  const isAddPage = pathname === '/add';
+  const isAddPage = pathname === '/add' || pathname === '/login';
 
   useEffect(() => {
     fetch('/api/settings').then(r => r.json()).then(s => {
@@ -37,7 +38,17 @@ export default function QuickAddSheet() {
     }
   }, [isOpen]);
 
-  // Handle light dismiss
+  const latestForm = useRef(form);
+  useEffect(() => {
+    latestForm.current = form;
+  }, [form]);
+
+  const latestSubmit = useRef(handleSubmit);
+  useEffect(() => {
+    latestSubmit.current = handleSubmit;
+  }, [handleSubmit]);
+
+  // Handle light dismiss and keyboard events
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
@@ -52,17 +63,40 @@ export default function QuickAddSheet() {
         setIsOpen(false); // clicked backdrop
       }
     };
+    
+    const handleGlobalOpen = () => {
+      setIsOpen(true);
+    };
 
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!isOpen) return;
+      
+      const currentAmount = latestForm.current.amount;
+      if (e.key >= '0' && e.key <= '9') {
+        setForm(f => ({ ...f, amount: f.amount + e.key }));
+      } else if (e.key === 'Backspace') {
+        setForm(f => ({ ...f, amount: f.amount.slice(0, -1) }));
+      } else if (e.key === '.' || e.key === ',') {
+        setForm(f => ({ ...f, amount: f.amount.includes('.') ? f.amount : (f.amount ? f.amount + '.' : '0.') }));
+      } else if (e.key === 'Enter') {
+        latestSubmit.current();
+      }
+    };
+
+    window.addEventListener('open-quick-add', handleGlobalOpen);
+    window.addEventListener('keydown', handleKeyDown);
     dialog.addEventListener('cancel', handleCancel);
     dialog.addEventListener('click', handleClick);
     return () => {
+      window.removeEventListener('open-quick-add', handleGlobalOpen);
+      window.removeEventListener('keydown', handleKeyDown);
       dialog.removeEventListener('cancel', handleCancel);
       dialog.removeEventListener('click', handleClick);
     };
-  }, []);
+  }, [isOpen]);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSubmit(e?: React.FormEvent) {
+    if (e) e.preventDefault();
     if (!form.amount || parseFloat(form.amount) <= 0) return;
     setLoading(true);
     try {
@@ -72,7 +106,6 @@ export default function QuickAddSheet() {
       });
       setForm({ date: today, categoryId: settings?.categories[0]?.id ?? '', accountId: settings?.accounts?.[0]?.id ?? '', amount: '', note: '' });
       setIsOpen(false);
-      // Trigger a soft refresh to update current page data
       router.refresh();
     } catch (err) {
       console.error(err);
@@ -81,22 +114,22 @@ export default function QuickAddSheet() {
     }
   }
 
+  function handleKey(key: string) {
+    if (key === 'backspace') {
+      setForm(f => ({ ...f, amount: f.amount.slice(0, -1) }));
+    } else if (key === '.') {
+      if (!form.amount.includes('.')) {
+        setForm(f => ({ ...f, amount: f.amount ? f.amount + '.' : '0.' }));
+      }
+    } else {
+      setForm(f => ({ ...f, amount: f.amount + key }));
+    }
+  }
+
   if (isAddPage) return null;
 
   return (
     <>
-      <button 
-        onClick={() => setIsOpen(true)}
-        className="fab"
-        style={{
-          position: 'fixed',
-          bottom: '100px', // Above bottom nav
-          right: '24px',
-        }}
-      >
-        +
-      </button>
-
       <dialog 
         ref={dialogRef}
         style={{
@@ -104,69 +137,114 @@ export default function QuickAddSheet() {
           width: '100%',
           maxWidth: '500px',
           border: 'none',
-          borderRadius: '28px 28px 0 0',
-          background: 'var(--md-sys-color-surface-container-low)',
-          padding: '24px',
-          color: 'var(--md-sys-color-on-surface)',
-          boxShadow: 'var(--elevation-5)',
+          borderRadius: '24px 24px 0 0',
+          background: 'var(--bg-card)',
+          padding: '24px 20px',
+          color: 'var(--text-primary)',
+          boxShadow: 'var(--shadow-sm)',
         }}
       >
-        {/* M3 Drag Handle (visual only) */}
-        <div style={{ width: 32, height: 4, borderRadius: 2, background: 'var(--md-sys-color-outline-variant)', margin: '0 auto 24px auto' }} />
+        <div style={{ width: 40, height: 4, borderRadius: 2, background: 'var(--border)', margin: '0 auto 24px auto' }} />
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <h2 style={{ fontSize: 22, fontWeight: 400, margin: 0, color: 'var(--md-sys-color-on-surface)' }}>Quick Add</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+          <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Quick Add</h2>
           <button 
             type="button"
             onClick={() => setIsOpen(false)}
-            style={{ background: 'transparent', border: 'none', color: 'var(--md-sys-color-on-surface-variant)', fontSize: 24, cursor: 'pointer' }}
+            style={{ background: 'var(--bg-elevated)', border: 'none', color: 'var(--text-secondary)', width: 32, height: 32, borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600 }}
           >
-            ×
+            ✕
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
-            <div className="form-group" style={{ margin: 0, flex: 1 }}>
-              <input type="number" step="0.01" className="form-input" style={{ fontSize: 24, fontWeight: 700, padding: '16px' }}
-                placeholder="₹ 0.00" value={form.amount}
-                onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} required autoFocus />
+        <div>
+          {/* Amount Display */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24, gap: 8, background: 'var(--bg-elevated)', padding: '16px', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)' }}>
+            <span style={{ fontSize: 24, fontWeight: 500, color: 'var(--text-secondary)' }}>₹</span>
+            <div style={{ fontSize: 40, fontWeight: 700, color: 'var(--text-primary)' }}>
+              {form.amount || '0'}
             </div>
           </div>
-          
-          <div className="form-group" style={{ marginBottom: 16 }}>
-            <select className="form-select"
-              value={form.categoryId}
-              onChange={e => setForm(f => ({ ...f, categoryId: e.target.value }))} required>
-              {(settings?.categories ?? []).map(cat => (
-                <option key={cat.id} value={cat.id}>{cat.emoji} {cat.name}</option>
-              ))}
-            </select>
+
+          {/* Category Chips */}
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 8, scrollbarWidth: 'none', margin: '0 -4px', paddingLeft: 4, paddingRight: 4 }}>
+              {(settings?.categories ?? []).map(cat => {
+                const isSelected = form.categoryId === cat.id;
+                return (
+                  <button 
+                    key={cat.id} type="button"
+                    onClick={() => setForm(f => ({ ...f, categoryId: cat.id }))}
+                    style={{ 
+                      padding: '8px 12px', borderRadius: 'var(--r-full)', fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap',
+                      background: isSelected ? 'var(--accent)' : 'var(--bg-elevated)',
+                      border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
+                      color: isSelected ? '#fff' : 'var(--text-secondary)',
+                      display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', flexShrink: 0
+                    }}
+                  >
+                    <span><CategoryIcon name={cat.name} size={14} color={isSelected ? '#fff' : 'var(--text-secondary)'} /></span>
+                    {cat.name}
+                  </button>
+                )
+              })}
+            </div>
           </div>
 
+          {/* Account Chips */}
           {(settings?.accounts?.length ?? 0) > 0 && (
-            <div className="form-group" style={{ marginBottom: 16 }}>
-              <select className="form-select"
-                value={form.accountId}
-                onChange={e => setForm(f => ({ ...f, accountId: e.target.value }))}>
-                <option value="">Cash / None</option>
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 8, scrollbarWidth: 'none', margin: '0 -4px', paddingLeft: 4, paddingRight: 4 }}>
+                <button 
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, accountId: '' }))}
+                  style={{
+                    padding: '8px 12px', borderRadius: 'var(--r-full)', fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap',
+                    background: form.accountId === '' ? 'var(--accent)' : 'var(--bg-elevated)',
+                    border: `1px solid ${form.accountId === '' ? 'var(--accent)' : 'var(--border)'}`,
+                    color: form.accountId === '' ? '#fff' : 'var(--text-secondary)', cursor: 'pointer', flexShrink: 0
+                  }}
+                >Cash</button>
                 {settings?.accounts?.map(acc => (
-                  <option key={acc.id} value={acc.id}>{acc.name} {acc.last4Digits ? `(..${acc.last4Digits})` : ''}</option>
+                  <button 
+                    key={acc.id} type="button"
+                    onClick={() => setForm(f => ({ ...f, accountId: acc.id }))}
+                    style={{
+                      padding: '8px 12px', borderRadius: 'var(--r-full)', fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap',
+                      background: form.accountId === acc.id ? 'var(--accent)' : 'var(--bg-elevated)',
+                      border: `1px solid ${form.accountId === acc.id ? 'var(--accent)' : 'var(--border)'}`,
+                      color: form.accountId === acc.id ? '#fff' : 'var(--text-secondary)',
+                      display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', flexShrink: 0
+                    }}
+                  >
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: form.accountId === acc.id ? '#fff' : acc.color }}></span>
+                    {acc.name}
+                  </button>
                 ))}
-              </select>
+              </div>
             </div>
           )}
 
-          <div className="form-group" style={{ marginBottom: 24 }}>
-            <input type="text" className="form-input"
-              placeholder="Note (optional)" value={form.note}
-              onChange={e => setForm(f => ({ ...f, note: e.target.value }))} />
+          {/* Keypad */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 24 }}>
+            {['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'backspace'].map(key => (
+              <button
+                key={key} type="button"
+                onClick={() => handleKey(key)}
+                style={{
+                  height: 48, borderRadius: 'var(--r-lg)', background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                  color: 'var(--text-primary)', fontSize: 20, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
+                }}
+              >
+                {key === 'backspace' ? '⌫' : key}
+              </button>
+            ))}
           </div>
 
-          <button type="submit" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '14px' }} disabled={loading}>
-            {loading ? <span className="spinner" style={{ width: 16, height: 16 }} /> : 'Add Expense'}
+          <button onClick={() => handleSubmit()} style={{ width: '100%', background: 'linear-gradient(135deg, var(--accent), #5B4FE0)', color: '#fff', border: 'none', borderRadius: 'var(--r-full)', padding: '16px', fontSize: 16, fontWeight: 600, cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }} disabled={loading || !form.amount}>
+            {loading ? <span className="spinner" style={{ width: 16, height: 16, borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#fff' }} /> : 'Save Expense'}
           </button>
-        </form>
+        </div>
       </dialog>
     </>
   );

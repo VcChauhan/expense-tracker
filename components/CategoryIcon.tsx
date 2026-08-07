@@ -53,18 +53,34 @@ const ICON_RULES = [
   { keywords: ['misc', 'other'], icon: MoreHorizontal },
 ];
 
-export function CategoryIcon({ name, note, size = 18, color }: { name: string; note?: string; size?: number; color?: string }) {
+export function CategoryIcon({ name, note, size = 18, color, inList = false }: { name: string; note?: string; size?: number; color?: string; inList?: boolean }) {
   const n = (name || '').toLowerCase();
   const txt = note ? (note + ' ' + n).toLowerCase() : n;
   
-  // Find the first matching rule
+  let IconComp = Tag;
   for (const rule of ICON_RULES) {
     if (rule.keywords.some(kw => txt.includes(kw))) {
-      const IconComp = rule.icon;
-      return <IconComp size={size} color={color} />;
+      IconComp = rule.icon;
+      break;
     }
   }
 
-  // Final fallback
-  return <Tag size={size} color={color} />;
+  const icon = <IconComp size={size} color={color || "currentColor"} />;
+
+  if (inList) {
+    return (
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        width: size * 2.2, height: size * 2.2,
+        borderRadius: '50%',
+        background: color ? `${color}1A` : 'var(--bg-card)',
+        color: color || 'var(--text-primary)',
+        flexShrink: 0
+      }}>
+        {icon}
+      </div>
+    );
+  }
+
+  return icon;
 }

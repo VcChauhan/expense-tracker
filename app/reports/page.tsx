@@ -2,21 +2,21 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, LineChart, Line, Legend,
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, LineChart, Line,
 } from 'recharts';
 import { formatINR, SHORT_MONTHS, MONTHS, Settings, AnnualAnalytics } from '@/lib/types';
-import { Wallet, CreditCard, PiggyBank, CalendarDays } from 'lucide-react';
+import { Wallet, CreditCard, PiggyBank, CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import AiInsights from '@/components/AiInsights';
 
 const ChartTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
-    <div style={{ background: 'rgba(22,22,31,0.95)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '10px 16px', backdropFilter: 'blur(16px)' }}>
-      <p style={{ color: 'rgba(240,240,255,0.5)', fontSize: 11, marginBottom: 6, fontWeight: 600 }}>{label}</p>
+    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '10px 16px', boxShadow: '0 4px 20px rgba(0,0,0,0.2)' }}>
+      <p style={{ color: 'var(--text-muted)', fontSize: 11, marginBottom: 6, fontWeight: 600 }}>{label}</p>
       {payload.map((p: any, i: number) => (
-        <p key={i} style={{ color: p.color, fontWeight: 700, fontSize: 13 }}>{p.name}: {formatINR(p.value)}</p>
+        <p key={i} style={{ color: p.color || 'var(--text-primary)', fontWeight: 700, fontSize: 13 }}>{p.name}: {formatINR(p.value)}</p>
       ))}
     </div>
   );
@@ -44,9 +44,7 @@ export default function ReportsPage() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   if (loading) return (
-    <div className="page-container">
-      <div className="loading-overlay"><div className="spinner" style={{ width: 32, height: 32 }} /> Loading reports…</div>
-    </div>
+    <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Loading reports…</div>
   );
 
   const months = SHORT_MONTHS;
@@ -81,183 +79,144 @@ export default function ReportsPage() {
   const annualSavings = annualSalary - grandTotal;
 
   return (
-    <div className="page-container">
-      {/* ── Header ── */}
-      <div className="page-header mb-32">
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap' }}>
-          <div>
-            <h1 className="page-title">Reports</h1>
-            <p className="page-subtitle">Annual spending analysis and trends</p>
+    <div style={{ minHeight: '100vh', background: 'var(--bg)', paddingBottom: 80 }}>
+      {/* Header */}
+      <div style={{ padding: '24px 16px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Reports</h1>
+        <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-card)', borderRadius: 9999, border: '1px solid var(--border)', padding: '2px 8px' }}>
+          <button onClick={() => setSelectedYear(y => y - 1)} style={{ background: 'none', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', padding: '4px 8px' }}><ChevronLeft size={16} /></button>
+          <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)', margin: '0 8px' }}>{selectedYear}</span>
+          <button onClick={() => setSelectedYear(y => y + 1)} style={{ background: 'none', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', padding: '4px 8px' }}><ChevronRight size={16} /></button>
+        </div>
+      </div>
+
+      {/* 2x2 Stat Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, padding: '0 16px 24px' }}>
+        <div style={{ background: 'var(--bg-card)', padding: 16, borderRadius: 16, border: '1px solid var(--border)' }}>
+          <div style={{ color: 'var(--success)', marginBottom: 8 }}><Wallet size={20} /></div>
+          <div style={{ color: 'var(--text-muted)', fontSize: 12, marginBottom: 4 }}>Annual Income</div>
+          <div style={{ color: 'var(--text-primary)', fontSize: 18, fontWeight: 700 }}>{formatINR(annualSalary)}</div>
+        </div>
+        <div style={{ background: 'var(--bg-card)', padding: 16, borderRadius: 16, border: '1px solid var(--border)' }}>
+          <div style={{ color: 'var(--danger)', marginBottom: 8 }}><CreditCard size={20} /></div>
+          <div style={{ color: 'var(--text-muted)', fontSize: 12, marginBottom: 4 }}>Total Spent</div>
+          <div style={{ color: 'var(--text-primary)', fontSize: 18, fontWeight: 700 }}>{formatINR(grandTotal)}</div>
+        </div>
+        <div style={{ background: 'var(--bg-card)', padding: 16, borderRadius: 16, border: '1px solid var(--border)' }}>
+          <div style={{ color: 'var(--accent)', marginBottom: 8 }}><PiggyBank size={20} /></div>
+          <div style={{ color: 'var(--text-muted)', fontSize: 12, marginBottom: 4 }}>Annual Savings</div>
+          <div style={{ color: 'var(--text-primary)', fontSize: 18, fontWeight: 700 }}>{formatINR(annualSavings)}</div>
+        </div>
+        <div style={{ background: 'var(--bg-card)', padding: 16, borderRadius: 16, border: '1px solid var(--border)' }}>
+          <div style={{ color: 'var(--warning)', marginBottom: 8 }}><CalendarDays size={20} /></div>
+          <div style={{ color: 'var(--text-muted)', fontSize: 12, marginBottom: 4 }}>Avg Monthly</div>
+          <div style={{ color: 'var(--text-primary)', fontSize: 18, fontWeight: 700 }}>{formatINR(grandTotal / 12)}</div>
+        </div>
+      </div>
+
+      {/* Cash Flow Chart */}
+      <div style={{ padding: '0 16px 24px' }}>
+        <div style={{ background: 'var(--bg-card)', borderRadius: 20, padding: '20px 16px', border: '1px solid var(--border)' }}>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 16 }}>Cash Flow</h2>
+          <ResponsiveContainer width="100%" height={240}>
+            <AreaChart data={monthBarData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="var(--success)" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="var(--success)" stopOpacity={0}/>
+                </linearGradient>
+                <linearGradient id="colorSpent" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="var(--accent)" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+              <XAxis dataKey="month" tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
+              <Tooltip content={<ChartTooltip />} />
+              <Area type="monotone" dataKey="Income" stroke="var(--success)" strokeWidth={2} fillOpacity={1} fill="url(#colorIncome)" />
+              <Area type="monotone" dataKey="Spent" stroke="var(--accent)" strokeWidth={2} fillOpacity={1} fill="url(#colorSpent)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Category Trends */}
+      <div style={{ padding: '0 16px 24px' }}>
+        <div style={{ background: 'var(--bg-card)', borderRadius: 20, padding: '20px 16px', border: '1px solid var(--border)' }}>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 16 }}>Category Trends</h2>
+          
+          <div style={{ marginBottom: 16 }}>
+            <AiInsights context="reports" scope="annual" year={selectedYear} />
           </div>
-          <div className="month-nav" style={{ background: 'var(--bg-elevated)', borderRadius: 'var(--r-full)', padding: '4px 8px', border: '1px solid var(--border)' }}>
-            <button className="month-nav-btn" onClick={() => setSelectedYear(y => y - 1)}>‹</button>
-            <span className="month-label" style={{ minWidth: 60 }}>{selectedYear}</span>
-            <button className="month-nav-btn" onClick={() => setSelectedYear(y => y + 1)}>›</button>
-          </div>
-        </div>
-      </div>
 
-      {/* ── Annual Summary Cards ── */}
-      <div className="summary-grid mb-24">
-        <div className="summary-card income">
-          <div className="summary-card-icon income"><Wallet size={18} strokeWidth={2} /></div>
-          <div className="summary-card-label">Annual Income</div>
-          <div className="summary-card-value income">{formatINR(annualSalary)}</div>
-        </div>
-        <div className="summary-card spent">
-          <div className="summary-card-icon spent"><CreditCard size={18} strokeWidth={2} /></div>
-          <div className="summary-card-label">Total Spent ({selectedYear})</div>
-          <div className="summary-card-value spent">{formatINR(grandTotal)}</div>
-          <div className="summary-card-sub">{annualSalary > 0 ? ((grandTotal / annualSalary) * 100).toFixed(1) : 0}% of income</div>
-        </div>
-        <div className="summary-card savings">
-          <div className="summary-card-icon savings"><PiggyBank size={18} strokeWidth={2} /></div>
-          <div className="summary-card-label">Annual Savings</div>
-          <div className={`summary-card-value ${annualSavings >= 0 ? 'savings' : 'spent'}`}>{formatINR(annualSavings)}</div>
-        </div>
-        <div className="summary-card budget">
-          <div className="summary-card-icon budget"><CalendarDays size={18} strokeWidth={2} /></div>
-          <div className="summary-card-label">Avg Monthly Spend</div>
-          <div className="summary-card-value" style={{ color: 'var(--warning)' }}>{formatINR(grandTotal / 12)}</div>
-        </div>
-      </div>
-
-      {/* ── Monthly Area chart ── */}
-      <div className="chart-wrapper mb-24">
-        <h2 className="chart-title">Monthly Spending vs Income — {selectedYear}</h2>
-        <ResponsiveContainer width="100%" height={260}>
-          <AreaChart data={monthBarData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-            <defs>
-              <linearGradient id="rptGradSpent" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%"  stopColor="#7C5CFC" stopOpacity={0.4} />
-                <stop offset="95%" stopColor="#7C5CFC" stopOpacity={0.02} />
-              </linearGradient>
-              <linearGradient id="rptGradIncome" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%"  stopColor="#22C55E" stopOpacity={0.25} />
-                <stop offset="95%" stopColor="#22C55E" stopOpacity={0.02} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-            <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'rgba(240,240,255,0.35)' }} axisLine={false} tickLine={false} />
-            <YAxis tickFormatter={v => `₹${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 11, fill: 'rgba(240,240,255,0.35)' }} axisLine={false} tickLine={false} width={52} />
-            <Tooltip content={<ChartTooltip />} />
-            <Legend wrapperStyle={{ fontSize: 12, color: 'rgba(240,240,255,0.5)' }} />
-            <Area type="monotone" dataKey="Income" stroke="#22C55E" strokeWidth={2} fill="url(#rptGradIncome)" dot={false} />
-            <Area type="monotone" dataKey="Spent"  stroke="#7C5CFC" strokeWidth={2} fill="url(#rptGradSpent)"  dot={false} />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* ── Category Line Trends ── */}
-      <div className="chart-wrapper mb-32">
-        <div className="flex items-center justify-between mb-16" style={{ gap: 8 }}>
-          <h2 className="chart-title" style={{ margin: 0 }}>Category Trends</h2>
-        </div>
-        <AiInsights context="reports" scope="annual" year={selectedYear} />
-        <div className="filter-scroll mb-16" style={{ gap: 8 }}>
-          <button className={`btn btn-sm ${!activeCategory ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setActiveCategory(null)}>All</button>
-          {(settings?.categories ?? []).map(c => (
-            <button key={c.id} className={`btn btn-sm ${activeCategory === c.id ? 'btn-primary' : 'btn-secondary'}`}
-              style={activeCategory === c.id ? { background: c.color, boxShadow: `0 2px 12px ${c.color}60` } : {}}
-              onClick={() => setActiveCategory(activeCategory === c.id ? null : c.id)}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><CategoryIcon name={c.name} size={13} /> {c.name}</span>
-            </button>
-          ))}
-        </div>
-        <ResponsiveContainer width="100%" height={260}>
-          <LineChart data={lineData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-            <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'rgba(240,240,255,0.35)' }} axisLine={false} tickLine={false} />
-            <YAxis tickFormatter={v => `₹${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 11, fill: 'rgba(240,240,255,0.35)' }} axisLine={false} tickLine={false} width={52} />
-            <Tooltip content={<ChartTooltip />} />
-            <Legend wrapperStyle={{ fontSize: 12, color: 'rgba(240,240,255,0.5)' }} />
-            {categoriesToShow.map(cat => (
-              <Line key={cat.id} type="monotone" dataKey={cat.name} stroke={cat.color}
-                strokeWidth={2} dot={{ r: 3, fill: cat.color, strokeWidth: 0 }} activeDot={{ r: 6 }} />
+          <div style={{ display: 'flex', overflowX: 'auto', gap: 8, paddingBottom: 16, scrollbarWidth: 'none' }}>
+            <button
+              onClick={() => setActiveCategory(null)}
+              style={{ whiteSpace: 'nowrap', padding: '6px 16px', borderRadius: 9999, border: '1px solid var(--border)', background: !activeCategory ? 'var(--text-primary)' : 'var(--bg-card)', color: !activeCategory ? 'var(--bg-card)' : 'var(--text-primary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+            >All Categories</button>
+            {(settings?.categories ?? []).map(c => (
+              <button
+                key={c.id}
+                onClick={() => setActiveCategory(activeCategory === c.id ? null : c.id)}
+                style={{ whiteSpace: 'nowrap', padding: '6px 16px', borderRadius: 9999, border: '1px solid var(--border)', background: activeCategory === c.id ? c.color : 'var(--bg-card)', color: activeCategory === c.id ? '#fff' : 'var(--text-primary)', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+              ><CategoryIcon name={c.name} size={12} /> {c.name}</button>
             ))}
-          </LineChart>
-        </ResponsiveContainer>
+          </div>
+
+          <ResponsiveContainer width="100%" height={240}>
+            <LineChart data={lineData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+              <XAxis dataKey="month" tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
+              <Tooltip content={<ChartTooltip />} />
+              {categoriesToShow.map(cat => (
+                <Line key={cat.id} type="monotone" dataKey={cat.name} stroke={cat.color} strokeWidth={2} dot={false} activeDot={{ r: 6 }} />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
       </div>
 
-      {/* ── Annual Table ── */}
-      <div>
-        <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 16, letterSpacing: '-0.3px' }}>
-          Annual Breakdown by Category
-        </h2>
-        <div className="table-wrapper" style={{ overflowX: 'auto' }}>
-          <table>
-            <thead>
-              <tr>
-                <th>Category</th>
-                {SHORT_MONTHS.map(m => <th key={m} style={{ textAlign: 'right', minWidth: 60 }}>{m}</th>)}
-                <th style={{ textAlign: 'right', minWidth: 80 }}>Annual</th>
-                <th style={{ textAlign: 'right' }}>Budget/mo</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(settings?.categories ?? []).map(cat => {
-                const annual = getCatAnnualTotal(cat.id);
-                const overBudget = annual > cat.monthlyBudget * 12;
-                return (
-                  <tr key={cat.id}>
-                    <td>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ width: 28, height: 28, borderRadius: 8, background: `${cat.color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: cat.color }}>
-                          <CategoryIcon name={cat.name} size={14} />
-                        </span>
-                        {cat.name}
-                      </span>
-                    </td>
-                    {SHORT_MONTHS.map((_, i) => {
-                      const v = getCatMonthSpend(cat.id, i);
-                      return <td key={i} style={{ textAlign: 'right', fontSize: 12, color: v > 0 ? 'var(--text-primary)' : 'var(--text-muted)', fontWeight: v > 0 ? 600 : 400 }}>
-                        {v > 0 ? `₹${(v / 1000).toFixed(1)}k` : '—'}
-                      </td>;
-                    })}
-                    <td style={{ textAlign: 'right', fontWeight: 700, color: overBudget ? 'var(--danger)' : 'var(--success)' }}>{formatINR(annual)}</td>
-                    <td style={{ textAlign: 'right', fontSize: 12, color: 'var(--text-muted)' }}>{formatINR(cat.monthlyBudget)}</td>
-                  </tr>
-                );
-              })}
-              {/* Totals row */}
-              <tr style={{ background: 'rgba(255,255,255,0.03)' }}>
-                <td style={{ fontWeight: 700, color: 'var(--text-primary)' }}>TOTAL</td>
-                {SHORT_MONTHS.map((_, i) => {
-                  const mm = String(i + 1).padStart(2, '0');
-                  const v = (analytics?.monthTotals ?? []).find(x => x._id === mm)?.total ?? 0;
-                  return <td key={i} style={{ textAlign: 'right', fontWeight: 600, color: 'var(--text-primary)', fontSize: 12 }}>
-                    {v > 0 ? `₹${(v / 1000).toFixed(1)}k` : '—'}
-                  </td>;
-                })}
-                <td style={{ textAlign: 'right', fontWeight: 800, color: 'var(--danger)', fontSize: 15 }}>{formatINR(grandTotal)}</td>
-                <td style={{ textAlign: 'right', fontSize: 12, color: 'var(--text-muted)' }}>{formatINR((settings?.categories ?? []).reduce((s, c) => s + c.monthlyBudget, 0))}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        {/* Month cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10, marginTop: 24 }}>
-          {MONTHS.map((m, i) => {
-            const mm = String(i + 1).padStart(2, '0');
-            const mt = (analytics?.monthTotals ?? []).find(x => x._id === mm);
-            if (!mt) return null;
-            const salary = settings?.monthlySalary ?? 0;
-            const pct = salary > 0 ? (mt.total / salary) * 100 : 0;
+      {/* Annual Breakdown */}
+      <div style={{ padding: '0 16px 40px' }}>
+        <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 16 }}>Annual Breakdown</h2>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {(settings?.categories ?? []).map(cat => {
+            const annual = getCatAnnualTotal(cat.id);
+            const overBudget = annual > cat.monthlyBudget * 12;
             return (
-              <div key={m} className="card card-sm" style={{ padding: '14px 16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>{m}</span>
-                  <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{mt.count} entries</span>
+              <div key={cat.id} style={{ background: 'var(--bg-card)', borderRadius: 16, padding: 16, border: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: '50%', background: `${cat.color}26`, color: cat.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <CategoryIcon name={cat.name} size={20} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>{cat.name}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Budget: {formatINR(cat.monthlyBudget)}/mo</div>
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: overBudget ? 'var(--danger)' : 'var(--text-primary)' }}>{formatINR(annual)}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Total Year</div>
+                  </div>
                 </div>
-                <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 8, letterSpacing: '-0.5px' }}>{formatINR(mt.total)}</div>
-                <div className="budget-track">
-                  <div className={`budget-fill ${pct > 100 ? 'danger' : pct > 80 ? 'warning' : 'safe'}`} style={{ width: `${Math.min(pct, 100)}%` }} />
+                
+                <div style={{ display: 'flex', overflowX: 'auto', gap: 8, scrollbarWidth: 'none', paddingBottom: 4 }}>
+                  {SHORT_MONTHS.map((m, i) => {
+                    const v = getCatMonthSpend(cat.id, i);
+                    return (
+                      <div key={m} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'var(--bg)', borderRadius: 12, padding: '8px 12px', minWidth: 64, border: '1px solid var(--border)' }}>
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>{m}</span>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: v > 0 ? 'var(--text-primary)' : 'var(--text-muted)' }}>{v > 0 ? `₹${(v/1000).toFixed(1)}k` : '-'}</span>
+                      </div>
+                    );
+                  })}
                 </div>
-                <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>{pct.toFixed(0)}% of salary</div>
               </div>
             );
-          }).filter(Boolean)}
+          })}
         </div>
       </div>
     </div>

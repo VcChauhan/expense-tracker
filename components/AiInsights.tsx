@@ -39,9 +39,17 @@ export default function AiInsights({ month = 0, year, scope = 'monthly', context
 
   if (loading) {
     return (
-      <div className="card" style={{ marginBottom: 32, display: 'flex', alignItems: 'center', gap: 12, padding: 20 }}>
-        <span className="spinner" style={{ width: 16, height: 16, borderColor: 'var(--accent-primary)', borderTopColor: 'transparent' }} />
-        <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>AI is analyzing your spending...</span>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 32 }}>
+        {[1, 2].map(i => (
+          <div key={i} style={{ 
+            height: 60, 
+            borderRadius: 12, 
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border)',
+            animation: 'pulse 1.5s infinite ease-in-out',
+            opacity: 0.6
+          }} />
+        ))}
       </div>
     );
   }
@@ -49,7 +57,7 @@ export default function AiInsights({ month = 0, year, scope = 'monthly', context
   if (insights.length === 0) return null;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 32 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 32 }}>
       {scope === 'annual' && (
         <div style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'right', marginBottom: -4 }}>
           Updated as of today
@@ -57,45 +65,40 @@ export default function AiInsights({ month = 0, year, scope = 'monthly', context
       )}
       {insights.map((insight, idx) => {
         let Icon = Sparkles;
-        let colorStr = 'var(--accent-primary)';
-        let bgStr = 'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%)';
-        let borderStr = 'rgba(99, 102, 241, 0.2)';
+        let typeColor = 'var(--accent)';
         
         if (insight.type === 'savings_coaching') {
           Icon = PiggyBank;
-          colorStr = 'var(--success)';
-          bgStr = 'linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.05) 100%)';
-          borderStr = 'rgba(16, 185, 129, 0.2)';
+          typeColor = 'var(--accent)';
         } else if (insight.type === 'rebalancing') {
           Icon = RefreshCcw;
-          colorStr = 'var(--warning)';
-          bgStr = 'linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.05) 100%)';
-          borderStr = 'rgba(245, 158, 11, 0.2)';
+          typeColor = 'var(--warning)';
         } else if (insight.type === 'category_drift') {
           Icon = Compass;
-          colorStr = 'var(--primary)';
-          bgStr = 'linear-gradient(135deg, rgba(147, 51, 234, 0.1) 0%, rgba(126, 34, 206, 0.05) 100%)';
-          borderStr = 'rgba(147, 51, 234, 0.2)';
+          typeColor = 'var(--warning)';
         } else if (insight.type === 'hike_advice') {
           Icon = TrendingUp;
-          colorStr = 'var(--accent-primary)';
-          bgStr = 'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(79, 70, 229, 0.05) 100%)';
-          borderStr = 'rgba(99, 102, 241, 0.2)';
+          typeColor = 'var(--success)';
         } else if (insight.type === 'general') {
           Icon = TrendingUp;
+          typeColor = 'var(--accent)';
         }
 
         return (
-          <div key={idx} className="card" style={{ 
-            padding: '16px 20px', 
-            background: bgStr,
-            border: `1px solid ${borderStr}`,
+          <div key={idx} style={{ 
+            padding: 14, 
+            background: `color-mix(in srgb, ${typeColor} 8%, transparent)`,
+            borderLeft: `3px solid ${typeColor}`,
+            borderTopRightRadius: 12,
+            borderBottomRightRadius: 12,
+            borderTopLeftRadius: 4,
+            borderBottomLeftRadius: 4,
             display: 'flex',
             alignItems: 'flex-start',
-            gap: 16
+            gap: 12
           }}>
-            <div style={{ flexShrink: 0, color: colorStr, marginTop: 2 }}>
-              <Icon size={20} />
+            <div style={{ flexShrink: 0, color: typeColor, marginTop: 2 }}>
+              <Icon size={18} />
             </div>
             <div>
               <p style={{ fontSize: 14, color: 'var(--text-primary)', lineHeight: 1.5, margin: 0 }}>

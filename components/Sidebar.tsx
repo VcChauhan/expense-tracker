@@ -3,14 +3,14 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { LayoutDashboard, PlusCircle, List, BarChart2, Settings, TrendingUp, LogOut, Sparkles, Zap } from 'lucide-react';
+import { LayoutDashboard, PlusCircle, List, BarChart2, Settings, TrendingUp, LogOut, Sparkles, Lightbulb } from 'lucide-react';
 
 const navItems = [
   { href: '/',         icon: <LayoutDashboard size={18} strokeWidth={1.8} />, label: 'Dashboard'   },
-  { href: '/chat',     icon: <Sparkles size={18} strokeWidth={1.8} />,        label: 'AI Assistant' },
   { href: '/add',      icon: <PlusCircle size={18} strokeWidth={1.8} />,      label: 'Add Expense' },
   { href: '/expenses', icon: <List size={18} strokeWidth={1.8} />,            label: 'Expense Log' },
   { href: '/reports',  icon: <BarChart2 size={18} strokeWidth={1.8} />,       label: 'Reports'     },
+  { href: '/insights', icon: <Lightbulb size={18} strokeWidth={1.8} />,       label: 'Insights'    },
 ];
 
 const settingsItems = [
@@ -22,6 +22,8 @@ export default function Sidebar() {
   const pathname = usePathname();
   const router   = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
+
+  if (pathname === '/login') return null;
 
   async function handleLogout() {
     setLoggingOut(true);
@@ -35,10 +37,10 @@ export default function Sidebar() {
       {/* Logo */}
       <div className="sidebar-logo">
         <div className="sidebar-logo-icon">
-          <Zap size={18} strokeWidth={2.5} />
+          <Sparkles size={18} strokeWidth={2.5} />
         </div>
         <div>
-          <div className="sidebar-logo-text">ExpenseIQ</div>
+          <div className="sidebar-logo-text" style={{ background: 'linear-gradient(135deg, var(--accent) 0%, #A594FF 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>ExpenseIQ</div>
           <div className="sidebar-logo-sub">Finance Tracker</div>
         </div>
       </div>
@@ -73,7 +75,7 @@ export default function Sidebar() {
         <button
           onClick={handleLogout}
           disabled={loggingOut}
-          className="btn btn-danger btn-sm"
+          className="btn btn-outline btn-sm"
           style={{ width: '100%', justifyContent: 'center' }}
         >
           {loggingOut ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Signing out…</> : <><LogOut size={14} /> Sign Out</>}

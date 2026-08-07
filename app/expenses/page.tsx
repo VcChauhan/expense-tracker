@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { formatINR, MONTHS, SHORT_MONTHS, Expense, Settings, Category } from '@/lib/types';
-import { CalendarDays, Edit2, Trash2, CheckCircle2, XCircle } from 'lucide-react';
+import { CalendarDays, Edit2, Trash2, CheckCircle2, XCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { ConfirmModal } from '@/components/ConfirmModal';
 
@@ -46,7 +46,6 @@ export default function ExpensesPage() {
         year: String(selectedYear),
         limit: '1000',
       });
-      // For monthly view, add month param
       if (viewMode === 'monthly') params.set('month', String(selectedMonth));
       if (filterCategory) params.set('categoryId', filterCategory);
       if (filterAccount) params.set('accountId', filterAccount);
@@ -61,10 +60,9 @@ export default function ExpensesPage() {
 
   useEffect(() => { fetchExpenses(); }, [fetchExpenses]);
 
-  // Client-side sort (search removed)
+  // Client-side sort
   const filtered = useMemo(() => {
     let list = [...expenses];
-    // Sort
     const mul = sortDir === 'asc' ? 1 : -1;
     list.sort((a, b) => {
       if (sortBy === 'date') return mul * a.date.localeCompare(b.date);
@@ -73,17 +71,29 @@ export default function ExpensesPage() {
     return list;
   }, [expenses, sortBy, sortDir]);
 
+  // Group by day for monthly view
+  const groupedByDay = useMemo(() => {
+    if (viewMode !== 'monthly') return null;
+    const groups: Record<string, Expense[]> = {};
+    filtered.forEach(exp => {
+      const key = exp.date;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(exp);
+    });
+    return Object.entries(groups).sort(([a], [b]) => sortDir === 'asc' ? a.localeCompare(b) : b.localeCompare(a));
+  }, [filtered, viewMode, sortDir]);
+
   // Group by month for annual view
   const groupedByMonth = useMemo(() => {
     if (viewMode !== 'annual') return null;
     const groups: Record<string, Expense[]> = {};
     filtered.forEach(exp => {
-      const key = exp.date.substring(0, 7); // YYYY-MM
+      const key = exp.date.substring(0, 7);
       if (!groups[key]) groups[key] = [];
       groups[key].push(exp);
     });
-    return Object.entries(groups).sort(([a], [b]) => b.localeCompare(a));
-  }, [filtered, viewMode]);
+    return Object.entries(groups).sort(([a], [b]) => sortDir === 'asc' ? a.localeCompare(b) : b.localeCompare(a));
+  }, [filtered, viewMode, sortDir]);
 
   const totalSpent = useMemo(() => filtered.reduce((s, e) => s + e.amount, 0), [filtered]);
 
@@ -141,62 +151,49 @@ export default function ExpensesPage() {
     }
   }
 
-  const sortIcon = (field: SortField) =>
-    sortBy === field ? (sortDir === 'desc' ? ' ↓' : ' ↑') : '';
+  function formatDateHeader(dateStr: string) {
+    const d = new Date(dateStr);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (d.toDateString() === today.toDateString()) return 'Today';
+    if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+    return `${d.getDate()} ${SHORT_MONTHS[d.getMonth()]}`;
+  }
 
-  // Expense row component (reused in both views)
   function ExpenseRow({ exp }: { exp: Expense }) {
     const cat = getCategoryById(exp.categoryId);
+    const acc = settings?.accounts?.find(a => a.id === exp.accountId);
     return (
-      <div key={exp._id} className="card card-sm" style={{ padding: '14px 14px' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-          {/* Category icon */}
-          <div style={{
-            width: 40, height: 40, borderRadius: 10, flexShrink: 0,
-            background: cat?.color ? `${cat.color}22` : 'var(--bg-input)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
-          }}>
-            <CategoryIcon name={cat?.name ?? ''} note={exp.note} size={20} />
+      <div key={exp._id} className="expense-row" style={{ display: 'flex', alignItems: 'center', padding: '14px 16px', background: 'transparent' }}>
+        <div style={{
+          width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+          background: cat?.color ? `${cat.color}15` : 'var(--bg-elevated)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', color: cat?.color || 'var(--text-secondary)', marginRight: 12
+        }}>
+          <CategoryIcon name={cat?.name ?? ''} note={exp.note} size={18} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {exp.note || cat?.name || 'Unknown'}
           </div>
-
-          {/* Text info */}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
-              {cat?.name ?? 'Unknown'}
-            </div>
-            {exp.note ? (
-              <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, wordBreak: 'break-word' }}>
-                {exp.note}
-              </div>
-            ) : null}
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 3 }}>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{exp.date}</div>
-              {exp.accountId && settings?.accounts?.find(a => a.id === exp.accountId) && (
-                <div style={{ fontSize: 10, color: 'var(--text-secondary)', background: 'var(--bg-input)', padding: '2px 6px', borderRadius: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: settings.accounts.find(a => a.id === exp.accountId)!.color }} />
-                  {settings.accounts.find(a => a.id === exp.accountId)!.name}
-                </div>
-              )}
-            </div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+            <span>{cat?.name}</span>
+            {acc && (
+              <>
+                <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'var(--border)' }} />
+                <span>{acc.name}</span>
+              </>
+            )}
           </div>
-
-          {/* Amount + actions stacked on right */}
-          <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
-            <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>
-              {formatINR(exp.amount)}
-            </span>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <button
-                onClick={() => setEditingExp({ ...exp })}
-                className="btn-text"
-                style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', fontSize: 13, borderRadius: 16, cursor: 'pointer', border: 'none', fontWeight: 500 }}
-              ><Edit2 size={14} /> Edit</button>
-              <button
-                onClick={() => handleDeleteClick(exp._id!)}
-                className="btn-text"
-                style={{ display: 'flex', alignItems: 'center', padding: '4px 8px', fontSize: 13, borderRadius: 16, cursor: 'pointer', border: 'none', color: 'var(--md-sys-color-error)', fontWeight: 500 }}
-              ><Trash2 size={14} /></button>
-            </div>
+        </div>
+        <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', marginLeft: 12 }}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--danger)' }}>
+            {formatINR(exp.amount)}
+          </span>
+          <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
+            <button onClick={() => setEditingExp({ ...exp })} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0 }}><Edit2 size={13} /></button>
+            <button onClick={() => handleDeleteClick(exp._id!)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0 }}><Trash2 size={13} /></button>
           </div>
         </div>
       </div>
@@ -204,123 +201,148 @@ export default function ExpensesPage() {
   }
 
   return (
-    <div className="page-container">
+    <div style={{ minHeight: '100vh', background: 'var(--bg)', paddingBottom: 80 }}>
       {/* Header */}
-      <div className="page-header">
-        <h1 className="page-title">Expense Log</h1>
-        <p className="page-subtitle">All your recorded expenses</p>
+      <div style={{ padding: '24px 16px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Expense Log</h1>
+        <div style={{ background: 'var(--accent)', color: '#fff', padding: '4px 12px', borderRadius: 9999, fontSize: 13, fontWeight: 600 }}>
+          {filtered.length} • {formatINR(totalSpent)}
+        </div>
       </div>
 
-      {/* Controls Area (Responsive Grid) */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 24 }}>
-        
-        {/* Top Left: Period */}
-        <div className="period-selector" style={{ display: 'flex', width: '100%', overflow: 'hidden' }}>
-          {(['monthly', 'annual'] as ViewMode[]).map(v => (
-            <button
-              key={v}
-              onClick={() => setViewMode(v)}
-              className={`period-btn ${viewMode === v ? 'active' : ''}`}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, flex: 1, padding: '8px 4px', fontSize: 13, textAlign: 'center' }}
-            >
-              <CalendarDays size={14} /> {v === 'monthly' ? 'M' : 'Y'}
-            </button>
-          ))}
+      {/* Controls */}
+      <div style={{ padding: '0 16px', display: 'flex', gap: 12, marginBottom: 16 }}>
+        <div style={{ display: 'flex', background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border)', overflow: 'hidden' }}>
+          <button onClick={() => setViewMode('monthly')} style={{ padding: '8px 16px', background: viewMode === 'monthly' ? 'var(--border)' : 'transparent', border: 'none', color: 'var(--text-primary)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Monthly</button>
+          <button onClick={() => setViewMode('annual')} style={{ padding: '8px 16px', background: viewMode === 'annual' ? 'var(--border)' : 'transparent', border: 'none', color: 'var(--text-primary)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Annual</button>
         </div>
-
-        {/* Top Right: Month */}
-        <div className="month-nav" style={{ background: 'var(--md-sys-color-surface-container-high)', borderRadius: 'var(--shape-full)', padding: '4px 8px', display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+        <div style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border)', padding: '0 8px' }}>
           {viewMode === 'monthly' ? (
             <>
-              <button className="month-nav-btn" style={{ width: 32, height: 32 }} onClick={() => navigateMonth(-1)}>‹</button>
-              <span className="month-label" style={{ fontWeight: 700, fontSize: 13, minWidth: 'auto', flex: 1, textAlign: 'center' }}>{MONTHS[selectedMonth - 1].substring(0,3)} {selectedYear.toString().substring(2)}</span>
-              <button className="month-nav-btn" style={{ width: 32, height: 32 }} onClick={() => navigateMonth(1)}>›</button>
+              <button onClick={() => navigateMonth(-1)} style={{ background: 'none', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', padding: '8px' }}><ChevronLeft size={18} /></button>
+              <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)' }}>{MONTHS[selectedMonth - 1].substring(0,3)} {selectedYear}</span>
+              <button onClick={() => navigateMonth(1)} style={{ background: 'none', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', padding: '8px' }}><ChevronRight size={18} /></button>
             </>
           ) : (
             <>
-              <button className="month-nav-btn" style={{ width: 32, height: 32 }} onClick={() => setSelectedYear(y => y - 1)}>‹</button>
-              <span className="month-label" style={{ fontWeight: 700, fontSize: 13, minWidth: 'auto', flex: 1, textAlign: 'center' }}>{selectedYear}</span>
-              <button className="month-nav-btn" style={{ width: 32, height: 32 }} onClick={() => setSelectedYear(y => y + 1)}>›</button>
+              <button onClick={() => setSelectedYear(y => y - 1)} style={{ background: 'none', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', padding: '8px' }}><ChevronLeft size={18} /></button>
+              <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)' }}>{selectedYear}</span>
+              <button onClick={() => setSelectedYear(y => y + 1)} style={{ background: 'none', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', padding: '8px' }}><ChevronRight size={18} /></button>
             </>
           )}
         </div>
-
-        {/* Bottom Left: Filter */}
-        <select
-          className="form-select"
-          style={{ width: '100%', margin: 0, fontSize: 13, padding: '10px 30px 10px 12px' }}
-          value={filterCategory}
-          onChange={e => setFilterCategory(e.target.value)}
-        >
-          <option value="">All Cat</option>
-          {(settings?.categories ?? []).map(c => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </select>
-
-        <select
-          className="form-select"
-          style={{ width: '100%', margin: 0, fontSize: 13, padding: '10px 30px 10px 12px' }}
-          value={filterAccount}
-          onChange={e => setFilterAccount(e.target.value)}
-        >
-          <option value="">All Accounts</option>
-          {(settings?.accounts ?? []).map(a => (
-            <option key={a.id} value={a.id}>{a.name}</option>
-          ))}
-        </select>
-
-        {/* Total */}
-        <div className="card card-sm" style={{ padding: '8px 12px', background: 'var(--md-sys-color-surface-container-high)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{filtered.length} entries</span>
-          <span style={{ fontWeight: 700, color: 'var(--danger)', fontSize: 14 }}>{formatINR(totalSpent)}</span>
-        </div>
       </div>
 
-      {/* Table */}
+      {/* Filters */}
+      <div style={{ display: 'flex', overflowX: 'auto', gap: 8, padding: '0 16px 16px', scrollbarWidth: 'none' }}>
+        <button
+          onClick={() => { setFilterCategory(''); setFilterAccount(''); }}
+          style={{ whiteSpace: 'nowrap', padding: '6px 16px', borderRadius: 9999, border: '1px solid var(--border)', background: (!filterCategory && !filterAccount) ? 'var(--text-primary)' : 'var(--bg-card)', color: (!filterCategory && !filterAccount) ? 'var(--bg-card)' : 'var(--text-primary)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+        >All</button>
+        {settings?.categories?.map(c => (
+          <button
+            key={c.id}
+            onClick={() => { setFilterCategory(c.id); setFilterAccount(''); }}
+            style={{ whiteSpace: 'nowrap', padding: '6px 16px', borderRadius: 9999, border: '1px solid var(--border)', background: filterCategory === c.id ? 'var(--text-primary)' : 'var(--bg-card)', color: filterCategory === c.id ? 'var(--bg-card)' : 'var(--text-primary)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+          >{c.name}</button>
+        ))}
+        {settings?.accounts?.map(a => (
+          <button
+            key={a.id}
+            onClick={() => { setFilterAccount(a.id); setFilterCategory(''); }}
+            style={{ whiteSpace: 'nowrap', padding: '6px 16px', borderRadius: 9999, border: '1px solid var(--border)', background: filterAccount === a.id ? 'var(--text-primary)' : 'var(--bg-card)', color: filterAccount === a.id ? 'var(--bg-card)' : 'var(--text-primary)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+          >{a.name}</button>
+        ))}
+      </div>
+
+      {/* List */}
       {loading ? (
-        <div className="loading-overlay"><div className="spinner" /> Loading…</div>
+        <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Loading…</div>
       ) : filtered.length === 0 ? (
-        <div className="empty-state">
-          <img src="/empty-box.jpg" alt="Empty" style={{ width: 140, height: 140, objectFit: 'cover', borderRadius: 24, marginBottom: 20, mixBlendMode: 'screen' }} />
-          <span className="empty-state-title">No expenses found</span>
-          <span className="empty-state-sub">
-            Add your first expense using the + Add tab
-          </span>
+        <div style={{ padding: '60px 20px', textAlign: 'center' }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>📭</div>
+          <h3 style={{ fontSize: 18, color: 'var(--text-primary)', marginBottom: 8 }}>No expenses found</h3>
+          <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Try changing filters or add a new expense.</p>
         </div>
       ) : viewMode === 'monthly' ? (
-        /* ── Monthly flat list ── */
-        <div className="animate-list" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ display: 'flex', gap: 16, padding: '0 4px', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>
-             <span style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('date')}>DATE {sortIcon('date')}</span>
-             <span style={{ cursor: 'pointer', userSelect: 'none', marginLeft: 'auto' }} onClick={() => toggleSort('amount')}>AMOUNT {sortIcon('amount')}</span>
+        <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--r-xl)', border: '1px solid var(--border)', overflow: 'hidden', margin: '0 16px' }}>
+          <div style={{ padding: '16px 20px', background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>{MONTHS[selectedMonth - 1]} {selectedYear}</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--danger)' }}>{formatINR(totalSpent)}</div>
           </div>
-          {filtered.map(exp => <ExpenseRow key={exp._id} exp={exp} />)}
-        </div>
-      ) : (
-        /* ── Annual grouped view ── */
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {(groupedByMonth ?? []).map(([monthKey, exps]) => {
-            const [y, m] = monthKey.split('-');
-            const monthTotal = exps.reduce((s, e) => s + e.amount, 0);
+          {groupedByDay?.map(([dateStr, exps], groupIdx) => {
+            const d = new Date(dateStr);
+            const day = String(d.getDate()).padStart(2, '0');
+            const yearMonth = `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}`;
+            const weekday = d.toLocaleDateString('en-US', { weekday: 'short' });
+            
             return (
-              <div key={monthKey} className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                {/* Month header */}
-                <div style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '14px 20px', background: 'var(--bg-secondary)',
-                  borderBottom: 'none',
-                }}>
-                  <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' }}>
-                    {MONTHS[parseInt(m) - 1]} {y}
-                  </span>
-                  <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-                    <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{exps.length} entries</span>
-                    <span style={{ fontWeight: 700, color: 'var(--danger)', fontSize: 15 }}>{formatINR(monthTotal)}</span>
+              <div key={dateStr} style={{ display: 'flex', borderBottom: groupIdx === groupedByDay.length - 1 ? 'none' : '1px solid var(--border)' }}>
+                {/* Date Column */}
+                <div style={{ width: 90, padding: '16px 12px', display: 'flex', gap: 8, flexShrink: 0, alignItems: 'flex-start', background: 'var(--bg-input)' }}>
+                  <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 0.9 }}>
+                    {day}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-muted)', lineHeight: 1 }}>{yearMonth}</span>
+                    <span style={{ fontSize: 9, fontWeight: 700, background: 'var(--bg-elevated)', color: 'var(--text-secondary)', padding: '2px 4px', borderRadius: 4, display: 'inline-block', textAlign: 'center' }}>
+                      {weekday}
+                    </span>
                   </div>
                 </div>
-                <div className="animate-list" style={{ padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {exps.map(exp => <ExpenseRow key={exp._id} exp={exp} />)}
+                {/* Expenses Column */}
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                  {exps.map((exp, i) => (
+                    <div key={exp._id} style={{ borderBottom: i === exps.length - 1 ? 'none' : '1px solid var(--border)' }}>
+                      <ExpenseRow exp={exp} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {groupedByMonth?.map(([monthKey, exps]) => {
+            const [y, m] = monthKey.split('-');
+            const monthName = MONTHS[parseInt(m) - 1];
+            const groupTotal = exps.reduce((s, e) => s + e.amount, 0);
+            return (
+              <div key={monthKey} style={{ background: 'var(--bg-card)', borderRadius: 'var(--r-xl)', border: '1px solid var(--border)', overflow: 'hidden', margin: '0 16px' }}>
+                {/* Month Header */}
+                <div style={{ padding: '16px 20px', background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>{monthName} {y}</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--danger)' }}>{formatINR(groupTotal)}</div>
+                </div>
+                {/* Expenses List */}
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  {Object.entries(exps.reduce((acc, e) => {
+                    if (!acc[e.date]) acc[e.date] = [];
+                    acc[e.date].push(e);
+                    return acc;
+                  }, {} as Record<string, Expense[]>))
+                  .sort(([a], [b]) => sortDir === 'asc' ? a.localeCompare(b) : b.localeCompare(a))
+                  .map(([dateStr, dayExps], dayGroupIdx, arr) => {
+                    const d = new Date(dateStr);
+                    const day = String(d.getDate()).padStart(2, '0');
+                    const weekday = d.toLocaleDateString('en-US', { weekday: 'short' });
+                    return (
+                      <div key={dateStr} style={{ display: 'flex', borderBottom: dayGroupIdx === arr.length - 1 ? 'none' : '1px solid var(--border)' }}>
+                        <div style={{ width: 64, padding: '14px 8px', display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'var(--bg-input)', borderRight: '1px solid var(--border)', flexShrink: 0 }}>
+                          <span style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)' }}>{day}</span>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)' }}>{weekday}</span>
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                          {dayExps.map((exp, i) => (
+                            <div key={exp._id} style={{ borderBottom: i === dayExps.length - 1 ? 'none' : '1px solid var(--border)' }}>
+                              <ExpenseRow exp={exp} />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             );
@@ -328,68 +350,56 @@ export default function ExpensesPage() {
         </div>
       )}
 
-      {/* Edit Modal */}
+      {/* Edit Bottom Sheet */}
       {editingExp && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div className="card" style={{ width: '100%', maxWidth: 460 }}>
-            <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 20, color: 'var(--text-primary)' }}>Edit Expense</h3>
-            <div className="form-group">
-              <label className="form-label">Date</label>
-              <input type="date" className="form-input" value={editingExp.date}
-                onChange={e => setEditingExp({ ...editingExp, date: e.target.value })} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Category</label>
-              <select className="form-select" value={editingExp.categoryId}
-                onChange={e => setEditingExp({ ...editingExp, categoryId: e.target.value })}>
-                {(settings?.categories ?? []).map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Payment Method</label>
-              <select className="form-select" value={editingExp.accountId || ''}
-                onChange={e => setEditingExp({ ...editingExp, accountId: e.target.value })}>
-                <option value="">Cash / None</option>
-                {(settings?.accounts ?? []).map(a => (
-                  <option key={a.id} value={a.id}>{a.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Amount (₹)</label>
-              <input type="number" className="form-input" value={editingExp.amount}
-                onChange={e => setEditingExp({ ...editingExp, amount: parseFloat(e.target.value) || 0 })} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Note</label>
-              <input type="text" className="form-input" value={editingExp.note || ''}
-                onChange={e => setEditingExp({ ...editingExp, note: e.target.value })} />
-            </div>
-            <div className="flex gap-8">
-              <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleUpdate} disabled={saving}>
-                {saving ? <span className="spinner" style={{ width: 16, height: 16 }} /> : '✓'} Save
-              </button>
-              <button className="btn btn-secondary" onClick={() => setEditingExp(null)}>Cancel</button>
+        <>
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 999, backdropFilter: 'blur(4px)' }} onClick={() => setEditingExp(null)} />
+          <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', padding: 24, zIndex: 1000, boxShadow: '0 -10px 40px rgba(0,0,0,0.3)' }}>
+            <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 20, color: 'var(--text-primary)' }}>Edit Expense</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>Date</label>
+                <input type="date" style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '12px 16px', borderRadius: 12, fontSize: 16 }} value={editingExp.date} onChange={e => setEditingExp({ ...editingExp, date: e.target.value })} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>Category</label>
+                <select style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '12px 16px', borderRadius: 12, fontSize: 16, appearance: 'none' }} value={editingExp.categoryId} onChange={e => setEditingExp({ ...editingExp, categoryId: e.target.value })}>
+                  {(settings?.categories ?? []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>Account</label>
+                <select style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '12px 16px', borderRadius: 12, fontSize: 16, appearance: 'none' }} value={editingExp.accountId || ''} onChange={e => setEditingExp({ ...editingExp, accountId: e.target.value })}>
+                  <option value="">Cash / None</option>
+                  {(settings?.accounts ?? []).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>Amount (₹)</label>
+                <input type="number" style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '12px 16px', borderRadius: 12, fontSize: 16 }} value={editingExp.amount} onChange={e => setEditingExp({ ...editingExp, amount: parseFloat(e.target.value) || 0 })} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>Note</label>
+                <input type="text" style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '12px 16px', borderRadius: 12, fontSize: 16 }} value={editingExp.note || ''} onChange={e => setEditingExp({ ...editingExp, note: e.target.value })} />
+              </div>
+              <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+                <button style={{ flex: 1, padding: 14, borderRadius: 12, border: 'none', background: 'var(--border)', color: 'var(--text-primary)', fontWeight: 600, fontSize: 16, cursor: 'pointer' }} onClick={() => setEditingExp(null)}>Cancel</button>
+                <button style={{ flex: 1, padding: 14, borderRadius: 12, border: 'none', background: 'var(--accent)', color: '#fff', fontWeight: 600, fontSize: 16, cursor: 'pointer', opacity: saving ? 0.7 : 1 }} onClick={handleUpdate} disabled={saving}>{saving ? 'Saving...' : 'Save Changes'}</button>
+              </div>
             </div>
           </div>
-        </div>
+        </>
       )}
 
       {toast && (
-        <div className="toast-container">
-          <div className={`toast ${toast.type}`}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              {toast.type === 'success' ? <CheckCircle2 size={18} /> : <XCircle size={18} />} {toast.msg}
-            </span>
-          </div>
+        <div style={{ position: 'fixed', bottom: 100, left: '50%', transform: 'translateX(-50%)', background: toast.type === 'success' ? 'var(--success)' : 'var(--danger)', color: '#fff', padding: '12px 24px', borderRadius: 9999, fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, zIndex: 1000, boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
+          {toast.type === 'success' ? <CheckCircle2 size={18} /> : <XCircle size={18} />} {toast.msg}
         </div>
       )}
 
       <ConfirmModal
         isOpen={!!confirmDialog?.isOpen}
-        message="Are you sure you want to delete this expense? This action cannot be undone."
+        message="Are you sure you want to delete this expense?"
         onConfirm={confirmDelete}
         onCancel={() => setConfirmDialog(null)}
       />

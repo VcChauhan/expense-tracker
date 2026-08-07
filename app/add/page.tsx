@@ -167,29 +167,29 @@ export default function AddExpensePage() {
   const getCat = (id: string) => settings?.categories.find(c => c.id === id);
 
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <h1 className="page-title">{editingId ? 'Edit Expense' : 'Add Expense'}</h1>
-        <p className="page-subtitle">Log a new expense entry</p>
+    <div style={{ padding: '24px 16px', paddingBottom: '120px' }}>
+      <div style={{ marginBottom: '24px' }}>
+        <h1 style={{ fontSize: '28px', fontWeight: '700', color: 'var(--text-primary)', margin: '0 0 4px 0' }}>{editingId ? 'Edit Expense' : 'Add Expense'}</h1>
+        <p style={{ fontSize: '15px', color: 'var(--text-secondary)', margin: 0 }}>Log your transactions</p>
       </div>
 
       {/* ── Pending SMS Suggestions ── */}
       {suggestions.length > 0 && (
-        <div style={{ marginBottom: 24 }}>
-          <h2 style={{ fontSize: 16, fontWeight: 600, color: 'var(--warning)', margin: '0 0 14px' }}>
+        <div style={{ marginBottom: '32px' }}>
+          <h2 style={{ fontSize: '16px', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '16px' }}>
             Suggested from SMS
           </h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {suggestions.map(sug => (
-              <div key={sug._id} className="card card-sm" style={{ padding: '14px', border: 'none' }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+              <div key={sug._id} style={{ background: 'var(--bg-card)', borderRadius: '20px', padding: '16px', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
+                    <div style={{ fontSize: '15px', fontWeight: '600', color: 'var(--text-primary)' }}>
                       {sug.suggestedLabel ? (
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           ✨ {sug.suggestedLabel}
                           {sug.suggestedCategory && getCat(sug.suggestedCategory) && (
-                            <span style={{ fontSize: 11, background: 'var(--bg-input)', padding: '2px 6px', borderRadius: 4, color: 'var(--text-secondary)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <span style={{ fontSize: '11px', background: 'var(--bg-elevated)', padding: '2px 6px', borderRadius: '6px', color: 'var(--text-secondary)', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid var(--border)' }}>
                               <CategoryIcon name={getCat(sug.suggestedCategory)?.name ?? ''} size={11} /> {getCat(sug.suggestedCategory)?.name}
                             </span>
                           )}
@@ -198,32 +198,30 @@ export default function AddExpensePage() {
                         sug.sender
                       )}
                     </div>
-                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4, wordBreak: 'break-word' }}>
+                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px', wordBreak: 'break-word', lineHeight: '1.4' }}>
                       {sug.suggestedLabel ? (
                         <span style={{ opacity: 0.8 }}>From {sug.sender}: "{sug.smsBody}"</span>
                       ) : (
                         `"${sug.smsBody}"`
                       )}
                     </div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>{sug.date}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>{sug.date}</div>
                   </div>
-                  <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
-                    <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>
+                  <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '12px' }}>
+                    <span style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-primary)' }}>
                       {formatINR(sug.amount)}
                     </span>
-                    <div style={{ display: 'flex', gap: 6 }}>
+                    <div style={{ display: 'flex', gap: '8px' }}>
                       <button
                         type="button"
                         onClick={() => handleActionSuggestion(sug, 'approve')}
-                        className="btn-text"
-                        style={{ padding: '4px 8px', fontSize: 13, borderRadius: 16, cursor: 'pointer', border: 'none', color: 'var(--success)', fontWeight: 500 }}
-                      >✓ Add</button>
+                        style={{ padding: '6px 12px', fontSize: '13px', borderRadius: 'var(--r-full)', cursor: 'pointer', border: 'none', background: 'var(--success)', color: '#fff', fontWeight: '600' }}
+                      >Accept</button>
                       <button
                         type="button"
                         onClick={() => handleActionSuggestion(sug, 'reject')}
-                        className="btn-text"
-                        style={{ padding: '4px 8px', fontSize: 13, borderRadius: 16, cursor: 'pointer', border: 'none', color: 'var(--text-secondary)', fontWeight: 500 }}
-                      >✕</button>
+                        style={{ padding: '6px 12px', fontSize: '13px', borderRadius: 'var(--r-full)', cursor: 'pointer', border: '1px solid var(--border)', background: 'var(--bg-elevated)', color: 'var(--text-secondary)', fontWeight: '600' }}
+                      >Reject</button>
                     </div>
                   </div>
                 </div>
@@ -234,77 +232,159 @@ export default function AddExpensePage() {
       )}
 
       {/* ── Form card ── */}
-      <div className="card mb-24">
+      <div style={{ background: 'var(--bg-card)', borderRadius: '24px', padding: '24px 20px', boxShadow: 'var(--shadow-sm)', border: '1px solid var(--border)', marginBottom: '32px' }}>
         <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label className="form-label" htmlFor="expense-date">Date</label>
-            <input id="expense-date" type="date" className="form-input"
-              value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} required />
+          {/* Date Pill */}
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px' }}>
+            <input 
+              type="date" 
+              value={form.date} 
+              onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
+              style={{ 
+                background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--r-full)', 
+                padding: '8px 16px', fontSize: '14px', color: 'var(--text-secondary)', fontWeight: '600', outline: 'none'
+              }} 
+              required 
+            />
           </div>
 
-          <div className="form-group">
-            <label className="form-label" htmlFor="expense-category">Category</label>
-            <select id="expense-category" className="form-select"
-              value={form.categoryId}
-              onChange={e => setForm(f => ({ ...f, categoryId: e.target.value }))} required>
-              {(settings?.categories ?? []).map(cat => (
-                <option key={cat.id} value={cat.id}>{cat.name}</option>
-              ))}
-            </select>
+          {/* Amount Display */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '32px', gap: '8px' }}>
+            <span style={{ fontSize: '32px', fontWeight: '500', color: 'var(--text-secondary)' }}>₹</span>
+            <input 
+              type="number" step="0.01" min="0"
+              value={form.amount}
+              onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
+              placeholder="0.00"
+              style={{ 
+                fontSize: '48px', fontWeight: '700', color: 'var(--text-primary)', background: 'transparent', 
+                border: 'none', width: '100%', textAlign: 'center', outline: 'none', padding: 0
+              }} 
+              required 
+            />
           </div>
 
+          {/* Category Chips */}
+          <div style={{ marginBottom: '24px' }}>
+            <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '12px' }}>Category</label>
+            <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '8px', scrollbarWidth: 'none', margin: '0 -4px', padding: '0 4px 8px 4px' }}>
+              {(settings?.categories ?? []).map(cat => {
+                const isSelected = form.categoryId === cat.id;
+                return (
+                  <button 
+                    key={cat.id} type="button"
+                    onClick={() => setForm(f => ({ ...f, categoryId: cat.id }))}
+                    style={{ 
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', minWidth: '72px',
+                      background: isSelected ? 'var(--accent)' : 'var(--bg-elevated)', 
+                      border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`, 
+                      borderRadius: '16px', padding: '12px 8px', cursor: 'pointer', transition: 'all 0.2s', flexShrink: 0
+                    }}
+                  >
+                    <div style={{ 
+                      width: '32px', height: '32px', borderRadius: '50%', 
+                      background: isSelected ? 'rgba(255,255,255,0.2)' : `${cat.color}22`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px'
+                    }}>
+                      <CategoryIcon name={cat.name} size={16} />
+                    </div>
+                    <span style={{ fontSize: '12px', fontWeight: isSelected ? '600' : '500', color: isSelected ? '#fff' : 'var(--text-secondary)' }}>
+                      {cat.name}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Account Chips */}
           {(settings?.accounts?.length ?? 0) > 0 && (
-            <div className="form-group">
-              <label className="form-label" htmlFor="expense-account">Payment Method</label>
-              <select id="expense-account" className="form-select"
-                value={form.accountId}
-                onChange={e => setForm(f => ({ ...f, accountId: e.target.value }))}>
-                <option value="">Cash / None</option>
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '12px' }}>Payment Method</label>
+              <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '8px', scrollbarWidth: 'none', margin: '0 -4px', padding: '0 4px 8px 4px' }}>
+                <button 
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, accountId: '' }))}
+                  style={{
+                    padding: '10px 16px', borderRadius: 'var(--r-full)', fontSize: '13px', fontWeight: '500', whiteSpace: 'nowrap',
+                    background: form.accountId === '' ? 'var(--accent)' : 'var(--bg-elevated)',
+                    border: `1px solid ${form.accountId === '' ? 'var(--accent)' : 'var(--border)'}`,
+                    color: form.accountId === '' ? '#fff' : 'var(--text-secondary)', cursor: 'pointer', flexShrink: 0
+                  }}
+                >Cash / None</button>
                 {settings?.accounts?.map(acc => (
-                  <option key={acc.id} value={acc.id}>{acc.name} {acc.last4Digits ? `(..${acc.last4Digits})` : ''}</option>
+                  <button 
+                    key={acc.id} type="button"
+                    onClick={() => setForm(f => ({ ...f, accountId: acc.id }))}
+                    style={{
+                      padding: '10px 16px', borderRadius: 'var(--r-full)', fontSize: '13px', fontWeight: '500', whiteSpace: 'nowrap',
+                      background: form.accountId === acc.id ? 'var(--accent)' : 'var(--bg-elevated)',
+                      border: `1px solid ${form.accountId === acc.id ? 'var(--accent)' : 'var(--border)'}`,
+                      color: form.accountId === acc.id ? '#fff' : 'var(--text-secondary)',
+                      display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', flexShrink: 0
+                    }}
+                  >
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: form.accountId === acc.id ? '#fff' : acc.color }}></span>
+                    {acc.name} {acc.last4Digits ? `(..${acc.last4Digits})` : ''}
+                  </button>
                 ))}
-              </select>
+              </div>
             </div>
           )}
 
-          <div className="form-group">
-            <label className="form-label" htmlFor="expense-amount">Amount (₹)</label>
-            <input id="expense-amount" type="number" min="0" step="0.01" className="form-input"
-              placeholder="0.00" value={form.amount}
-              onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} required />
+          {/* Note Input */}
+          <div style={{ marginBottom: '32px' }}>
+            <input 
+              type="text" 
+              value={form.note} 
+              onChange={e => setForm(f => ({ ...f, note: e.target.value }))}
+              placeholder="What was this for?" 
+              style={{ 
+                width: '100%', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', 
+                padding: '16px', fontSize: '15px', color: 'var(--text-primary)', outline: 'none'
+              }} 
+            />
           </div>
 
-          <div className="form-group">
-            <label className="form-label" htmlFor="expense-note">Note (optional)</label>
-            <input id="expense-note" type="text" className="form-input"
-              placeholder="What was this for?" value={form.note}
-              onChange={e => setForm(f => ({ ...f, note: e.target.value }))} />
-          </div>
-
-          <div className="flex gap-8">
-            <button type="submit" className="btn btn-primary"
-              disabled={loading} style={{ flex: 1, justifyContent: 'center' }}>
-              {loading ? <span className="spinner" style={{ width: 16, height: 16 }} /> : null}
-              {editingId ? 'Update Expense' : 'Add Expense'}
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button 
+              type="submit" 
+              disabled={loading}
+              style={{ 
+                flex: 1, background: 'linear-gradient(135deg, var(--accent), #5B4FE0)', 
+                color: '#fff', border: 'none', borderRadius: 'var(--r-full)', padding: '16px', 
+                fontSize: '16px', fontWeight: '600', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px'
+              }}
+            >
+              {loading ? <span className="spinner" style={{ width: '20px', height: '20px', borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#fff' }} /> : null}
+              {editingId ? 'Update Expense' : 'Save Expense'}
             </button>
             {editingId && (
-              <button type="button" className="btn btn-secondary" onClick={cancelEdit}>Cancel</button>
+              <button 
+                type="button" onClick={cancelEdit}
+                style={{ 
+                  background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border)', 
+                  borderRadius: 'var(--r-full)', padding: '16px 24px', fontSize: '16px', fontWeight: '600', cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
             )}
           </div>
         </form>
 
-        {/* Budget hint for selected category */}
+        {/* Budget hint */}
         {form.categoryId && settings && (() => {
           const cat = getCat(form.categoryId);
           if (!cat) return null;
           return (
             <div style={{
-              marginTop: 20, paddingTop: 16, borderTop: 'none',
-              display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 4,
-              fontSize: 13, color: 'var(--text-secondary)',
+              marginTop: '24px', paddingTop: '16px', borderTop: '1px dashed var(--border)',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              fontSize: '13px', color: 'var(--text-secondary)'
             }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><CategoryIcon name={cat.name} size={14} /> Monthly budget for <strong style={{ color: 'var(--text-primary)' }}>{cat.name}</strong></span>
-              <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{formatINR(cat.monthlyBudget)}</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><CategoryIcon name={cat.name} size={14} /> Budget for <strong style={{ color: 'var(--text-primary)', fontWeight: '600' }}>{cat.name}</strong></span>
+              <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{formatINR(cat.monthlyBudget)}</span>
             </div>
           );
         })()}
@@ -312,74 +392,69 @@ export default function AddExpensePage() {
 
       {/* ── Recent Entries ── */}
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-          <h2 style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+          <h2 style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-primary)', margin: 0 }}>
             Recent Entries
           </h2>
-          <Link href="/expenses" style={{ fontSize: 13, color: 'var(--accent-primary)', textDecoration: 'none', fontWeight: 500 }}>
-            View all →
+          <Link href="/expenses" style={{ fontSize: '14px', color: 'var(--accent)', textDecoration: 'none', fontWeight: '600' }}>
+            View all
           </Link>
         </div>
 
         {recentExpenses.length === 0 ? (
-          <div className="empty-state card">
-            <div className="empty-state-icon" style={{ display: 'flex', justifyContent: 'center', marginBottom: 12, color: 'var(--text-muted)' }}><FileText size={32} strokeWidth={1.5} /></div>
-            <span className="empty-state-title">No expenses yet</span>
-            <span className="empty-state-sub">Add your first expense using the form above</span>
+          <div style={{ background: 'var(--bg-card)', borderRadius: '20px', padding: '32px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+            <FileText size={32} color="var(--text-muted)" strokeWidth={1.5} />
+            <span style={{ fontSize: '15px', fontWeight: '600', color: 'var(--text-primary)' }}>No expenses yet</span>
+            <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Add your first expense using the form above</span>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {recentExpenses.map(exp => {
               const cat = getCat(exp.categoryId);
               return (
-                <div key={exp._id} className="card card-sm" style={{ padding: '14px 14px' }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                    {/* Category icon */}
+                <div key={exp._id} style={{ background: 'var(--bg-card)', borderRadius: '20px', padding: '16px', border: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                     <div style={{
-                      width: 40, height: 40, borderRadius: 10, flexShrink: 0,
-                      background: cat?.color ? `${cat.color}22` : 'var(--bg-input)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
+                      width: '48px', height: '48px', borderRadius: '50%', flexShrink: 0,
+                      background: cat?.color ? `${cat.color}22` : 'var(--bg-elevated)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', color: cat?.color || 'var(--text-primary)'
                     }}>
-                      <CategoryIcon name={cat?.name ?? ''} size={20} />
+                      <CategoryIcon name={cat?.name ?? ''} size={24} />
                     </div>
 
-                    {/* Text info */}
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
+                      <div style={{ fontSize: '16px', fontWeight: '600', color: 'var(--text-primary)' }}>
                         {cat?.name ?? 'Unknown'}
                       </div>
                       {exp.note ? (
-                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, wordBreak: 'break-word' }}>
+                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {exp.note}
                         </div>
                       ) : null}
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 3 }}>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{exp.date}</div>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '4px' }}>
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{exp.date}</div>
                         {exp.accountId && settings?.accounts?.find(a => a.id === exp.accountId) && (
-                          <div style={{ fontSize: 10, color: 'var(--text-secondary)', background: 'var(--bg-input)', padding: '2px 6px', borderRadius: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: settings.accounts.find(a => a.id === exp.accountId)!.color }} />
+                          <div style={{ fontSize: '11px', color: 'var(--text-secondary)', background: 'var(--bg-elevated)', padding: '2px 8px', borderRadius: 'var(--r-full)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: settings.accounts.find(a => a.id === exp.accountId)!.color }} />
                             {settings.accounts.find(a => a.id === exp.accountId)!.name}
                           </div>
                         )}
                       </div>
                     </div>
 
-                    {/* Amount + actions stacked on right */}
-                    <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
-                      <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>
+                    <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
+                      <span style={{ fontSize: '16px', fontWeight: '700', color: 'var(--text-primary)' }}>
                         {formatINR(exp.amount)}
                       </span>
-                      <div style={{ display: 'flex', gap: 6 }}>
+                      <div style={{ display: 'flex', gap: '8px' }}>
                         <button
                           onClick={() => handleEdit(exp)}
-                          className="btn-text"
-                          style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', fontSize: 13, borderRadius: 16, cursor: 'pointer', border: 'none', fontWeight: 500 }}
-                        ><Edit2 size={14} /> Edit</button>
+                          style={{ padding: '6px', borderRadius: '50%', background: 'var(--bg-elevated)', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}
+                        ><Edit2 size={16} /></button>
                         <button
                           onClick={() => handleDeleteClick(exp._id)}
-                          className="btn-text"
-                          style={{ display: 'flex', alignItems: 'center', padding: '4px 8px', fontSize: 13, borderRadius: 16, cursor: 'pointer', border: 'none', color: 'var(--md-sys-color-error)', fontWeight: 500 }}
-                        ><Trash2 size={14} /></button>
+                          style={{ padding: '6px', borderRadius: '50%', background: 'var(--danger)22', border: 'none', color: 'var(--danger)', cursor: 'pointer' }}
+                        ><Trash2 size={16} /></button>
                       </div>
                     </div>
                   </div>
@@ -391,12 +466,13 @@ export default function AddExpensePage() {
       </div>
 
       {toast && (
-        <div className="toast-container">
-          <div className={`toast ${toast.type}`}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              {toast.type === 'success' ? <CheckCircle2 size={18} /> : <XCircle size={18} />} {toast.msg}
-            </span>
-          </div>
+        <div style={{
+          position: 'fixed', bottom: '100px', left: '50%', transform: 'translateX(-50%)', zIndex: 50,
+          background: toast.type === 'success' ? 'var(--success)' : 'var(--danger)',
+          color: '#fff', padding: '12px 24px', borderRadius: 'var(--r-full)', fontSize: '14px', fontWeight: '600',
+          boxShadow: 'var(--shadow-sm)', display: 'flex', alignItems: 'center', gap: '8px'
+        }}>
+          {toast.type === 'success' ? <CheckCircle2 size={18} /> : <XCircle size={18} />} {toast.msg}
         </div>
       )}
 
@@ -419,36 +495,39 @@ export default function AddExpensePage() {
           background: 'var(--bg-card)',
           padding: '24px',
           color: 'var(--text-primary)',
-          boxShadow: '0 -8px 32px rgba(0,0,0,0.1)',
+          boxShadow: 'var(--shadow-sm)',
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>Review Suggestion</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+          <h2 style={{ fontSize: '20px', fontWeight: '700', margin: 0 }}>Review Suggestion</h2>
           <button 
             type="button"
             onClick={() => setReviewSuggestion(null)}
-            style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', fontSize: 24, cursor: 'pointer' }}
+            style={{ background: 'var(--bg-elevated)', border: 'none', color: 'var(--text-secondary)', width: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyItems: 'center', justifyContent: 'center' }}
           >
-            ×
+            <XCircle size={20} />
           </button>
         </div>
 
         <form onSubmit={submitReviewForm}>
-          <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
-            <div className="form-group" style={{ margin: 0, flex: 1 }}>
-              <input type="number" step="0.01" className="form-input" style={{ fontSize: 24, fontWeight: 700, padding: '16px' }}
+          <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+            <div style={{ flex: 1 }}>
+              <input type="number" step="0.01" 
+                style={{ width: '100%', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', fontSize: '24px', fontWeight: '700', padding: '16px', color: 'var(--text-primary)', outline: 'none' }}
                 placeholder="₹ 0.00" value={reviewForm.amount}
                 onChange={e => setReviewForm(f => ({ ...f, amount: e.target.value }))} required autoFocus />
             </div>
-            <div className="form-group" style={{ margin: 0, width: '140px' }}>
-              <input type="date" className="form-input" style={{ height: '100%', padding: '0 12px' }}
+            <div style={{ width: '140px' }}>
+              <input type="date" 
+                style={{ width: '100%', height: '100%', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', padding: '0 12px', color: 'var(--text-primary)', outline: 'none' }}
                 value={reviewForm.date}
                 onChange={e => setReviewForm(f => ({ ...f, date: e.target.value }))} required />
             </div>
           </div>
           
-          <div className="form-group" style={{ marginBottom: 16 }}>
-            <select className="form-select"
+          <div style={{ marginBottom: '16px' }}>
+            <select 
+              style={{ width: '100%', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', padding: '16px', color: 'var(--text-primary)', fontSize: '15px', outline: 'none' }}
               value={reviewForm.categoryId}
               onChange={e => setReviewForm(f => ({ ...f, categoryId: e.target.value }))} required>
               {(settings?.categories ?? []).map(cat => (
@@ -458,8 +537,9 @@ export default function AddExpensePage() {
           </div>
 
           {(settings?.accounts?.length ?? 0) > 0 && (
-            <div className="form-group" style={{ marginBottom: 16 }}>
-              <select className="form-select"
+            <div style={{ marginBottom: '16px' }}>
+              <select 
+                style={{ width: '100%', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', padding: '16px', color: 'var(--text-primary)', fontSize: '15px', outline: 'none' }}
                 value={reviewForm.accountId}
                 onChange={e => setReviewForm(f => ({ ...f, accountId: e.target.value }))}>
                 <option value="">Cash / None</option>
@@ -470,14 +550,17 @@ export default function AddExpensePage() {
             </div>
           )}
 
-          <div className="form-group" style={{ marginBottom: 24 }}>
-            <input type="text" className="form-input"
+          <div style={{ marginBottom: '24px' }}>
+            <input type="text" 
+              style={{ width: '100%', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', padding: '16px', color: 'var(--text-primary)', fontSize: '15px', outline: 'none' }}
               placeholder="Note (optional)" value={reviewForm.note}
               onChange={e => setReviewForm(f => ({ ...f, note: e.target.value }))} />
           </div>
 
-          <button type="submit" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '14px' }} disabled={loading}>
-            {loading ? <span className="spinner" style={{ width: 16, height: 16 }} /> : 'Confirm & Add Expense'}
+          <button type="submit" 
+            style={{ width: '100%', background: 'linear-gradient(135deg, var(--accent), #5B4FE0)', color: '#fff', border: 'none', borderRadius: 'var(--r-full)', padding: '16px', fontSize: '16px', fontWeight: '600', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }} 
+            disabled={loading}>
+            {loading ? <span className="spinner" style={{ width: 16, height: 16, borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#fff' }} /> : 'Confirm & Add Expense'}
           </button>
         </form>
       </dialog>

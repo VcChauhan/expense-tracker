@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import Sidebar from '@/components/Sidebar';
 import BottomNav from '@/components/BottomNav';
+import MobileHeader from '@/components/MobileHeader';
 import QuickAddSheet from '@/components/QuickAddSheet';
 
 const inter = Inter({
@@ -38,12 +39,15 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={inter.variable} style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
+      <body className={inter.variable} style={{ fontFamily: "'Inter', system-ui, sans-serif", backgroundColor: 'var(--bg)', color: 'var(--text-primary)' }}>
         <div className="app-layout">
           <Sidebar />
-          <main className="main-content">
-            {children}
-          </main>
+          <div className="main-content">
+            <MobileHeader />
+            <main>
+              {children}
+            </main>
+          </div>
           <BottomNav />
           <QuickAddSheet />
         </div>
