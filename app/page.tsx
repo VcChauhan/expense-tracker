@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import {
-  AreaChart, Area, PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
+  AreaChart, Area, Tooltip, ResponsiveContainer,
   XAxis, YAxis, CartesianGrid, BarChart, Bar, Legend,
 } from 'recharts';
 import { CalendarDays, PlusCircle, Wallet, CreditCard, PiggyBank, Target, TrendingUp, Bell, Sparkles } from 'lucide-react';
@@ -33,23 +33,6 @@ const ChartTooltip = ({ active, payload, label }: any) => {
           {p.name}: {formatINR(p.value)}
         </p>
       ))}
-    </div>
-  );
-};
-
-// ── Donut chart tooltip ─────────────────────────────────────────────────────
-const PieTooltip = ({ active, payload }: any) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div style={{
-      background: 'var(--bg-card)',
-      border: '1px solid var(--border)',
-      borderRadius: 12,
-      padding: '10px 16px',
-      boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
-    }}>
-      <p style={{ color: payload[0].payload.color, fontWeight: 700, fontSize: 13, margin: 0 }}>{payload[0].name}</p>
-      <p style={{ color: 'var(--text-primary)', fontWeight: 800, fontSize: 16, margin: '4px 0 0 0' }}>{formatINR(payload[0].value)}</p>
     </div>
   );
 };
@@ -313,34 +296,6 @@ export default function DashboardPage() {
 
           {/* ── Charts ── */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24, marginBottom: 32 }}>
-            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, padding: 20 }}>
-              <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 16px 0' }}>{isAnnual ? `${selectedYear}` : MONTHS[selectedMonth]} Breakdown</h2>
-              {pieData.length > 0 ? (
-                <>
-                  <ResponsiveContainer width="100%" height={220}>
-                    <PieChart>
-                      <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={4} dataKey="value" strokeWidth={0}>
-                        {pieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                      </Pie>
-                      <Tooltip content={<PieTooltip />} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 16 }}>
-                    {pieData.slice(0, 5).map((d, i) => (
-                      <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 14 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ width: 10, height: 10, borderRadius: '50%', background: d.color, display: 'inline-block' }} />
-                          <span style={{ color: 'var(--text-secondary)' }}>{d.name}</span>
-                        </div>
-                        <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{formatINR(d.value)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                 <div style={{ padding: '32px 0', textAlign: 'center', color: 'var(--text-muted)' }}>No expenses {isAnnual ? 'this year' : 'this month'}</div>
-              )}
-            </div>
 
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, padding: 20 }}>
               <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 16px 0' }}>Spending Trend</h2>

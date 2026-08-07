@@ -13,10 +13,13 @@ import AiInsights from '@/components/AiInsights';
 const ChartTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
-    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '10px 16px', boxShadow: '0 4px 20px rgba(0,0,0,0.2)' }}>
-      <p style={{ color: 'var(--text-muted)', fontSize: 11, marginBottom: 6, fontWeight: 600 }}>{label}</p>
+    <div style={{ background: 'rgba(20, 20, 30, 0.85)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '12px 16px', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
+      <p style={{ color: 'var(--text-muted)', fontSize: 11, marginBottom: 8, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</p>
       {payload.map((p: any, i: number) => (
-        <p key={i} style={{ color: p.color || 'var(--text-primary)', fontWeight: 700, fontSize: 13 }}>{p.name}: {formatINR(p.value)}</p>
+        <p key={i} style={{ color: p.color || 'var(--text-primary)', fontWeight: 700, fontSize: 14, margin: '4px 0', display: 'flex', justifyContent: 'space-between', gap: 24 }}>
+          <span>{p.name}</span>
+          <span>{formatINR(p.value)}</span>
+        </p>
       ))}
     </div>
   );
@@ -126,16 +129,17 @@ export default function ReportsPage() {
                   <stop offset="95%" stopColor="var(--success)" stopOpacity={0}/>
                 </linearGradient>
                 <linearGradient id="colorSpent" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.3}/>
+                  <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.4}/>
                   <stop offset="95%" stopColor="var(--accent)" stopOpacity={0}/>
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-              <XAxis dataKey="month" tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
-              <Tooltip content={<ChartTooltip />} />
-              <Area type="monotone" dataKey="Income" stroke="var(--success)" strokeWidth={2} fillOpacity={1} fill="url(#colorIncome)" />
-              <Area type="monotone" dataKey="Spent" stroke="var(--accent)" strokeWidth={2} fillOpacity={1} fill="url(#colorSpent)" />
+              <CartesianGrid strokeDasharray="4 4" stroke="rgba(255,255,255,0.03)" vertical={false} />
+              <XAxis dataKey="month" tick={{ fill: 'var(--text-muted)', fontSize: 11, fontWeight: 500 }} axisLine={false} tickLine={false} dy={10} />
+              <YAxis tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} tick={{ fill: 'var(--text-muted)', fontSize: 11, fontWeight: 500 }} axisLine={false} tickLine={false} dx={-10} />
+              <Tooltip content={<ChartTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1, strokeDasharray: '4 4' }} />
+              <Area type="monotone" dataKey="Income" stroke="var(--success)" strokeWidth={3} fillOpacity={1} fill="url(#colorIncome)" style={{ filter: 'drop-shadow(0 4px 6px rgba(16,185,129,0.2))' }} />
+              <Area type="monotone" dataKey="Spent" stroke="var(--accent)" strokeWidth={3} fillOpacity={1} fill="url(#colorSpent)" style={{ filter: 'drop-shadow(0 4px 8px rgba(139,124,246,0.4))' }} />
+
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -165,13 +169,18 @@ export default function ReportsPage() {
           </div>
 
           <ResponsiveContainer width="100%" height={240}>
-            <LineChart data={lineData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-              <XAxis dataKey="month" tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
-              <Tooltip content={<ChartTooltip />} />
+            <LineChart data={lineData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+              <defs>
+                <filter id="line-shadow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#000" floodOpacity="0.4"/>
+                </filter>
+              </defs>
+              <CartesianGrid strokeDasharray="4 4" stroke="rgba(255,255,255,0.03)" vertical={false} />
+              <XAxis dataKey="month" tick={{ fill: 'var(--text-muted)', fontSize: 11, fontWeight: 500 }} axisLine={false} tickLine={false} dy={10} />
+              <YAxis tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} tick={{ fill: 'var(--text-muted)', fontSize: 11, fontWeight: 500 }} axisLine={false} tickLine={false} dx={-10} />
+              <Tooltip content={<ChartTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1, strokeDasharray: '4 4' }} />
               {categoriesToShow.map(cat => (
-                <Line key={cat.id} type="monotone" dataKey={cat.name} stroke={cat.color} strokeWidth={2} dot={false} activeDot={{ r: 6 }} />
+                <Line key={cat.id} type="monotone" dataKey={cat.name} stroke={cat.color} strokeWidth={3} dot={false} activeDot={{ r: 6, fill: cat.color, stroke: 'var(--bg-card)', strokeWidth: 2 }} style={{ filter: 'url(#line-shadow)' }} />
               ))}
             </LineChart>
           </ResponsiveContainer>
