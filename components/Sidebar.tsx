@@ -7,7 +7,7 @@ import { LayoutDashboard, PlusCircle, List, BarChart2, Settings, TrendingUp, Log
 
 const navItems = [
   { href: '/',         icon: <LayoutDashboard size={18} strokeWidth={1.8} />, label: 'Dashboard'   },
-  { href: '/add',      icon: <PlusCircle size={18} strokeWidth={1.8} />,      label: 'Add Expense' },
+  { action: 'add',     icon: <PlusCircle size={18} strokeWidth={1.8} />,      label: 'Add Expense' },
   { href: '/expenses', icon: <List size={18} strokeWidth={1.8} />,            label: 'Expense Log' },
   { href: '/reports',  icon: <BarChart2 size={18} strokeWidth={1.8} />,       label: 'Reports'     },
   { href: '/insights', icon: <Lightbulb size={18} strokeWidth={1.8} />,       label: 'Insights'    },
@@ -47,16 +47,31 @@ export default function Sidebar() {
 
       <nav className="sidebar-nav">
         <span className="sidebar-section-label">Main</span>
-        {navItems.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={`nav-item ${pathname === item.href ? 'active' : ''}`}
-          >
-            <span className="nav-item-icon">{item.icon}</span>
-            {item.label}
-          </Link>
-        ))}
+        {navItems.map((item) => {
+          if (item.action === 'add') {
+            return (
+              <button
+                key={item.label}
+                onClick={() => window.dispatchEvent(new Event('open-quick-add'))}
+                className="nav-item"
+                style={{ background: 'transparent', border: 'none', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'inherit', width: '100%' }}
+              >
+                <span className="nav-item-icon">{item.icon}</span>
+                {item.label}
+              </button>
+            );
+          }
+          return (
+            <Link
+              key={item.href}
+              href={item.href!}
+              className={`nav-item ${pathname === item.href ? 'active' : ''}`}
+            >
+              <span className="nav-item-icon">{item.icon}</span>
+              {item.label}
+            </Link>
+          );
+        })}
 
         <span className="sidebar-section-label">Configure</span>
         {settingsItems.map((item) => (

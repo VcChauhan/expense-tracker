@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Expense Log — Timeline Variants</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.44.0/iconfont/tabler-icons.min.css">
+<style>
+  :root{
+    --bg:#F5F5F8; --surface:#FFFFFF; --border:#EAEAF0;
+    --text:#111114; --text-dim:#6B6B78; --text-faint:#A6A6B3;
+    --accent:#7C6FE8; --accent-2:#5B4FD6;
+    --danger:#E5484D;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#e8e8ee;padding:24px 12px;display:flex;flex-direction:column;align-items:center;gap:20px;}
+  h1{font-size:16px;color:#333;margin-bottom:2px;}
+  .sub{font-size:12.5px;color:#777;margin-bottom:8px;text-align:center;max-width:380px;}
+
+  .tabs{display:flex;gap:6px;background:#fff;padding:4px;border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,.06);}
+  .tab{padding:8px 14px;border-radius:10px;font-size:12.5px;font-weight:600;color:var(--text-dim);cursor:pointer;border:none;background:transparent;}
+  .tab.active{background:var(--accent);color:#fff;}
+
+  .phone{width:390px;height:700px;background:var(--bg);border-radius:36px;border:8px solid #17171c;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.3);position:relative;display:none;}
+  .phone.active{display:block;}
+
+  .header{padding:16px 18px 10px;background:var(--bg);position:relative;z-index:5;}
+  .header .title-row{display:flex;justify-content:space-between;align-items:center;}
+  .header h2{font-size:22px;font-weight:800;color:var(--text);}
+  .pill{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;font-size:12px;font-weight:700;padding:6px 12px;border-radius:20px;}
+  .filters{display:flex;gap:8px;margin-top:12px;overflow-x:auto;}
+  .filter-chip{flex:0 0 auto;padding:7px 14px;border-radius:20px;background:#fff;border:1px solid var(--border);font-size:12px;font-weight:600;color:var(--text-dim);}
+  .filter-chip.active{background:var(--text);color:#fff;border-color:var(--text);}
+
+  .list-wrap{height:calc(700px - 128px);overflow-y:auto;position:relative;}
+  .list-wrap::-webkit-scrollbar{display:none;}
+
+  /* ---------- Variant A: Big Date Backdrop ---------- */
+  .a-backdrop{position:sticky;top:0;height:0;z-index:0;pointer-events:none;}
+  .a-backdrop-inner{position:absolute;top:20px;left:0;right:0;display:flex;flex-direction:column;align-items:center;opacity:.5;transition:opacity .25s;}
+  .a-day{font-size:110px;font-weight:800;color:#D9D9E4;line-height:.85;transition:transform .3s ease, opacity .3s ease;}
+  .a-month{font-size:15px;font-weight:700;color:#C4C4D2;letter-spacing:.08em;text-transform:uppercase;margin-top:2px;}
+  .a-rows{position:relative;z-index:2;padding:170px 16px 24px;}
+  .a-daygroup{margin-bottom:6px;}
+  .a-daylabel{font-size:11px;font-weight:700;color:var(--text-faint);text-transform:uppercase;padding:14px 4px 6px;}
+  .row{display:flex;align-items:center;gap:12px;background:var(--surface);border-radius:16px;padding:12px 14px;margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+  .row-icon{width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:17px;}
+  .row-mid{flex:1;min-width:0;}
+  .row-mid .t{font-size:13.5px;font-weight:700;color:var(--text);}
+  .row-mid .s{font-size:11.5px;color:var(--text-faint);margin-top:1px;}
+  .row-amt{font-size:14px;font-weight:800;color:var(--danger);}
+  .row-amt.pos{color:#2FAE6C;}
+
+  /* ---------- Variant B: Connected dot timeline ---------- */
+  .b-rows{padding:14px 16px 24px;position:relative;}
+  .b-track{position:absolute;left:33px;top:8px;bottom:8px;width:2px;background:linear-gradient(#EAEAF0,#EAEAF0);}
+  .b-group{position:relative;margin-bottom:4px;}
+  .b-daylabel{font-size:11px;font-weight:700;color:var(--text-faint);text-transform:uppercase;padding:10px 0 8px 46px;}
+  .b-row{display:flex;align-items:center;gap:12px;position:relative;padding:8px 0;opacity:0;transform:translateY(14px);transition:opacity .5s ease, transform .5s ease;}
+  .b-row.show{opacity:1;transform:translateY(0);}
+  .b-dot{width:14px;height:14px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 2px currentColor;flex-shrink:0;margin-left:27px;z-index:2;}
+  .b-card{flex:1;background:var(--surface);border-radius:14px;padding:10px 12px;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+  .b-icon{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+
+  /* ---------- Variant C: Winding path ---------- */
+  .c-wrap{position:relative;padding:20px 0 30px;}
+  .c-svg{position:absolute;top:0;left:0;}
+  .c-row{position:absolute;width:210px;background:var(--surface);border-radius:16px;padding:10px 12px;box-shadow:0 3px 10px rgba(0,0,0,.08);display:flex;align-items:center;gap:9px;opacity:0;transform:scale(.9);transition:opacity .5s, transform .5s;}
+  .c-row.show{opacity:1;transform:scale(1);}
+  .c-row.left{left:16px;text-align:left;}
+  .c-row.right{right:16px;text-align:right;flex-direction:row-reverse;}
+  .c-icon{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
+  .c-date{position:absolute;font-size:10.5px;font-weight:700;color:var(--text-faint);background:var(--bg);padding:2px 6px;border-radius:6px;}
+
+  .fab{position:absolute;bottom:78px;right:20px;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;box-shadow:0 8px 20px rgba(124,111,232,.4);z-index:10;}
+  .navbar{position:absolute;bottom:0;left:0;right:0;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);border-top:1px solid var(--border);display:flex;justify-content:space-around;padding:10px 8px 16px;font-size:10px;color:var(--text-faint);z-index:10;}
+  .navbar div{display:flex;flex-direction:column;align-items:center;gap:3px;}
+  .navbar i{font-size:19px;}
+  .navbar .on{color:var(--accent);}
+
+  /* ---------- Variant D: Backdrop + winding thread ---------- */
+  .d-rows{position:relative;z-index:2;padding:170px 16px 24px 52px;}
+  .d-svg{position:absolute;top:170px;left:0;pointer-events:none;z-index:1;}
+  .d-daylabel{font-size:11px;font-weight:700;color:var(--text-faint);text-transform:uppercase;padding:14px 0 6px;}
+  .d-row{display:flex;align-items:center;gap:12px;background:var(--surface);border-radius:16px;padding:12px 14px;margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,.04);opacity:0;transform:translateX(8px);transition:opacity .45s ease, transform .45s ease;}
+  .d-row.show{opacity:1;transform:translateX(0);}
+</style>
+</head>
+<body>
+
+<h1>Expense Log — pick a scroll feel</h1>
+<p class="sub">All three use the same data. Scroll inside each to compare how it feels in the hand before we hand anything to Gemini.</p>
+
+<div class="tabs">
+  <button class="tab" data-target="phoneA">A · Big Date Backdrop</button>
+  <button class="tab" data-target="phoneB">B · Connected Timeline</button>
+  <button class="tab" data-target="phoneC">C · Winding Path</button>
+  <button class="tab" data-target="phoneD">D · Backdrop + Thread</button>
+  <button class="tab active" data-target="phoneE">E · Winding + Date Backdrop</button>
+</div>
+
+<!-- PHONE A -->
+<div class="phone" id="phoneA">
+  <div class="header">
+    <div class="title-row"><h2>Expense Log</h2><span class="pill">16 · ₹88,166</span></div>
+    <div class="filters">
+      <div class="filter-chip active">All</div><div class="filter-chip">Rent</div><div class="filter-chip">Travel</div><div class="filter-chip">Groceries</div>
+    </div>
+  </div>
+  <div class="list-wrap" id="aScroll">
+    <div class="a-backdrop"><div class="a-backdrop-inner" id="aBackdrop"><div class="a-day">07</div><div class="a-month">August</div></div></div>
+    <div class="a-rows" id="aRows"></div>
+  </div>
+  <div class="fab"><i class="ti ti-plus"></i></div>
+  <div class="navbar"><div class="on"><i class="ti ti-home"></i>Home</div><div><i class="ti ti-list"></i>Log</div><div><i class="ti ti-chart-bar"></i>Reports</div><div><i class="ti ti-menu-2"></i>Menu</div></div>
+</div>
+
+<!-- PHONE B -->
+<div class="phone" id="phoneB">
+  <div class="header">
+    <div class="title-row"><h2>Expense Log</h2><span class="pill">16 · ₹88,166</span></div>
+    <div class="filters">
+      <div class="filter-chip active">All</div><div class="filter-chip">Rent</div><div class="filter-chip">Travel</div><div class="filter-chip">Groceries</div>
+    </div>
+  </div>
+  <div class="list-wrap" id="bScroll">
+    <div class="b-rows"><div class="b-track"></div><div id="bGroups"></div></div>
+  </div>
+  <div class="fab"><i class="ti ti-plus"></i></div>
+  <div class="navbar"><div class="on"><i class="ti ti-home"></i>Home</div><div><i class="ti ti-list"></i>Log</div><div><i class="ti ti-chart-bar"></i>Reports</div><div><i class="ti ti-menu-2"></i>Menu</div></div>
+</div>
+
+<!-- PHONE C -->
+<div class="phone" id="phoneC">
+  <div class="header">
+    <div class="title-row"><h2>Expense Log</h2><span class="pill">16 · ₹88,166</span></div>
+    <div class="filters">
+      <div class="filter-chip active">All</div><div class="filter-chip">Rent</div><div class="filter-chip">Travel</div><div class="filter-chip">Groceries</div>
+    </div>
+  </div>
+  <div class="list-wrap" id="cScroll">
+    <div class="c-wrap" id="cWrap"><svg class="c-svg" id="cSvg"></svg></div>
+  </div>
+  <div class="fab"><i class="ti ti-plus"></i></div>
+  <div class="navbar"><div class="on"><i class="ti ti-home"></i>Home</div><div><i class="ti ti-list"></i>Log</div><div><i class="ti ti-chart-bar"></i>Reports</div><div><i class="ti ti-menu-2"></i>Menu</div></div>
+</div>
+
+<!-- PHONE D -->
+<div class="phone" id="phoneD">
+  <div class="header">
+    <div class="title-row"><h2>Expense Log</h2><span class="pill">16 · ₹88,166</span></div>
+    <div class="filters">
+      <div class="filter-chip active">All</div><div class="filter-chip">Rent</div><div class="filter-chip">Travel</div><div class="filter-chip">Groceries</div>
+    </div>
+  </div>
+  <div class="list-wrap" id="dScroll">
+    <div class="a-backdrop"><div class="a-backdrop-inner" id="dBackdrop"><div class="a-day">07</div><div class="a-month">August</div></div></div>
+    <svg class="d-svg" id="dSvg"></svg>
+    <div class="d-rows" id="dRows"></div>
+  </div>
+  <div class="fab"><i class="ti ti-plus"></i></div>
+  <div class="navbar"><div class="on"><i class="ti ti-home"></i>Home</div><div><i class="ti ti-list"></i>Log</div><div><i class="ti ti-chart-bar"></i>Reports</div><div><i class="ti ti-menu-2"></i>Menu</div></div>
+</div>
+
+<!-- PHONE E -->
+<div class="phone active" id="phoneE">
+  <div class="header">
+    <div class="title-row"><h2>Expense Log</h2><span class="pill">16 · ₹88,166</span></div>
+    <div class="filters">
+      <div class="filter-chip active">All</div><div class="filter-chip">Rent</div><div class="filter-chip">Travel</div><div class="filter-chip">Groceries</div>
+    </div>
+  </div>
+  <div class="list-wrap" id="eScroll">
+    <div class="a-backdrop"><div class="a-backdrop-inner" id="eBackdrop"><div class="a-day">07</div><div class="a-month">August</div></div></div>
+    <div class="c-wrap" id="eWrap" style="padding-top:170px;"><svg class="c-svg" id="eSvg" style="top:170px;"></svg></div>
+  </div>
+  <div class="fab"><i class="ti ti-plus"></i></div>
+  <div class="navbar"><div class="on"><i class="ti ti-home"></i>Home</div><div><i class="ti ti-list"></i>Log</div><div><i class="ti ti-chart-bar"></i>Reports</div><div><i class="ti ti-menu-2"></i>Menu</div></div>
+</div>
+
+<script>
+const CAT = {
+  Subscriptions:{color:'#F97066', icon:'ti-brand-netflix'},
+  Groceries:{color:'#2FAE6C', icon:'ti-shopping-cart'},
+  Travel:{color:'#4DA3FF', icon:'ti-car'},
+  Rent:{color:'#7C6FE8', icon:'ti-home'},
+};
+const data = [
+  {date:'07', day:'Fri', month:'August', cat:'Subscriptions', title:'Netflix', amt:649},
+  {date:'07', day:'Fri', month:'August', cat:'Groceries', title:'Dosa dinner', amt:100},
+  {date:'06', day:'Thu', month:'August', cat:'Travel', title:'Train ticket', amt:800},
+  {date:'05', day:'Wed', month:'August', cat:'Groceries', title:'Banana', amt:35},
+  {date:'05', day:'Wed', month:'August', cat:'Travel', title:'Auto fare', amt:20},
+  {date:'04', day:'Tue', month:'August', cat:'Travel', title:'Office cab', amt:20},
+  {date:'03', day:'Mon', month:'August', cat:'Travel', title:'Office cab', amt:20},
+  {date:'02', day:'Sun', month:'August', cat:'Groceries', title:'Oats', amt:357},
+  {date:'01', day:'Sat', month:'August', cat:'Rent', title:'Monthly rent', amt:10500},
+];
+
+// ---- Variant A ----
+const aRows = document.getElementById('aRows');
+let lastDay = null;
+data.forEach(t=>{
+  if(t.date !== lastDay){
+    lastDay = t.date;
+    const g = document.createElement('div');
+    g.className='a-daygroup';
+    g.innerHTML = `<div class="a-daylabel" data-day="${t.date}" data-month="${t.month}">${t.day} · ${t.date} ${t.month.slice(0,3)}</div>`;
+    aRows.appendChild(g);
+  }
+  const c = CAT[t.cat];
+  const row = document.createElement('div');
+  row.className='row';
+  row.innerHTML = `<div class="row-icon" style="background:${c.color}22;color:${c.color}"><i class="ti ${c.icon}"></i></div>
+    <div class="row-mid"><div class="t">${t.title}</div><div class="s">${t.cat}</div></div>
+    <div class="row-amt">₹${t.amt.toLocaleString('en-IN')}</div>`;
+  aRows.lastElementChild.appendChild(row);
+});
+const aScroll = document.getElementById('aScroll');
+const aBackdrop = document.getElementById('aBackdrop');
+const labels = [...document.querySelectorAll('.a-daylabel')];
+function updateBackdrop(){
+  const top = aScroll.scrollTop + 140;
+  let current = labels[0];
+  labels.forEach(l=>{ if(l.offsetTop <= top) current = l; });
+  aBackdrop.querySelector('.a-day').textContent = current.dataset.day;
+  aBackdrop.querySelector('.a-month').textContent = current.dataset.month;
+}
+aScroll.addEventListener('scroll', ()=>{ requestAnimationFrame(updateBackdrop); });
+updateBackdrop();
+
+// ---- Variant B ----
+const bGroups = document.getElementById('bGroups');
+lastDay = null;
+data.forEach(t=>{
+  if(t.date !== lastDay){
+    lastDay = t.date;
+    const g = document.createElement('div');
+    g.className='b-group';
+    g.innerHTML = `<div class="b-daylabel">${t.day} · ${t.date} ${t.month.slice(0,3)}</div>`;
+    bGroups.appendChild(g);
+  }
+  const c = CAT[t.cat];
+  const row = document.createElement('div');
+  row.className='b-row';
+  row.innerHTML = `<div class="b-dot" style="color:${c.color};background:${c.color}"></div>
+    <div class="b-card"><div class="b-icon" style="background:${c.color}22;color:${c.color}"><i class="ti ${c.icon}"></i></div>
+    <div class="row-mid"><div class="t">${t.title}</div><div class="s">${t.cat}</div></div>
+    <div class="row-amt" style="margin-left:auto">₹${t.amt.toLocaleString('en-IN')}</div></div>`;
+  bGroups.lastElementChild.appendChild(row);
+});
+const bObserver = new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{ if(e.isIntersecting) e.target.classList.add('show'); });
+},{root:document.getElementById('bScroll'), threshold:.3});
+document.querySelectorAll('.b-row').forEach(r=>bObserver.observe(r));
+
+// ---- Variant C ----
+const cWrap = document.getElementById('cWrap');
+const cSvg = document.getElementById('cSvg');
+const rowH = 118, leftX = 100, rightX = 290, svgW = 390;
+cWrap.style.height = (data.length*rowH + 40) + 'px';
+cSvg.setAttribute('width', svgW);
+cSvg.setAttribute('height', data.length*rowH + 40);
+let d = '';
+data.forEach((t,i)=>{
+  const y = i*rowH + 60;
+  const x = i%2===0 ? leftX : rightX;
+  d += (i===0? `M ${x} ${y}` : ` C ${x} ${y-rowH/2}, ${x} ${y-rowH/2}, ${x} ${y}`);
+});
+cSvg.innerHTML = `<path d="${d}" fill="none" stroke="#DEDEE8" stroke-width="2.5" stroke-dasharray="1 8" stroke-linecap="round"/>`;
+data.forEach((t,i)=>{
+  const c = CAT[t.cat];
+  const y = i*rowH + 60;
+  const side = i%2===0 ? 'left' : 'right';
+  const dot = document.createElementNS('http://www.w3.org/2000/svg','circle');
+  dot.setAttribute('cx', side==='left'?leftX:rightX);
+  dot.setAttribute('cy', y);
+  dot.setAttribute('r', 7);
+  dot.setAttribute('fill', c.color);
+  dot.setAttribute('stroke', '#fff');
+  dot.setAttribute('stroke-width', 3);
+  cSvg.appendChild(dot);
+
+  const dl = document.createElement('div');
+  dl.className='c-date';
+  dl.style.top = (y-10)+'px';
+  dl.style[side==='left'?'right':'left'] = '190px';
+  if(i===0 || data[i-1].date !== t.date) dl.textContent = `${t.day} ${t.date} ${t.month.slice(0,3)}`;
+  cWrap.appendChild(dl);
+
+  const row = document.createElement('div');
+  row.className = `c-row ${side}`;
+  row.style.top = (y-26)+'px';
+  row.innerHTML = `<div class="c-icon" style="background:${c.color}22;color:${c.color}"><i class="ti ${c.icon}"></i></div>
+    <div class="row-mid"><div class="t">${t.title}</div><div class="s">₹${t.amt.toLocaleString('en-IN')}</div></div>`;
+  cWrap.appendChild(row);
+});
+const cObserver = new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{ if(e.isIntersecting) e.target.classList.add('show'); });
+},{root:document.getElementById('cScroll'), threshold:.4});
+document.querySelectorAll('.c-row').forEach(r=>cObserver.observe(r));
+
+// ---- Variant D ----
+const dRows = document.getElementById('dRows');
+const dSvg = document.getElementById('dSvg');
+const dRowH = 74, dWaveL = 10, dWaveR = 30;
+let dDots = [];
+lastDay = null;
+data.forEach((t,i)=>{
+  if(t.date !== lastDay){
+    lastDay = t.date;
+    const g = document.createElement('div');
+    g.className='d-daylabel';
+    g.textContent = `${t.day} · ${t.date} ${t.month.slice(0,3)}`;
+    dRows.appendChild(g);
+  }
+  const c = CAT[t.cat];
+  const row = document.createElement('div');
+  row.className='d-row';
+  row.innerHTML = `<div class="row-icon" style="background:${c.color}22;color:${c.color}"><i class="ti ${c.icon}"></i></div>
+    <div class="row-mid"><div class="t">${t.title}</div><div class="s">${t.cat}</div></div>
+    <div class="row-amt">₹${t.amt.toLocaleString('en-IN')}</div>`;
+  dRows.appendChild(row);
+  dDots.push({color:c.color, i});
+});
+// draw thread once rows are laid out
+requestAnimationFrame(()=>{
+  const rowsEls = [...dRows.querySelectorAll('.d-row')];
+  const totalH = dRows.scrollHeight;
+  dSvg.setAttribute('width', 40);
+  dSvg.setAttribute('height', totalH);
+  let d = '';
+  const pts = rowsEls.map((el,i)=>{
+    const y = el.offsetTop - dRows.offsetTop + el.offsetHeight/2;
+    const x = i%2===0 ? dWaveL : dWaveR;
+    return {x,y};
+  });
+  pts.forEach((p,i)=>{
+    d += i===0 ? `M ${p.x} ${p.y}` : ` C ${p.x} ${(pts[i-1].y+p.y)/2}, ${p.x} ${(pts[i-1].y+p.y)/2}, ${p.x} ${p.y}`;
+  });
+  let svgHtml = `<path d="${d}" fill="none" stroke="#E3E3EE" stroke-width="2" stroke-linecap="round"/>`;
+  pts.forEach((p,i)=>{
+    svgHtml += `<circle cx="${p.x}" cy="${p.y}" r="5" fill="${dDots[i].color}" stroke="#fff" stroke-width="2.5"/>`;
+  });
+  dSvg.innerHTML = svgHtml;
+});
+const dObserver = new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{ if(e.isIntersecting) e.target.classList.add('show'); });
+},{root:document.getElementById('dScroll'), threshold:.3});
+document.querySelectorAll('.d-row').forEach(r=>dObserver.observe(r));
+
+const dScroll = document.getElementById('dScroll');
+const dBackdrop = document.getElementById('dBackdrop');
+function updateDBackdrop(){
+  const labels = [...dRows.querySelectorAll('.d-daylabel')];
+  const top = dScroll.scrollTop + 140;
+  let current = null;
+  labels.forEach(l=>{ if(l.offsetTop <= top) current = l.textContent; });
+  if(current){
+    const [dayName, , dnum, mon] = current.split(/[\s·]+/).filter(Boolean);
+    dBackdrop.querySelector('.a-day').textContent = dnum;
+    dBackdrop.querySelector('.a-month').textContent = mon;
+  }
+}
+dScroll.addEventListener('scroll', ()=>{ requestAnimationFrame(updateDBackdrop); });
+updateDBackdrop();
+
+// ---- Variant E: Winding path + date backdrop ----
+const eWrap = document.getElementById('eWrap');
+const eSvg = document.getElementById('eSvg');
+const eRowH = 118, eTopOffset = 170, eLeftX = 100, eRightX = 290;
+eWrap.style.height = (data.length*eRowH + 40) + 'px';
+eSvg.setAttribute('width', 390);
+eSvg.setAttribute('height', data.length*eRowH + 40);
+let ed = '';
+data.forEach((t,i)=>{
+  const y = i*eRowH + 60;
+  const x = i%2===0 ? eLeftX : eRightX;
+  ed += (i===0? `M ${x} ${y}` : ` C ${x} ${y-eRowH/2}, ${x} ${y-eRowH/2}, ${x} ${y}`);
+});
+eSvg.innerHTML = `<path d="${ed}" fill="none" stroke="#DADAE6" stroke-width="2.5" stroke-dasharray="1 8" stroke-linecap="round"/>`;
+data.forEach((t,i)=>{
+  const c = CAT[t.cat];
+  const y = i*eRowH + 60;
+  const side = i%2===0 ? 'left' : 'right';
+  const dot = document.createElementNS('http://www.w3.org/2000/svg','circle');
+  dot.setAttribute('cx', side==='left'?eLeftX:eRightX);
+  dot.setAttribute('cy', y);
+  dot.setAttribute('r', 7);
+  dot.setAttribute('fill', c.color);
+  dot.setAttribute('stroke', '#fff');
+  dot.setAttribute('stroke-width', 3);
+  eSvg.appendChild(dot);
+
+  if(i===0 || data[i-1].date !== t.date){
+    const dl = document.createElement('div');
+    dl.className='c-date';
+    dl.style.top = (eTopOffset + y - 10)+'px';
+    dl.style[side==='left'?'right':'left'] = '190px';
+    dl.textContent = `${t.day} ${t.date} ${t.month.slice(0,3)}`;
+    eWrap.appendChild(dl);
+  }
+
+  const row = document.createElement('div');
+  row.className = `c-row ${side}`;
+  row.dataset.date = t.date; row.dataset.month = t.month; row.dataset.day = t.day;
+  row.style.top = (eTopOffset + y - 26)+'px';
+  row.innerHTML = `<div class="c-icon" style="background:${c.color}22;color:${c.color}"><i class="ti ${c.icon}"></i></div>
+    <div class="row-mid"><div class="t">${t.title}</div><div class="s">₹${t.amt.toLocaleString('en-IN')}</div></div>`;
+  eWrap.appendChild(row);
+});
+const eObserver = new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{ if(e.isIntersecting) e.target.classList.add('show'); });
+},{root:document.getElementById('eScroll'), threshold:.4});
+document.querySelectorAll('#eWrap .c-row').forEach(r=>eObserver.observe(r));
+
+const eScroll = document.getElementById('eScroll');
+const eBackdrop = document.getElementById('eBackdrop');
+const eRows = [...document.querySelectorAll('#eWrap .c-row')];
+function updateEBackdrop(){
+  const top = eScroll.scrollTop + 150;
+  let current = eRows[0];
+  eRows.forEach(r=>{ if(parseFloat(r.style.top) <= top) current = r; });
+  eBackdrop.querySelector('.a-day').textContent = current.dataset.date;
+  eBackdrop.querySelector('.a-month').textContent = current.dataset.month;
+}
+eScroll.addEventListener('scroll', ()=>{ requestAnimationFrame(updateEBackdrop); });
+updateEBackdrop();
+
+// ---- Tabs ----
+document.querySelectorAll('.tab').forEach(tab=>{
+  tab.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.phone').forEach(p=>p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(tab.dataset.target).classList.add('active');
+  });
+});
+</script>
+</body>
+</html>

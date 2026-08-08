@@ -11,13 +11,16 @@ export default function QuickAddSheet() {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [settings, setSettings] = useState<Settings | null>(null);
+  const [isListening, setIsListening] = useState(false);
+  const [voiceSupported, setVoiceSupported] = useState(false);
+  const [aiParsedFields, setAiParsedFields] = useState<string[]>([]);
   
   const today = new Date().toISOString().split('T')[0];
   const [form, setForm] = useState({ date: today, categoryId: '', accountId: '', amount: '', note: '' });
   const dialogRef = useRef<HTMLDialogElement>(null);
 
-  // If on the /add page, hide the FAB because they are already there
-  const isAddPage = pathname === '/add' || pathname === '/login';
+  // If on the /login page, hide the FAB
+  const isLoginPage = pathname === '/login';
 
   useEffect(() => {
     fetch('/api/settings').then(r => r.json()).then(s => {
@@ -25,6 +28,9 @@ export default function QuickAddSheet() {
       if (s.categories?.length) setForm(f => ({ ...f, categoryId: s.categories[0].id }));
       if (s.accounts?.length) setForm(f => ({ ...f, accountId: s.accounts[0].id }));
     });
+    if (typeof window !== 'undefined') {
+      setVoiceSupported('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
+    }
   }, []);
 
   useEffect(() => {
@@ -120,6 +126,56 @@ export default function QuickAddSheet() {
     }
   }
 
+  async function handleVoiceInput() {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => setIsListening(true);
+    
+    recognition.onresult = async (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setIsListening(false);
+      setLoading(true);
+
+      try {
+        const res = await fetch('/api/voice-parse', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: transcript }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const parsed: string[] = [];
+          setForm(prev => {
+            const next = { ...prev };
+            if (data.amount) { next.amount = String(data.amount); parsed.push('amount'); }
+            if (data.categoryId) { next.categoryId = data.categoryId; parsed.push('categoryId'); }
+            if (data.note) { next.note = data.note; parsed.push('note'); }
+            return next;
+          });
+          setAiParsedFields(parsed);
+          setTimeout(() => setAiParsedFields([]), 3000);
+        }
+      } catch (err) {
+        console.error('Voice parsing error', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error('Speech recognition error', event.error);
+      setIsListening(false);
+    };
+
+    recognition.start();
+  }
+
   function handleKey(key: string) {
     if (key === 'backspace') {
       setForm(f => ({ ...f, amount: f.amount.slice(0, -1) }));
@@ -132,7 +188,7 @@ export default function QuickAddSheet() {
     }
   }
 
-  if (isAddPage) return null;
+  if (isLoginPage) return null;
 
   return (
     <>
@@ -153,7 +209,25 @@ export default function QuickAddSheet() {
         <div style={{ width: 40, height: 4, borderRadius: 2, background: 'var(--border)', margin: '0 auto 24px auto' }} />
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-          <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Quick Add</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Quick Add</h2>
+            {voiceSupported && (
+              <button
+                type="button"
+                onClick={handleVoiceInput}
+                style={{ 
+                  background: isListening ? 'var(--danger)' : 'var(--accent)', 
+                  border: 'none', color: '#fff', width: 32, height: 32, borderRadius: '50%', cursor: 'pointer', 
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: isListening ? '0 0 12px var(--danger)' : 'none',
+                  animation: isListening ? 'pulse 1.5s infinite' : 'none'
+                }}
+                title="Voice Add"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+              </button>
+            )}
+          </div>
           <button 
             type="button"
             onClick={() => setIsOpen(false)}
@@ -165,15 +239,25 @@ export default function QuickAddSheet() {
 
         <div>
           {/* Amount Display */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24, gap: 8, background: 'var(--bg-elevated)', padding: '16px', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)' }}>
+          <div style={{ 
+            display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24, gap: 8, background: 'var(--bg-elevated)', padding: '16px', borderRadius: 'var(--r-lg)', 
+            border: aiParsedFields.includes('amount') ? '2px solid var(--success)' : '1px solid var(--border)',
+            transition: 'border 0.3s'
+          }}>
             <span style={{ fontSize: 24, fontWeight: 500, color: 'var(--text-secondary)' }}>₹</span>
             <div style={{ fontSize: 40, fontWeight: 700, color: 'var(--text-primary)' }}>
               {form.amount || '0'}
             </div>
+            {aiParsedFields.includes('amount') && <span style={{ fontSize: 16 }}>✨</span>}
           </div>
 
           {/* Category Chips */}
-          <div style={{ marginBottom: 20 }}>
+          <div style={{ 
+            marginBottom: 20,
+            padding: 8, borderRadius: 'var(--r-lg)',
+            border: aiParsedFields.includes('categoryId') ? '2px solid var(--success)' : '2px solid transparent',
+            transition: 'border 0.3s'
+          }}>
             <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 8, scrollbarWidth: 'none', margin: '0 -4px', paddingLeft: 4, paddingRight: 4 }}>
               {(settings?.categories ?? []).map(cat => {
                 const isSelected = form.categoryId === cat.id;
@@ -242,14 +326,16 @@ export default function QuickAddSheet() {
                 color: 'var(--text-primary)', fontSize: 14, outline: 'none'
               }}
             />
-            <input 
+              <input 
               type="text"
               placeholder="Notes (optional)"
               value={form.note}
               onChange={e => setForm(f => ({ ...f, note: e.target.value }))}
               style={{
-                flex: 1, padding: '12px', borderRadius: 'var(--r-md)', background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-                color: 'var(--text-primary)', fontSize: 14, outline: 'none', minWidth: 0
+                flex: 1, padding: '12px', borderRadius: 'var(--r-md)', background: 'var(--bg-elevated)', 
+                border: aiParsedFields.includes('note') ? '2px solid var(--success)' : '1px solid var(--border)',
+                color: 'var(--text-primary)', fontSize: 14, outline: 'none', minWidth: 0,
+                transition: 'border 0.3s'
               }}
             />
           </div>

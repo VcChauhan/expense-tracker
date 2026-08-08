@@ -9,6 +9,9 @@ import {
 import { CalendarDays, PlusCircle, Wallet, CreditCard, PiggyBank, Target, TrendingUp, Bell, Sparkles } from 'lucide-react';
 import { formatINR, MONTHS, SHORT_MONTHS, getBudgetStatus, Settings, Expense } from '@/lib/types';
 import AiInsights from '@/components/AiInsights';
+import { HealthScoreCard } from '@/components/HealthScoreCard';
+import { TimeTravelSlider } from '@/components/TimeTravelSlider';
+import { SubscriptionAudit } from '@/components/SubscriptionAudit';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { FocusWheel, WheelData } from '@/components/FocusWheel';
 
@@ -54,6 +57,7 @@ export default function DashboardPage() {
   const [annualCategoryTotals, setAnnualCategoryTotals] = useState<CategoryTotal[]>([]);
   const [monthTotals, setMonthTotals]     = useState<MonthTotal[]>([]);
   const [recentExpenses, setRecentExpenses] = useState<Expense[]>([]);
+  const [historicalAverage, setHistoricalAverage] = useState(0);
   const [loading, setLoading]             = useState(true);
 
   const fetchData = useCallback(async () => {
@@ -68,6 +72,7 @@ export default function DashboardPage() {
       if (s && !s.error) setSettings(s);
       setCategoryTotals(Array.isArray(m.categoryTotals) ? m.categoryTotals : []);
       setRecentExpenses(Array.isArray(m.recent) ? m.recent : []);
+      setHistoricalAverage(m.historicalAverage || 0);
       const mt = Array.isArray(a.monthTotals) ? a.monthTotals : [];
       setMonthTotals(mt);
       const catMonthly = Array.isArray(a.categoryMonthly) ? a.categoryMonthly : [];
@@ -221,6 +226,32 @@ export default function DashboardPage() {
               <span style={{ fontSize: 16, fontWeight: 600, color: budgetPct >= 100 ? 'var(--danger)' : budgetPct >= 80 ? 'var(--warning)' : 'var(--success)', marginTop: 8 }}>{budgetPct.toFixed(0)}% used</span>
             </FocusWheel>
           </div>
+
+          {/* ── Financial Health Score ── */}
+          <HealthScoreCard 
+            spent={displaySpent}
+            budget={displayBudget}
+            income={displayIncome}
+            safePerDay={safePerDay}
+            categories={settings?.categories ?? []}
+            activeTotalsMap={activeTotalsMap}
+            historicalAverage={historicalAverage}
+            isAnnual={isAnnual}
+          />
+
+          {/* ── Time Travel Cashflow Forecasting ── */}
+          <TimeTravelSlider 
+            spent={displaySpent}
+            budget={displayBudget}
+            income={displayIncome}
+            categories={settings?.categories ?? []}
+            activeTotalsMap={activeTotalsMap}
+            selectedMonth={selectedMonth}
+            selectedYear={selectedYear}
+          />
+
+          {/* ── Subscription Audit (Silent Leaks) ── */}
+          <SubscriptionAudit />
 
           {/* ── AI Insights Section ── */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
