@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+export const dynamic = 'force-dynamic';
 import dbConnect from '@/lib/mongodb';
 import Settings from '@/lib/models/Settings';
 import { computeSalaryBreakdown } from '@/lib/taxUtils';
@@ -58,6 +59,7 @@ export async function PUT(request: Request) {
       deductions80D = 0,
       otherDeductions = 0,
       categories,
+      savingsGoals,
     } = body;
 
     // Compute in-hand salary with EPF + tax
@@ -86,6 +88,7 @@ export async function PUT(request: Request) {
         taxableIncome: breakdown.taxableIncome,
         effectiveTaxRate: breakdown.effectiveTaxRate,
         categories,
+        savingsGoals,
       },
       { new: true, upsert: true }
     );

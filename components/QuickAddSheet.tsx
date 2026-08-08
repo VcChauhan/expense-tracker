@@ -19,6 +19,7 @@ export default function QuickAddSheet() {
   const today = new Date().toISOString().split('T')[0];
   const [form, setForm] = useState({ date: today, categoryId: '', amount: '', note: '' });
   const [splitWays, setSplitWays] = useState<number>(1);
+  const [categoryTotals, setCategoryTotals] = useState<{_id: string; total: number}[]>([]);
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   // If on the /login page, hide the FAB
@@ -41,6 +42,11 @@ export default function QuickAddSheet() {
     if (isOpen) {
       dialog.showModal();
       document.body.style.overflow = 'hidden';
+      const now = new Date();
+      fetch(`/api/analytics/monthly?month=${now.getMonth() + 1}&year=${now.getFullYear()}`)
+        .then(r => r.json())
+        .then(data => setCategoryTotals(data.categoryTotals || []))
+        .catch(console.error);
     } else {
       dialog.close();
       document.body.style.overflow = '';
@@ -231,6 +237,8 @@ export default function QuickAddSheet() {
           margin: 'auto auto 0 auto',
           width: '100%',
           maxWidth: '500px',
+          maxHeight: '90vh',
+          overflowY: 'auto',
           border: 'none',
           borderRadius: '24px 24px 0 0',
           background: 'var(--bg-card)',
@@ -447,6 +455,25 @@ export default function QuickAddSheet() {
               </button>
             ))}
           </div>
+
+          {(() => {
+            const activeCategory = settings?.categories?.find(c => c.id === form.categoryId);
+            const activeTotal = categoryTotals.find(c => c._id === form.categoryId)?.total || 0;
+            const parsedAmount = parseFloat(form.amount) || 0;
+            const finalAmount = splitWays > 1 ? Math.round((parsedAmount / splitWays) * 100) / 100 : parsedAmount;
+            const budget = activeCategory?.monthlyBudget || 0;
+            const newTotal = activeTotal + finalAmount;
+            
+            if (budget > 0 && newTotal > budget && finalAmount > 0) {
+              const overBudgetPct = ((newTotal - budget) / budget * 100).toFixed(0);
+              return (
+                <div style={{ marginBottom: 16, padding: '8px 12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: 8, fontSize: 13, color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span>⚠️</span> This will put you {overBudgetPct}% over your {activeCategory?.name} budget.
+                </div>
+              );
+            }
+            return null;
+          })()}
 
           <button onClick={() => handleSubmit()} style={{ width: '100%', background: 'linear-gradient(135deg, var(--accent), #5B4FE0)', color: '#fff', border: 'none', borderRadius: 'var(--r-full)', padding: '16px', fontSize: 16, fontWeight: 600, cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }} disabled={loading || !form.amount}>
             {loading ? <span className="spinner" style={{ width: 16, height: 16, borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#fff' }} /> : 'Save Expense'}

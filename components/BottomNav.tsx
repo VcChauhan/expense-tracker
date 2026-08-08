@@ -131,7 +131,7 @@ export default function BottomNav() {
                 textDecoration: 'none', fontWeight: 600, fontSize: 16
               }}>
                 <Settings size={20} />
-                Budget Planner
+                Settings
               </Link>
               <Link href="/hike" onClick={() => setMenuOpen(false)} style={{
                 display: 'flex', alignItems: 'center', gap: 12, padding: '16px', borderRadius: 16,

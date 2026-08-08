@@ -9,6 +9,16 @@ export interface ICategory {
   color: string;
 }
 
+export interface ISavingsGoal {
+  id: string;
+  name: string;
+  targetAmount: number;
+  currentAmount: number;
+  targetDate: string;
+  icon: string;
+  color: string;
+}
+
 export interface ISettings extends Document {
   annualSalary: number;
   monthlySalary: number;       // computed in-hand monthly
@@ -25,6 +35,7 @@ export interface ISettings extends Document {
   taxableIncome: number;
   effectiveTaxRate: number;
   categories: ICategory[];
+  savingsGoals: ISavingsGoal[];
   expenseViewLayout?: 'list' | 'timeline';
   updatedAt: Date;
 }
@@ -36,6 +47,16 @@ const CategorySchema = new Schema<ICategory>({
   monthlyBudget: { type: Number, required: true, default: 0 },
   notes: { type: String, default: '' },
   color: { type: String, default: '#6366f1' },
+});
+
+const SavingsGoalSchema = new Schema<ISavingsGoal>({
+  id: { type: String, required: true },
+  name: { type: String, required: true },
+  targetAmount: { type: Number, required: true, default: 0 },
+  currentAmount: { type: Number, required: true, default: 0 },
+  targetDate: { type: String, required: true },
+  icon: { type: String, default: '🎯' },
+  color: { type: String, default: '#10b981' },
 });
 
 const SettingsSchema = new Schema<ISettings>(
@@ -53,12 +74,13 @@ const SettingsSchema = new Schema<ISettings>(
     taxableIncome:    { type: Number, default: 0 },
     effectiveTaxRate: { type: Number, default: 0 },
     categories:       { type: [CategorySchema], default: [] },
+    savingsGoals:     { type: [SavingsGoalSchema], default: [] },
     expenseViewLayout: { type: String, enum: ['list', 'timeline'], default: 'list' },
   },
   { timestamps: true }
 );
 
-const Settings: Model<ISettings> =
-  mongoose.models.Settings || mongoose.model<ISettings>('Settings', SettingsSchema);
+delete mongoose.models.Settings;
+const Settings: Model<ISettings> = mongoose.model<ISettings>('Settings', SettingsSchema);
 
 export default Settings;

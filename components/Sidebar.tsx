@@ -14,7 +14,7 @@ const navItems = [
 ];
 
 const settingsItems = [
-  { href: '/settings', icon: <Settings size={18} strokeWidth={1.8} />,        label: 'Budget Planner' },
+  { href: '/settings', icon: <Settings size={18} strokeWidth={1.8} />,        label: 'Settings' },
   { href: '/hike',     icon: <TrendingUp size={18} strokeWidth={1.8} />,      label: 'Hike Planner'   },
 ];
 

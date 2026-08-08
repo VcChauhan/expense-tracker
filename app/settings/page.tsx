@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { formatINR, Settings, Category } from '@/lib/types';
+import { formatINR, Settings, Category, SavingsGoal } from '@/lib/types';
 import { computeSalaryBreakdown } from '@/lib/taxUtils';
 import { Save, Wallet, Folder, Edit2, ArrowUp, ArrowDown, Trash2, CheckCircle2, XCircle, Sparkles, CreditCard } from 'lucide-react';
 import { CategoryIcon } from '@/components/CategoryIcon';
@@ -38,13 +38,19 @@ export default function SettingsPage() {
   const [otherDeductions, setOtherDeductions] = useState<number>(0);
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
   const [editingCat, setEditingCat] = useState<Category | null>(null);
+  const [editingGoal, setEditingGoal] = useState<SavingsGoal | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showAddGoalForm, setShowAddGoalForm] = useState(false);
   const [newCat, setNewCat] = useState<{ name: string; emoji: string; monthlyBudget: number; notes: string; color: string }>({
     name: '', emoji: '🏷️', monthlyBudget: 0, notes: '', color: PRESET_COLORS[0],
   });
+  const [newGoal, setNewGoal] = useState<Omit<SavingsGoal, 'id'>>({
+    name: '', targetAmount: 0, currentAmount: 0, targetDate: new Date().toISOString().split('T')[0], icon: '🎯', color: '#10b981'
+  });
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
-  const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean; type: 'category'; id: string } | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean; type: 'category' | 'goal'; id: string } | null>(null);
 
   useEffect(() => {
     fetchSettings();
@@ -62,6 +68,7 @@ export default function SettingsPage() {
       setDeductions80D(data.deductions80D || 0);
       setOtherDeductions(data.otherDeductions || 0);
       setCategories(data.categories || []);
+      setSavingsGoals(data.savingsGoals || []);
     } catch (err) {
       showToast('Error loading settings', 'error');
     } finally {
@@ -97,6 +104,7 @@ export default function SettingsPage() {
         deductions80D,
         otherDeductions,
         categories,
+        savingsGoals,
       };
       const res = await fetch('/api/settings', {
         method: 'PUT',
@@ -141,15 +149,49 @@ export default function SettingsPage() {
     setCategories(updated);
   };
 
-  const handleDeleteClick = (type: 'category', id: string) => {
+  const handleDeleteClick = (type: 'category' | 'goal', id: string) => {
     setConfirmDialog({ isOpen: true, type, id });
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!confirmDialog) return;
-    setCategories(prev => prev.filter(c => c.id !== confirmDialog.id));
+    if (confirmDialog.type === 'category') {
+      const updated = categories.filter(c => c.id !== confirmDialog.id);
+      setCategories(updated);
+      await fetch('/api/settings', { method: 'PATCH', body: JSON.stringify({ categories: updated }) });
+    } else if (confirmDialog.type === 'goal') {
+      const updated = savingsGoals.filter(g => g.id !== confirmDialog.id);
+      setSavingsGoals(updated);
+      await fetch('/api/settings', { method: 'PATCH', body: JSON.stringify({ savingsGoals: updated }) });
+    }
     setConfirmDialog(null);
     showToast('Deleted successfully', 'success');
+  };
+
+  const addGoal = async () => {
+    if (!newGoal.name || newGoal.targetAmount <= 0) { showToast('Name and Target Amount are required', 'error'); return; }
+    const updated = [...savingsGoals, { id: uuidv4(), ...newGoal }];
+    setSavingsGoals(updated);
+    setNewGoal({ name: '', targetAmount: 0, currentAmount: 0, targetDate: new Date().toISOString().split('T')[0], icon: '🎯', color: '#10b981' });
+    setShowAddGoalForm(false);
+    
+    try {
+      await fetch('/api/settings', { method: 'PATCH', body: JSON.stringify({ savingsGoals: updated }) });
+      showToast('Goal saved successfully', 'success');
+    } catch (e) {
+      showToast('Failed to save goal', 'error');
+    }
+  };
+
+  const updateGoal = async (id: string, updatedGoal: SavingsGoal) => {
+    const updated = savingsGoals.map(g => g.id === id ? updatedGoal : g);
+    setSavingsGoals(updated);
+    try {
+      await fetch('/api/settings', { method: 'PATCH', body: JSON.stringify({ savingsGoals: updated }) });
+      showToast('Goal updated successfully', 'success');
+    } catch (e) {
+      showToast('Failed to update goal', 'error');
+    }
   };
 
   if (loading) {
@@ -396,6 +438,99 @@ export default function SettingsPage() {
                         <button className="btn-text" style={{ cursor: "pointer", border: "none", padding: "4px", display: "flex", alignItems: "center" }} onClick={() => moveCat(idx, 'up')} disabled={idx === 0} title="Move up"><ArrowUp size={16} /></button>
                         <button className="btn-text" style={{ cursor: "pointer", border: "none", padding: "4px", display: "flex", alignItems: "center" }} onClick={() => moveCat(idx, 'down')} disabled={idx === categories.length - 1} title="Move down"><ArrowDown size={16} /></button>
                         <button className="btn-text" style={{ cursor: "pointer", border: "none", padding: "4px", display: "flex", alignItems: "center", color: "var(--danger)" }} onClick={() => handleDeleteClick('category', cat.id)} title="Delete"><Trash2 size={16} /></button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Savings Goals Section ── */}
+      <div className="card mb-32" style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 8 }}>
+            <Folder size={20} /> Savings Goals
+          </h2>
+          <button className="btn btn-secondary btn-sm" onClick={() => setShowAddGoalForm(!showAddGoalForm)}>
+            {showAddGoalForm ? 'Cancel' : '+ Add Goal'}
+          </button>
+        </div>
+
+        {showAddGoalForm && (
+          <div style={{ background: "var(--bg-secondary)", padding: 16, borderRadius: "var(--radius-md)", marginBottom: 16, border: "1px solid var(--border)" }}>
+            <div className="grid-2" style={{ marginBottom: 16 }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Goal Name</label>
+                <input type="text" className="form-input" value={newGoal.name} onChange={e => setNewGoal({ ...newGoal, name: e.target.value })} placeholder="e.g. Vacation Fund" />
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Target Amount</label>
+                <input type="number" className="form-input" value={newGoal.targetAmount || ''} onChange={e => setNewGoal({ ...newGoal, targetAmount: parseFloat(e.target.value) || 0 })} placeholder="50000" />
+              </div>
+            </div>
+            <div className="grid-2" style={{ marginBottom: 16 }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Current Saved Amount</label>
+                <input type="number" className="form-input" value={newGoal.currentAmount || ''} onChange={e => setNewGoal({ ...newGoal, currentAmount: parseFloat(e.target.value) || 0 })} placeholder="0" />
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Target Date</label>
+                <input type="date" className="form-input" value={newGoal.targetDate} onChange={e => setNewGoal({ ...newGoal, targetDate: e.target.value })} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button className="btn btn-primary" onClick={addGoal}>Add Goal</button>
+            </div>
+          </div>
+        )}
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {savingsGoals.length === 0 && !showAddGoalForm && (
+            <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-muted)', fontSize: 14 }}>
+              No savings goals yet. Add one to start tracking!
+            </div>
+          )}
+          {savingsGoals.map(goal => {
+            const progress = goal.targetAmount > 0 ? (goal.currentAmount / goal.targetAmount) * 100 : 0;
+            return (
+              <div key={goal.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px", background: "var(--bg-secondary)", borderRadius: "var(--radius-md)", border: "1px solid var(--border)" }}>
+                <div style={{ width: 40, height: 40, borderRadius: "50%", background: `${goal.color}22`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 20 }}>
+                  {goal.icon}
+                </div>
+                <div style={{ flex: 1 }}>
+                  {editingGoal?.id === goal.id ? (
+                    <input type="text" className="form-input" style={{ width: "100%", marginBottom: 4 }} value={editingGoal.name} onChange={e => setEditingGoal({ ...editingGoal, name: e.target.value })} />
+                  ) : (
+                    <div style={{ fontWeight: 600, color: "var(--text-primary)" }}>{goal.name}</div>
+                  )}
+                  {editingGoal?.id === goal.id ? (
+                    <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                       <input type="number" className="form-input" style={{ width: 100 }} value={editingGoal.currentAmount} onChange={e => setEditingGoal({ ...editingGoal, currentAmount: parseFloat(e.target.value) || 0 })} placeholder="Current" />
+                       <span style={{ alignSelf: 'center', color: 'var(--text-muted)' }}>/</span>
+                       <input type="number" className="form-input" style={{ width: 100 }} value={editingGoal.targetAmount} onChange={e => setEditingGoal({ ...editingGoal, targetAmount: parseFloat(e.target.value) || 0 })} placeholder="Target" />
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+                      <span style={{ fontWeight: 700, color: "var(--success)", fontSize: 14 }}>{formatINR(goal.currentAmount)}</span>
+                      <span style={{ fontSize: 12, color: "var(--text-muted)" }}>of {formatINR(goal.targetAmount)}</span>
+                      <span style={{ fontSize: 11, background: "var(--bg-input)", padding: "2px 6px", borderRadius: 4, color: "var(--text-muted)" }}>{progress.toFixed(1)}%</span>
+                    </div>
+                  )}
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <div className="flex gap-4">
+                    {editingGoal?.id === goal.id ? (
+                      <>
+                        <button className="btn btn-primary btn-sm" onClick={() => { updateGoal(goal.id, editingGoal); setEditingGoal(null); }}>✓</button>
+                        <button className="btn btn-secondary btn-sm" onClick={() => setEditingGoal(null)}>✕</button>
+                      </>
+                    ) : (
+                      <>
+                        <button className="btn-text" style={{ cursor: "pointer", border: "none", padding: "4px", display: "flex", alignItems: "center" }} onClick={() => setEditingGoal({ ...goal })} title="Edit"><Edit2 size={16} /></button>
+                        <button className="btn-text" style={{ cursor: "pointer", border: "none", padding: "4px", display: "flex", alignItems: "center", color: "var(--danger)" }} onClick={() => handleDeleteClick('goal', goal.id)} title="Delete"><Trash2 size={16} /></button>
                       </>
                     )}
                   </div>

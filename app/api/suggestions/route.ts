@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+export const dynamic = 'force-dynamic';
 import connectMongo from '@/lib/mongodb';
 import Suggestion from '@/lib/models/Suggestion';
 import Settings from '@/lib/models/Settings';

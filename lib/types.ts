@@ -9,6 +9,16 @@ export interface Category {
   color: string;
 }
 
+export interface SavingsGoal {
+  id: string;
+  name: string;
+  targetAmount: number;
+  currentAmount: number;
+  targetDate: string; // YYYY-MM-DD
+  icon: string;
+  color: string;
+}
+
 export interface Settings {
   _id?: string;
   annualSalary: number;
@@ -24,6 +34,7 @@ export interface Settings {
   taxableIncome?: number;
   effectiveTaxRate?: number;
   categories: Category[];
+  savingsGoals?: SavingsGoal[];
   expenseViewLayout?: 'list' | 'timeline';
   updatedAt?: string;
 }

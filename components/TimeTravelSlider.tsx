@@ -63,7 +63,7 @@ export function TimeTravelSlider({ spent, budget, income, categories, activeTota
 
     // 3. Final Projected Numbers
     const totalProjectedSpend = spent + projectedVariableFuture + expectedFixedFuture;
-    const totalProjectedIncome = income + (deferredDays > (30 - currentDay) ? income : 0); // If we cross a month, we get another paycheck
+    const totalProjectedIncome = income; // The slider is bounded to a single month, so we only consider one paycheck
     
     return {
       projectedSpend: totalProjectedSpend,

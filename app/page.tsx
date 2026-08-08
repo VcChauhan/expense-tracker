@@ -105,10 +105,25 @@ export default function DashboardPage() {
   const activeTotals   = isAnnual ? annualCategoryTotals : categoryTotals;
   
   const budgetPct      = displayBudget > 0 ? (displaySpent / displayBudget) * 100 : 0;
-  const safePerDay     = monthlySalary > 0 ? ((monthlySalary - monthlySpent) / (new Date(selectedYear, selectedMonth + 1, 0).getDate() - now.getDate() + 1)) : 0;
+  const remainingDays  = isAnnual 
+    ? Math.max(1, Math.floor((new Date(selectedYear, 11, 31).getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) + 1)
+    : Math.max(1, new Date(selectedYear, selectedMonth + 1, 0).getDate() - now.getDate() + 1);
+  const safePerDay     = displayBudget > 0 ? ((displayBudget - displaySpent) / remainingDays) : 0;
 
   const activeTotalsMap: Record<string, number> = {};
   activeTotals.forEach(t => activeTotalsMap[t._id] = t.total);
+
+  // Find over-budget categories (Monthly view only)
+  const overBudgetCategories = useMemo(() => {
+    if (viewMode !== 'monthly' || !settings) return [];
+    return categoryTotals.filter(ct => {
+      const cat = settings.categories.find(c => c.id === ct._id);
+      return cat && ct.total > cat.monthlyBudget && cat.monthlyBudget > 0;
+    }).map(ct => {
+      const cat = settings.categories.find(c => c.id === ct._id)!;
+      return { ...cat, spent: ct.total };
+    });
+  }, [categoryTotals, settings, viewMode]);
 
   // Donut data
   const pieData = useMemo(() =>
@@ -186,6 +201,21 @@ export default function DashboardPage() {
           </button>
         </div>
       </div>
+
+      {/* ── Dashboard Alert Center ── */}
+      {overBudgetCategories.length > 0 && (
+        <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: 12, padding: '12px 16px', marginBottom: 24, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+          <div style={{ color: 'var(--danger)', marginTop: 2 }}>
+            <Bell size={20} />
+          </div>
+          <div>
+            <h3 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 4px 0', color: 'var(--danger)' }}>Budget Alert</h3>
+            <p style={{ fontSize: 13, margin: 0, color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+              You have exceeded your monthly budget for: <strong style={{ color: 'var(--text-primary)' }}>{overBudgetCategories.map(c => c.name).join(', ')}</strong>.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Controls row */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 24 }}>
@@ -265,6 +295,43 @@ export default function DashboardPage() {
               <span style={{ fontSize: 16, fontWeight: 600, color: budgetPct >= 100 ? 'var(--danger)' : budgetPct >= 80 ? 'var(--warning)' : 'var(--success)', marginTop: 8 }}>{budgetPct.toFixed(0)}% used</span>
             </FocusWheel>
           </div>
+
+          {/* ── Savings Goals Progress ── */}
+          {settings?.savingsGoals && settings.savingsGoals.length > 0 && (
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                <Target size={18} color="var(--accent)" />
+                <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Savings Goals</h2>
+              </div>
+              <div style={{ display: 'flex', gap: 16, overflowX: 'auto', paddingBottom: 8, margin: '0 -20px', paddingLeft: 20, paddingRight: 20, scrollbarWidth: 'none' }}>
+                {settings.savingsGoals.map(goal => {
+                  const progress = goal.targetAmount > 0 ? (goal.currentAmount / goal.targetAmount) * 100 : 0;
+                  return (
+                    <div key={goal.id} style={{ minWidth: 240, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, padding: 16, flexShrink: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                        <div style={{ width: 40, height: 40, borderRadius: '50%', background: `${goal.color}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>
+                          {goal.icon}
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)' }}>{goal.name}</div>
+                          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Target: {formatINR(goal.targetAmount)}</div>
+                        </div>
+                      </div>
+                      
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 8 }}>
+                        <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--success)' }}>{formatINR(goal.currentAmount)}</div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>{progress.toFixed(0)}%</div>
+                      </div>
+                      
+                      <div style={{ width: '100%', height: 8, background: 'var(--bg-elevated)', borderRadius: 4, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', background: goal.color, width: `${Math.min(100, progress)}%`, borderRadius: 4, transition: 'width 0.5s ease-out' }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* ── Financial Health Score ── */}
           <HealthScoreCard 
@@ -373,72 +440,6 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* ── Recent Expenses ── */}
-          {!isAnnual && recentExpenses.length > 0 && (
-            <div style={{ marginBottom: 32 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Recent</h2>
-                <Link href="/expenses" style={{ fontSize: 13, color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 }}>View all →</Link>
-              </div>
-              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
-                {recentExpenses.slice(0, 5).map((exp, i) => {
-                  const cat = getCategoryById(exp.categoryId);
-                  return (
-                    <div key={exp._id}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 16 }}>
-                        <CategoryIcon name={cat?.name ?? ''} note={exp.note} color={cat?.color ?? 'var(--accent)'} size={20} inList={true} />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cat?.name ?? 'Unknown'} {exp.note && `- ${exp.note}`}</div>
-                          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>{exp.date}</div>
-                        </div>
-                        <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' }}>{formatINR(exp.amount)}</div>
-                      </div>
-                      {i < Math.min(recentExpenses.length, 5) - 1 && <div style={{ height: 1, background: 'var(--border)', marginLeft: 60 }} />}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* ── Charts ── */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 24, marginBottom: 32 }}>
-
-            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, padding: 20 }}>
-              <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 16px 0' }}>Spending Trend</h2>
-              <ResponsiveContainer width="100%" height={240}>
-                {isAnnual ? (
-                  <BarChart data={areaData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                    <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
-                    <YAxis tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
-                    <Tooltip content={<ChartTooltip />} cursor={{ fill: 'var(--border)', opacity: 0.4 }} />
-                    <Bar dataKey="Spent" fill="var(--accent)" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                ) : (
-                  <AreaChart data={areaData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="gradSpent" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%"  stopColor="var(--accent)" stopOpacity={0.4} />
-                        <stop offset="95%" stopColor="var(--accent)" stopOpacity={0.02} />
-                      </linearGradient>
-                      <linearGradient id="gradIncome" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%"  stopColor="var(--success)" stopOpacity={0.25} />
-                        <stop offset="95%" stopColor="var(--success)" stopOpacity={0.02} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                    <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
-                    <YAxis tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
-                    <Tooltip content={<ChartTooltip />} />
-                    <Legend wrapperStyle={{ fontSize: 12, color: 'var(--text-secondary)' }} />
-                    <Area type="monotone" dataKey="Income" stroke="var(--success)" strokeWidth={2} fill="url(#gradIncome)" dot={false} />
-                    <Area type="monotone" dataKey="Spent"  stroke="var(--accent)" strokeWidth={2} fill="url(#gradSpent)"  dot={false} />
-                  </AreaChart>
-                )}
-              </ResponsiveContainer>
-            </div>
-          </div>
         </>
       )}
     </div>

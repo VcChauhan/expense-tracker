@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+export const dynamic = 'force-dynamic';
 import dbConnect from '@/lib/mongodb';
 import HikeHistory from '@/lib/models/HikeHistory';
 import Settings from '@/lib/models/Settings';
