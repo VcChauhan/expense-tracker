@@ -18,6 +18,7 @@ export default function QuickAddSheet() {
   
   const today = new Date().toISOString().split('T')[0];
   const [form, setForm] = useState({ date: today, categoryId: '', amount: '', note: '' });
+  const [splitWays, setSplitWays] = useState<number>(1);
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   // If on the /login page, hide the FAB
@@ -112,11 +113,17 @@ export default function QuickAddSheet() {
     if (!form.amount || parseFloat(form.amount) <= 0) return;
     setLoading(true);
     try {
+      const parsedAmount = parseFloat(form.amount);
+      const finalAmount = splitWays > 1 ? Math.round((parsedAmount / splitWays) * 100) / 100 : parsedAmount;
+      const splitNote = splitWays > 1 ? ` (Split: ₹${parsedAmount} / ${splitWays})` : '';
+      const finalNote = form.note + splitNote;
+
       await fetch('/api/expenses', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, amount: parseFloat(form.amount) }),
+        body: JSON.stringify({ ...form, amount: finalAmount, note: finalNote }),
       });
       setForm({ date: today, categoryId: settings?.categories[0]?.id ?? '', amount: '', note: '' });
+      setSplitWays(1);
       setIsOpen(false);
       router.refresh();
     } catch (err) {
@@ -130,16 +137,22 @@ export default function QuickAddSheet() {
     if (!suggestion.amount || parseFloat(suggestion.amount) <= 0) return;
     setLoading(true);
     try {
+      const parsedAmount = parseFloat(suggestion.amount);
+      const finalAmount = splitWays > 1 ? Math.round((parsedAmount / splitWays) * 100) / 100 : parsedAmount;
+      const splitNote = splitWays > 1 ? ` (Split: ₹${parsedAmount} / ${splitWays})` : '';
+      const finalNote = (suggestion.note || '') + splitNote;
+
       await fetch('/api/expenses', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
            date: today, 
            categoryId: suggestion.categoryId || settings?.categories[0]?.id || '', 
-           amount: parseFloat(suggestion.amount), 
-           note: suggestion.note || '' 
+           amount: finalAmount, 
+           note: finalNote 
         }),
       });
       setForm({ date: today, categoryId: settings?.categories[0]?.id ?? '', amount: '', note: '' });
+      setSplitWays(1);
       setVoiceSuggestion(null);
       setIsOpen(false);
       router.refresh();
@@ -275,6 +288,22 @@ export default function QuickAddSheet() {
                </div>
                
                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>
+                 <span style={{ fontSize: 14, color: 'var(--text-secondary)' }}>Split ways</span>
+                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                   {splitWays > 1 && voiceSuggestion.amount && (
+                     <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>
+                       = ₹{Math.round((parseFloat(voiceSuggestion.amount) / splitWays) * 100) / 100} / person
+                     </span>
+                   )}
+                   <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-card)', borderRadius: 20, border: '1px solid var(--border)' }}>
+                     <button type="button" onClick={() => setSplitWays(Math.max(1, splitWays - 1))} style={{ background: 'none', border: 'none', padding: '4px 12px', color: 'var(--text-primary)', cursor: 'pointer', fontSize: 16 }}>-</button>
+                     <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', minWidth: 20, textAlign: 'center' }}>{splitWays}</span>
+                     <button type="button" onClick={() => setSplitWays(splitWays + 1)} style={{ background: 'none', border: 'none', padding: '4px 12px', color: 'var(--text-primary)', cursor: 'pointer', fontSize: 16 }}>+</button>
+                   </div>
+                 </div>
+               </div>
+               
+               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>
                  <span style={{ fontSize: 14, color: 'var(--text-secondary)' }}>Category</span>
                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                    {voiceSuggestion.categoryId && (
@@ -320,13 +349,30 @@ export default function QuickAddSheet() {
           <div>
           {/* Amount Display */}
           <div style={{ 
-            display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24, gap: 8, background: 'var(--bg-elevated)', padding: '16px', borderRadius: 'var(--r-lg)', 
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', marginBottom: 24, background: 'var(--bg-elevated)', padding: '16px', borderRadius: 'var(--r-lg)', 
             border: '1px solid var(--border)',
             transition: 'border 0.3s'
           }}>
-            <span style={{ fontSize: 24, fontWeight: 500, color: 'var(--text-secondary)' }}>₹</span>
-            <div style={{ fontSize: 40, fontWeight: 700, color: 'var(--text-primary)' }}>
-              {form.amount || '0'}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+               <span style={{ fontSize: 24, fontWeight: 500, color: 'var(--text-secondary)' }}>₹</span>
+               <div style={{ fontSize: 40, fontWeight: 700, color: 'var(--text-primary)' }}>
+                 {form.amount || '0'}
+               </div>
+            </div>
+            
+            {/* Split UI */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12 }}>
+               <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Split ways:</span>
+               <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-card)', borderRadius: 20, border: '1px solid var(--border)' }}>
+                 <button type="button" onClick={() => setSplitWays(Math.max(1, splitWays - 1))} style={{ background: 'none', border: 'none', padding: '4px 12px', color: 'var(--text-primary)', cursor: 'pointer', fontSize: 16 }}>-</button>
+                 <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', minWidth: 20, textAlign: 'center' }}>{splitWays}</span>
+                 <button type="button" onClick={() => setSplitWays(splitWays + 1)} style={{ background: 'none', border: 'none', padding: '4px 12px', color: 'var(--text-primary)', cursor: 'pointer', fontSize: 16 }}>+</button>
+               </div>
+               {splitWays > 1 && form.amount && (
+                 <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>
+                   = ₹{Math.round((parseFloat(form.amount) / splitWays) * 100) / 100} / person
+                 </span>
+               )}
             </div>
           </div>
 

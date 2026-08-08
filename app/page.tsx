@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
   AreaChart, Area, Tooltip, ResponsiveContainer,
   XAxis, YAxis, CartesianGrid, BarChart, Bar, Legend,
+  LineChart, Line
 } from 'recharts';
 import { CalendarDays, PlusCircle, Wallet, CreditCard, PiggyBank, Target, TrendingUp, Bell, Sparkles } from 'lucide-react';
 import { formatINR, MONTHS, SHORT_MONTHS, getBudgetStatus, Settings, Expense } from '@/lib/types';
@@ -56,6 +57,7 @@ export default function DashboardPage() {
   const [categoryTotals, setCategoryTotals] = useState<CategoryTotal[]>([]);
   const [annualCategoryTotals, setAnnualCategoryTotals] = useState<CategoryTotal[]>([]);
   const [monthTotals, setMonthTotals]     = useState<MonthTotal[]>([]);
+  const [dailyTotals, setDailyTotals]     = useState<{_id: string; total: number}[]>([]);
   const [recentExpenses, setRecentExpenses] = useState<Expense[]>([]);
   const [historicalAverage, setHistoricalAverage] = useState(0);
   const [loading, setLoading]             = useState(true);
@@ -72,6 +74,7 @@ export default function DashboardPage() {
       if (s && !s.error) setSettings(s);
       setCategoryTotals(Array.isArray(m.categoryTotals) ? m.categoryTotals : []);
       setRecentExpenses(Array.isArray(m.recent) ? m.recent : []);
+      setDailyTotals(Array.isArray(m.dailyTotals) ? m.dailyTotals : []);
       setHistoricalAverage(m.historicalAverage || 0);
       const mt = Array.isArray(a.monthTotals) ? a.monthTotals : [];
       setMonthTotals(mt);
@@ -123,6 +126,42 @@ export default function DashboardPage() {
       return { month: m, Spent: t?.total ?? 0, Income: monthlySalary };
     }),
   [monthTotals, monthlySalary]);
+
+  // Daily trend data for monthly view
+  const dailyChartData = useMemo(() => {
+    if (viewMode !== 'monthly') return [];
+    const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
+    const data = Array.from({ length: daysInMonth }, (_, i) => {
+      const dateStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(i + 1).padStart(2, '0')}`;
+      const found = dailyTotals.find(d => d._id === dateStr);
+      return {
+        day: String(i + 1).padStart(2, '0'),
+        spent: found ? found.total : 0,
+        name: `${SHORT_MONTHS[selectedMonth]} ${i + 1}`
+      };
+    });
+    
+    let cumulative = 0;
+    return data.map(d => {
+      cumulative += d.spent;
+      return { ...d, totalSpent: cumulative };
+    });
+  }, [dailyTotals, selectedMonth, selectedYear, viewMode]);
+
+  // Day of week breakdown data
+  const dayOfWeekData = useMemo(() => {
+    if (viewMode !== 'monthly') return [];
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const data = days.map(d => ({ name: d, spent: 0 }));
+    
+    dailyTotals.forEach(d => {
+      const date = new Date(d._id);
+      if (date.getMonth() === selectedMonth && date.getFullYear() === selectedYear) {
+        data[date.getDay()].spent += d.total;
+      }
+    });
+    return data;
+  }, [dailyTotals, selectedMonth, selectedYear, viewMode]);
 
   function navigateMonth(dir: number) {
     let m = selectedMonth + dir, y = selectedYear;
@@ -252,6 +291,43 @@ export default function DashboardPage() {
 
           {/* ── Subscription Audit (Silent Leaks) ── */}
           <SubscriptionAudit />
+
+          {/* ── Advanced Analytics (Phase 1) ── */}
+          {viewMode === 'monthly' && (
+            <div style={{ marginBottom: 32 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                <TrendingUp size={18} color="var(--accent)" />
+                <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Spending Velocity</h2>
+              </div>
+              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, padding: '20px 20px 0px', marginBottom: 16 }}>
+                <h3 style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '0 0 16px 0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Cumulative Monthly Spend</h3>
+                <div style={{ height: 200, marginLeft: -20, marginBottom: -10 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={dailyChartData} margin={{ top: 5, right: 0, left: 0, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                      <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} />
+                      <YAxis hide domain={['auto', 'auto']} />
+                      <Tooltip content={<ChartTooltip />} />
+                      <Line type="monotone" dataKey="totalSpent" name="Total Spent" stroke="var(--accent)" strokeWidth={3} dot={false} activeDot={{ r: 6, fill: 'var(--accent)', stroke: 'var(--bg-card)', strokeWidth: 3 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+              
+              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, padding: 16 }}>
+                 <h3 style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '0 0 16px 0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Day of Week Breakdown</h3>
+                 <div style={{ height: 120, marginLeft: -20, marginBottom: -10 }}>
+                   <ResponsiveContainer width="100%" height="100%">
+                     <BarChart data={dayOfWeekData}>
+                       <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} />
+                       <Tooltip content={<ChartTooltip />} cursor={{ fill: 'var(--border)', opacity: 0.4 }} />
+                       <Bar dataKey="spent" name="Spent" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                     </BarChart>
+                   </ResponsiveContainer>
+                 </div>
+              </div>
+            </div>
+          )}
 
           {/* ── AI Insights Section ── */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>

@@ -49,7 +49,19 @@ export async function GET(request: Request) {
     const historicalTotal = histExpenses[0]?.total || 0;
     const historicalAverage = Math.round(historicalTotal / 3);
 
-    return NextResponse.json({ categoryTotals, overall, recent, historicalAverage, month: mm, year });
+    // Daily totals for this month
+    const dailyTotals = await Expense.aggregate([
+      { $match: { date: { $gte: dateFrom, $lte: dateTo } } },
+      {
+        $group: {
+          _id: '$date',
+          total: { $sum: '$amount' },
+        },
+      },
+      { $sort: { _id: 1 } }
+    ]);
+
+    return NextResponse.json({ categoryTotals, overall, recent, historicalAverage, dailyTotals, month: mm, year });
   } catch (error) {
     console.error('GET /api/analytics/monthly error:', error);
     return NextResponse.json({ error: 'Failed to fetch monthly analytics' }, { status: 500 });

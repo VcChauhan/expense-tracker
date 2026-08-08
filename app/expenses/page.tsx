@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { formatINR, MONTHS, SHORT_MONTHS, Expense, Settings, Category, Suggestion } from '@/lib/types';
-import { CalendarDays, Edit2, Trash2, CheckCircle2, XCircle, ChevronLeft, ChevronRight, Sparkles, MoreVertical, LayoutList, GitCommit } from 'lucide-react';
+import { CalendarDays, Edit2, Trash2, CheckCircle2, XCircle, ChevronLeft, ChevronRight, Sparkles, MoreVertical, LayoutList, GitCommit, Search } from 'lucide-react';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { ExpenseTimelineView } from '@/components/ExpenseTimelineView';
@@ -45,6 +45,7 @@ export default function ExpensesPage() {
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
   const [selectedYear, setSelectedYear]   = useState(now.getFullYear());
   const [filterCategory, setFilterCategory] = useState('');
+  const [searchQuery, setSearchQuery]       = useState('');
 
   const [sortBy, setSortBy]               = useState<SortField>('date');
   const [sortDir, setSortDir]             = useState<SortDir>('desc');
@@ -57,6 +58,7 @@ export default function ExpensesPage() {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [reviewSuggestion, setReviewSuggestion] = useState<Suggestion | null>(null);
   const [reviewForm, setReviewForm] = useState({ date: new Date().toISOString().split('T')[0], categoryId: '', amount: '', note: '' });
+  const [reviewSplitWays, setReviewSplitWays] = useState<number>(1);
 
   useEffect(() => {
     fetch('/api/settings').then(r => r.json()).then(s => {
@@ -112,16 +114,23 @@ export default function ExpensesPage() {
     return () => { document.body.style.overflow = ''; }
   }, [reviewSuggestion, editingExp]);
 
-  // Client-side sort
+  // Client-side sort and filter
   const filtered = useMemo(() => {
     let list = [...expenses];
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(exp => {
+        const cat = settings?.categories?.find(c => c.id === exp.categoryId);
+        return exp.note?.toLowerCase().includes(q) || cat?.name?.toLowerCase().includes(q) || String(exp.amount).includes(q);
+      });
+    }
     const mul = sortDir === 'asc' ? 1 : -1;
     list.sort((a, b) => {
       if (sortBy === 'date') return mul * a.date.localeCompare(b.date);
       return mul * (a.amount - b.amount);
     });
     return list;
-  }, [expenses, sortBy, sortDir]);
+  }, [expenses, sortBy, sortDir, searchQuery, settings]);
 
   // Group by day for monthly view
   const groupedByDay = useMemo(() => {
@@ -218,6 +227,7 @@ export default function ExpensesPage() {
       amount: String(sug.amount),
       note: sug.suggestedLabel || `SMS: ${sug.smsBody.substring(0, 30)}...`,
     });
+    setReviewSplitWays(1);
     setReviewSuggestion(sug);
   }
 
@@ -226,9 +236,14 @@ export default function ExpensesPage() {
     if (!reviewSuggestion || !reviewForm.amount || parseFloat(reviewForm.amount) <= 0) return;
     setSaving(true);
     try {
+      const parsedAmount = parseFloat(reviewForm.amount);
+      const finalAmount = reviewSplitWays > 1 ? Math.round((parsedAmount / reviewSplitWays) * 100) / 100 : parsedAmount;
+      const splitNote = reviewSplitWays > 1 ? ` (Split: ₹${parsedAmount} / ${reviewSplitWays})` : '';
+      const finalNote = (reviewForm.note || '') + splitNote;
+
       await fetch('/api/expenses', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...reviewForm, amount: parseFloat(reviewForm.amount) }),
+        body: JSON.stringify({ ...reviewForm, amount: finalAmount, note: finalNote }),
       });
       await fetch(`/api/suggestions/${reviewSuggestion._id}`, { method: 'DELETE' });
       showToast('Expense added!', 'success');
@@ -389,6 +404,25 @@ export default function ExpensesPage() {
               <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)' }}>{selectedYear}</span>
               <button onClick={() => setSelectedYear(y => y + 1)} style={{ background: 'none', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', padding: '8px' }}><ChevronRight size={18} /></button>
             </>
+          )}
+        </div>
+      </div>
+
+      {/* Search */}
+      <div style={{ padding: '0 16px', marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, padding: '0 12px' }}>
+          <Search size={18} color="var(--text-secondary)" />
+          <input 
+            type="text" 
+            placeholder="Search notes, categories, or amounts..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{ flex: 1, border: 'none', background: 'transparent', padding: '12px 8px', fontSize: 14, color: 'var(--text-primary)', outline: 'none' }}
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery('')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', padding: 4 }}>
+              ✕
+            </button>
           )}
         </div>
       </div>
@@ -592,6 +626,22 @@ export default function ExpensesPage() {
               <div>
                 <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>Amount (₹)</label>
                 <input type="number" step="0.01" style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '12px 16px', borderRadius: 12, fontSize: 16 }} value={reviewForm.amount} onChange={e => setReviewForm({ ...reviewForm, amount: e.target.value })} />
+              </div>
+              
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Split ways</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  {reviewSplitWays > 1 && reviewForm.amount && (
+                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>
+                      = ₹{Math.round((parseFloat(reviewForm.amount) / reviewSplitWays) * 100) / 100} / person
+                    </span>
+                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg)', borderRadius: 20, border: '1px solid var(--border)' }}>
+                    <button type="button" onClick={() => setReviewSplitWays(Math.max(1, reviewSplitWays - 1))} style={{ background: 'none', border: 'none', padding: '4px 12px', color: 'var(--text-primary)', cursor: 'pointer', fontSize: 16 }}>-</button>
+                    <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', minWidth: 20, textAlign: 'center' }}>{reviewSplitWays}</span>
+                    <button type="button" onClick={() => setReviewSplitWays(reviewSplitWays + 1)} style={{ background: 'none', border: 'none', padding: '4px 12px', color: 'var(--text-primary)', cursor: 'pointer', fontSize: 16 }}>+</button>
+                  </div>
+                </div>
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>Note</label>
