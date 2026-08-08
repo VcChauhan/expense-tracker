@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { formatINR, MONTHS, SHORT_MONTHS, Expense, Settings, Category } from '@/lib/types';
-import { CalendarDays, Edit2, Trash2, CheckCircle2, XCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { formatINR, MONTHS, SHORT_MONTHS, Expense, Settings, Category, Suggestion } from '@/lib/types';
+import { CalendarDays, Edit2, Trash2, CheckCircle2, XCircle, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { ConfirmModal } from '@/components/ConfirmModal';
 
@@ -30,6 +30,11 @@ export default function ExpensesPage() {
   // Edit modal
   const [editingExp, setEditingExp]     = useState<Expense | null>(null);
   const [saving, setSaving]             = useState(false);
+
+  // Suggestions
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [reviewSuggestion, setReviewSuggestion] = useState<Suggestion | null>(null);
+  const [reviewForm, setReviewForm] = useState({ date: new Date().toISOString().split('T')[0], categoryId: '', accountId: '', amount: '', note: '' });
 
   // Fetch settings
   useEffect(() => {
@@ -59,6 +64,26 @@ export default function ExpensesPage() {
   }, [viewMode, selectedMonth, selectedYear, filterCategory, filterAccount]);
 
   useEffect(() => { fetchExpenses(); }, [fetchExpenses]);
+
+  // Fetch suggestions
+  async function fetchSuggestions() {
+    try {
+      const res = await fetch('/api/suggestions');
+      const data = await res.json();
+      setSuggestions(Array.isArray(data) ? data : []);
+    } catch { setSuggestions([]); }
+  }
+
+  useEffect(() => { fetchSuggestions(); }, []);
+
+  useEffect(() => {
+    if (reviewSuggestion || editingExp) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; }
+  }, [reviewSuggestion, editingExp]);
 
   // Client-side sort
   const filtered = useMemo(() => {
@@ -151,6 +176,42 @@ export default function ExpensesPage() {
     }
   }
 
+  async function handleActionSuggestion(sug: Suggestion, action: 'approve' | 'reject') {
+    if (action === 'reject') {
+      try {
+        await fetch(`/api/suggestions/${sug._id}`, { method: 'DELETE' });
+        fetchSuggestions();
+      } catch {}
+      return;
+    }
+    setReviewForm({
+      date: sug.date,
+      categoryId: sug.suggestedCategory || settings?.categories[0]?.id || '',
+      accountId: settings?.accounts?.[0]?.id || '',
+      amount: String(sug.amount),
+      note: sug.suggestedLabel || `SMS: ${sug.smsBody.substring(0, 30)}...`,
+    });
+    setReviewSuggestion(sug);
+  }
+
+  async function submitReviewForm(e?: React.FormEvent) {
+    if (e) e.preventDefault();
+    if (!reviewSuggestion || !reviewForm.amount || parseFloat(reviewForm.amount) <= 0) return;
+    setSaving(true);
+    try {
+      await fetch('/api/expenses', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...reviewForm, amount: parseFloat(reviewForm.amount) }),
+      });
+      await fetch(`/api/suggestions/${reviewSuggestion._id}`, { method: 'DELETE' });
+      showToast('Expense added!', 'success');
+      setReviewSuggestion(null);
+      fetchExpenses();
+      fetchSuggestions();
+    } catch { showToast('Failed to add suggestion', 'error'); }
+    finally { setSaving(false); }
+  }
+
   function formatDateHeader(dateStr: string) {
     const d = new Date(dateStr);
     const today = new Date();
@@ -209,6 +270,49 @@ export default function ExpensesPage() {
           {filtered.length} • {formatINR(totalSpent)}
         </div>
       </div>
+
+      {/* ── Pending SMS Suggestions ── */}
+      {suggestions.length > 0 && (
+        <div style={{ padding: '0 16px', marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <Sparkles size={18} color="var(--accent)" />
+            <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+              AI Suggestions
+            </h2>
+          </div>
+          <div style={{ display: 'flex', overflowX: 'auto', gap: 12, paddingBottom: 8, scrollbarWidth: 'none', margin: '0 -16px', paddingLeft: 16, paddingRight: 16 }}>
+            {suggestions.map(sug => (
+              <div key={sug._id} style={{ 
+                background: 'var(--bg-card)', borderRadius: 20, padding: 16, border: '1px solid var(--border)', 
+                minWidth: 280, maxWidth: 320, flexShrink: 0, boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+                display: 'flex', flexDirection: 'column'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--accent-dim)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Sparkles size={16} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>{sug.suggestedLabel || sug.sender}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{sug.date}</div>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>{formatINR(sug.amount)}</div>
+                </div>
+                
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                  "{sug.smsBody}"
+                </div>
+
+                <div style={{ display: 'flex', gap: 8, marginTop: 'auto' }}>
+                  <button onClick={() => handleActionSuggestion(sug, 'approve')} style={{ flex: 1, padding: '8px', borderRadius: 12, background: 'var(--accent)', color: '#fff', border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Review</button>
+                  <button onClick={() => handleActionSuggestion(sug, 'reject')} style={{ padding: '8px 16px', borderRadius: 12, background: 'var(--bg-elevated)', color: 'var(--text-secondary)', border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Dismiss</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Controls */}
       <div style={{ padding: '0 16px', display: 'flex', gap: 12, marginBottom: 16 }}>
@@ -385,6 +489,65 @@ export default function ExpensesPage() {
               <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
                 <button style={{ flex: 1, padding: 14, borderRadius: 12, border: 'none', background: 'var(--border)', color: 'var(--text-primary)', fontWeight: 600, fontSize: 16, cursor: 'pointer' }} onClick={() => setEditingExp(null)}>Cancel</button>
                 <button style={{ flex: 1, padding: 14, borderRadius: 12, border: 'none', background: 'var(--accent)', color: '#fff', fontWeight: 600, fontSize: 16, cursor: 'pointer', opacity: saving ? 0.7 : 1 }} onClick={handleUpdate} disabled={saving}>{saving ? 'Saving...' : 'Save Changes'}</button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Review Suggestion Bottom Sheet */}
+      {reviewSuggestion && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 999, backdropFilter: 'blur(4px)' }} onClick={() => setReviewSuggestion(null)} />
+          <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', padding: 24, zIndex: 1000, boxShadow: '0 -10px 40px rgba(0,0,0,0.3)' }}>
+            <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 20, color: 'var(--text-primary)' }}>Review AI Suggestion</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>Date</label>
+                <input type="date" style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '12px 16px', borderRadius: 12, fontSize: 16 }} value={reviewForm.date} onChange={e => setReviewForm({ ...reviewForm, date: e.target.value })} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 8 }}>Category</label>
+                <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 8, scrollbarWidth: 'none', margin: '0 -4px', padding: '0 4px 8px 4px' }}>
+                  {(() => {
+                    const sortedCategories = [...(settings?.categories ?? [])].sort((a, b) => {
+                      if (a.id === reviewForm.categoryId) return -1;
+                      if (b.id === reviewForm.categoryId) return 1;
+                      return 0;
+                    });
+                    return sortedCategories.map(cat => {
+                      const isSelected = reviewForm.categoryId === cat.id;
+                      return (
+                        <button 
+                          key={cat.id} type="button"
+                          onClick={() => setReviewForm({ ...reviewForm, categoryId: cat.id })}
+                          style={{ 
+                            padding: '10px 16px', borderRadius: 9999, fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap',
+                            background: isSelected ? 'var(--accent)' : 'var(--bg-elevated)',
+                            border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
+                            color: isSelected ? '#fff' : 'var(--text-secondary)',
+                            display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', flexShrink: 0,
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          <CategoryIcon name={cat.name} size={14} /> {cat.name}
+                        </button>
+                      );
+                    });
+                  })()}
+                </div>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>Amount (₹)</label>
+                <input type="number" step="0.01" style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '12px 16px', borderRadius: 12, fontSize: 16 }} value={reviewForm.amount} onChange={e => setReviewForm({ ...reviewForm, amount: e.target.value })} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>Note</label>
+                <input type="text" style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '12px 16px', borderRadius: 12, fontSize: 16 }} value={reviewForm.note || ''} onChange={e => setReviewForm({ ...reviewForm, note: e.target.value })} />
+              </div>
+              <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+                <button style={{ flex: 1, padding: 14, borderRadius: 12, border: 'none', background: 'var(--border)', color: 'var(--text-primary)', fontWeight: 600, fontSize: 16, cursor: 'pointer' }} onClick={() => setReviewSuggestion(null)}>Cancel</button>
+                <button style={{ flex: 1, padding: 14, borderRadius: 12, border: 'none', background: 'var(--accent)', color: '#fff', fontWeight: 600, fontSize: 16, cursor: 'pointer', opacity: saving ? 0.7 : 1 }} onClick={() => submitReviewForm()} disabled={saving}>{saving ? 'Saving...' : 'Confirm'}</button>
               </div>
             </div>
           </div>
