@@ -96,3 +96,19 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: 'Failed to update settings' }, { status: 500 });
   }
 }
+
+export async function PATCH(request: Request) {
+  try {
+    await dbConnect();
+    const body = await request.json();
+    const settings = await Settings.findOneAndUpdate(
+      {},
+      { $set: body },
+      { new: true, upsert: true }
+    );
+    return NextResponse.json(settings);
+  } catch (error) {
+    console.error('PATCH /api/settings error:', error);
+    return NextResponse.json({ error: 'Failed to partial update settings' }, { status: 500 });
+  }
+}

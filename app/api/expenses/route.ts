@@ -9,7 +9,7 @@ export async function GET(request: Request) {
     const month = searchParams.get('month'); // 1-12
     const year = searchParams.get('year');   // 2026
     const categoryId = searchParams.get('categoryId');
-    const accountId = searchParams.get('accountId');
+
     const limit = parseInt(searchParams.get('limit') ?? '200');
 
     // Build date filter
@@ -26,9 +26,7 @@ export async function GET(request: Request) {
     if (categoryId) {
       filter.categoryId = categoryId;
     }
-    if (accountId) {
-      filter.accountId = accountId;
-    }
+
 
     const expenses = await Expense.find(filter)
       .sort({ date: -1, createdAt: -1 })
@@ -46,13 +44,13 @@ export async function POST(request: Request) {
   try {
     await dbConnect();
     const body = await request.json();
-    const { date, categoryId, accountId, amount, note } = body;
+    const { date, categoryId, amount, note } = body;
 
     if (!date || !categoryId || amount === undefined) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const expense = await Expense.create({ date, categoryId, accountId: accountId || null, amount: parseFloat(amount), note: note ?? '' });
+    const expense = await Expense.create({ date, categoryId, amount: parseFloat(amount), note: note ?? '' });
     return NextResponse.json(expense, { status: 201 });
   } catch (error) {
     console.error('POST /api/expenses error:', error);

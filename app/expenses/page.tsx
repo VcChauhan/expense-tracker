@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { formatINR, MONTHS, SHORT_MONTHS, Expense, Settings, Category, Suggestion } from '@/lib/types';
-import { CalendarDays, Edit2, Trash2, CheckCircle2, XCircle, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
+import { CalendarDays, Edit2, Trash2, CheckCircle2, XCircle, ChevronLeft, ChevronRight, Sparkles, MoreVertical, LayoutList, GitCommit } from 'lucide-react';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { ConfirmModal } from '@/components/ConfirmModal';
+import { ExpenseTimelineView } from '@/components/ExpenseTimelineView';
 
 type ViewMode = 'monthly' | 'annual';
 type SortField = 'date' | 'amount';
@@ -20,10 +21,31 @@ export default function ExpensesPage() {
 
   // Filters
   const [viewMode, setViewMode]           = useState<ViewMode>('monthly');
+  const [viewLayout, setViewLayout]       = useState<'list' | 'timeline'>('list');
+  const [menuOpen, setMenuOpen]           = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('expenseViewLayout');
+      if (saved === 'list' || saved === 'timeline') setViewLayout(saved);
+    }
+  }, []);
+
+  function handleSetViewLayout(layout: 'list' | 'timeline') {
+    setViewLayout(layout);
+    if (typeof window !== 'undefined') localStorage.setItem('expenseViewLayout', layout);
+    setMenuOpen(false);
+    fetch('/api/settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ expenseViewLayout: layout })
+    }).catch(err => console.error('Failed to sync layout preference', err));
+  }
+
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
   const [selectedYear, setSelectedYear]   = useState(now.getFullYear());
   const [filterCategory, setFilterCategory] = useState('');
-  const [filterAccount, setFilterAccount] = useState('');
+
   const [sortBy, setSortBy]               = useState<SortField>('date');
   const [sortDir, setSortDir]             = useState<SortDir>('desc');
 
@@ -34,12 +56,17 @@ export default function ExpensesPage() {
   // Suggestions
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [reviewSuggestion, setReviewSuggestion] = useState<Suggestion | null>(null);
-  const [reviewForm, setReviewForm] = useState({ date: new Date().toISOString().split('T')[0], categoryId: '', accountId: '', amount: '', note: '' });
+  const [reviewForm, setReviewForm] = useState({ date: new Date().toISOString().split('T')[0], categoryId: '', amount: '', note: '' });
 
-  // Fetch settings
   useEffect(() => {
     fetch('/api/settings').then(r => r.json()).then(s => {
-      if (s && !s.error) setSettings(s);
+      if (s && !s.error) {
+        setSettings(s);
+        if (s.expenseViewLayout) {
+          setViewLayout(s.expenseViewLayout);
+          if (typeof window !== 'undefined') localStorage.setItem('expenseViewLayout', s.expenseViewLayout);
+        }
+      }
     });
   }, []);
 
@@ -53,7 +80,7 @@ export default function ExpensesPage() {
       });
       if (viewMode === 'monthly') params.set('month', String(selectedMonth));
       if (filterCategory) params.set('categoryId', filterCategory);
-      if (filterAccount) params.set('accountId', filterAccount);
+
 
       const res  = await fetch(`/api/expenses?${params}`);
       const data = await res.json();
@@ -61,7 +88,7 @@ export default function ExpensesPage() {
     } finally {
       setLoading(false);
     }
-  }, [viewMode, selectedMonth, selectedYear, filterCategory, filterAccount]);
+  }, [viewMode, selectedMonth, selectedYear, filterCategory]);
 
   useEffect(() => { fetchExpenses(); }, [fetchExpenses]);
 
@@ -187,7 +214,7 @@ export default function ExpensesPage() {
     setReviewForm({
       date: sug.date,
       categoryId: sug.suggestedCategory || settings?.categories[0]?.id || '',
-      accountId: settings?.accounts?.[0]?.id || '',
+
       amount: String(sug.amount),
       note: sug.suggestedLabel || `SMS: ${sug.smsBody.substring(0, 30)}...`,
     });
@@ -224,7 +251,7 @@ export default function ExpensesPage() {
 
   function ExpenseRow({ exp }: { exp: Expense }) {
     const cat = getCategoryById(exp.categoryId);
-    const acc = settings?.accounts?.find(a => a.id === exp.accountId);
+
     return (
       <div key={exp._id} className="expense-row" style={{ display: 'flex', alignItems: 'center', padding: '14px 16px', background: 'transparent' }}>
         <div style={{
@@ -240,12 +267,7 @@ export default function ExpensesPage() {
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
             <span>{cat?.name}</span>
-            {acc && (
-              <>
-                <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'var(--border)' }} />
-                <span>{acc.name}</span>
-              </>
-            )}
+
           </div>
         </div>
         <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', marginLeft: 12 }}>
@@ -266,8 +288,42 @@ export default function ExpensesPage() {
       {/* Header */}
       <div style={{ padding: '24px 16px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Expense Log</h1>
-        <div style={{ background: 'var(--accent)', color: '#fff', padding: '4px 12px', borderRadius: 9999, fontSize: 13, fontWeight: 600 }}>
-          {filtered.length} • {formatINR(totalSpent)}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ background: 'var(--accent)', color: '#fff', padding: '4px 12px', borderRadius: 9999, fontSize: 13, fontWeight: 600 }}>
+            {filtered.length} • {formatINR(totalSpent)}
+          </div>
+          
+          <div style={{ position: 'relative' }}>
+            <button 
+              onClick={() => setMenuOpen(!menuOpen)} 
+              style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', cursor: 'pointer', padding: 8, display: 'flex', borderRadius: '50%', color: 'var(--text-primary)' }}
+            >
+              <MoreVertical size={16} />
+            </button>
+            
+            {menuOpen && (
+              <>
+                <div onClick={() => setMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
+                <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: 8, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 4px 20px rgba(0,0,0,0.1)', padding: 8, minWidth: 160, zIndex: 50 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', padding: '8px 12px 4px' }}>View Layout</div>
+                  <button 
+                    onClick={() => handleSetViewLayout('list')}
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', background: viewLayout === 'list' ? 'var(--bg-elevated)' : 'transparent', border: 'none', borderRadius: 8, color: viewLayout === 'list' ? 'var(--accent)' : 'var(--text-primary)', fontWeight: 600, fontSize: 14, cursor: 'pointer', textAlign: 'left' }}
+                  >
+                    <LayoutList size={16} />
+                    List
+                  </button>
+                  <button 
+                    onClick={() => handleSetViewLayout('timeline')}
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', background: viewLayout === 'timeline' ? 'var(--bg-elevated)' : 'transparent', border: 'none', borderRadius: 8, color: viewLayout === 'timeline' ? 'var(--accent)' : 'var(--text-primary)', fontWeight: 600, fontSize: 14, cursor: 'pointer', textAlign: 'left' }}
+                  >
+                    <GitCommit size={16} />
+                    Winding
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -317,8 +373,8 @@ export default function ExpensesPage() {
       {/* Controls */}
       <div style={{ padding: '0 16px', display: 'flex', gap: 12, marginBottom: 16 }}>
         <div style={{ display: 'flex', background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border)', overflow: 'hidden' }}>
-          <button onClick={() => setViewMode('monthly')} style={{ padding: '8px 16px', background: viewMode === 'monthly' ? 'var(--border)' : 'transparent', border: 'none', color: 'var(--text-primary)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Monthly</button>
-          <button onClick={() => setViewMode('annual')} style={{ padding: '8px 16px', background: viewMode === 'annual' ? 'var(--border)' : 'transparent', border: 'none', color: 'var(--text-primary)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Annual</button>
+          <button onClick={() => setViewMode('monthly')} style={{ padding: '8px 12px', background: viewMode === 'monthly' ? 'var(--border)' : 'transparent', border: 'none', color: 'var(--text-primary)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>M</button>
+          <button onClick={() => setViewMode('annual')} style={{ padding: '8px 12px', background: viewMode === 'annual' ? 'var(--border)' : 'transparent', border: 'none', color: 'var(--text-primary)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Y</button>
         </div>
         <div style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border)', padding: '0 8px' }}>
           {viewMode === 'monthly' ? (
@@ -340,26 +396,19 @@ export default function ExpensesPage() {
       {/* Filters */}
       <div style={{ display: 'flex', overflowX: 'auto', gap: 8, padding: '0 16px 16px', scrollbarWidth: 'none' }}>
         <button
-          onClick={() => { setFilterCategory(''); setFilterAccount(''); }}
-          style={{ whiteSpace: 'nowrap', padding: '6px 16px', borderRadius: 9999, border: '1px solid var(--border)', background: (!filterCategory && !filterAccount) ? 'var(--text-primary)' : 'var(--bg-card)', color: (!filterCategory && !filterAccount) ? 'var(--bg-card)' : 'var(--text-primary)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+          onClick={() => { setFilterCategory(''); }}
+          style={{ whiteSpace: 'nowrap', padding: '6px 16px', borderRadius: 9999, border: '1px solid var(--border)', background: (!filterCategory) ? 'var(--text-primary)' : 'var(--bg-card)', color: (!filterCategory) ? 'var(--bg-card)' : 'var(--text-primary)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
         >All</button>
         {settings?.categories?.map(c => (
           <button
             key={c.id}
-            onClick={() => { setFilterCategory(c.id); setFilterAccount(''); }}
+            onClick={() => { setFilterCategory(c.id); }}
             style={{ whiteSpace: 'nowrap', padding: '6px 16px', borderRadius: 9999, border: '1px solid var(--border)', background: filterCategory === c.id ? 'var(--text-primary)' : 'var(--bg-card)', color: filterCategory === c.id ? 'var(--bg-card)' : 'var(--text-primary)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
           >{c.name}</button>
         ))}
-        {settings?.accounts?.map(a => (
-          <button
-            key={a.id}
-            onClick={() => { setFilterAccount(a.id); setFilterCategory(''); }}
-            style={{ whiteSpace: 'nowrap', padding: '6px 16px', borderRadius: 9999, border: '1px solid var(--border)', background: filterAccount === a.id ? 'var(--text-primary)' : 'var(--bg-card)', color: filterAccount === a.id ? 'var(--bg-card)' : 'var(--text-primary)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
-          >{a.name}</button>
-        ))}
       </div>
 
-      {/* List */}
+      {/* List / Timeline */}
       {loading ? (
         <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Loading…</div>
       ) : filtered.length === 0 ? (
@@ -368,6 +417,15 @@ export default function ExpensesPage() {
           <h3 style={{ fontSize: 18, color: 'var(--text-primary)', marginBottom: 8 }}>No expenses found</h3>
           <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Try changing filters or add a new expense.</p>
         </div>
+      ) : viewLayout === 'timeline' ? (
+        <ExpenseTimelineView 
+          expenses={filtered} 
+          viewMode={viewMode} 
+          categories={settings?.categories || []} 
+
+          onEdit={setEditingExp}
+          onDelete={handleDeleteClick}
+        />
       ) : viewMode === 'monthly' ? (
         <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--r-xl)', border: '1px solid var(--border)', overflow: 'hidden', margin: '0 16px' }}>
           <div style={{ padding: '16px 20px', background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -471,13 +529,7 @@ export default function ExpensesPage() {
                   {(settings?.categories ?? []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
-              <div>
-                <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>Account</label>
-                <select style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '12px 16px', borderRadius: 12, fontSize: 16, appearance: 'none' }} value={editingExp.accountId || ''} onChange={e => setEditingExp({ ...editingExp, accountId: e.target.value })}>
-                  <option value="">Cash / None</option>
-                  {(settings?.accounts ?? []).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                </select>
-              </div>
+
               <div>
                 <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>Amount (₹)</label>
                 <input type="number" style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '12px 16px', borderRadius: 12, fontSize: 16 }} value={editingExp.amount} onChange={e => setEditingExp({ ...editingExp, amount: parseFloat(e.target.value) || 0 })} />

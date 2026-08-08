@@ -67,8 +67,6 @@ export async function POST(req: Request) {
     // 3. System Prompt & Tool Calling
     const settings = await Settings.findOne();
     const categoriesList = settings?.categories?.map((c: any) => `${c.name} (ID: ${c.id})`).join(', ') || 'No categories';
-    const accountsList = settings?.accounts?.map((a: any) => `${a.name} ${a.last4Digits ? `(..${a.last4Digits})` : ''} (ID: ${a.id})`).join(', ') || 'No accounts';
-
     const systemPrompt = `
 You are a highly intelligent personal finance assistant integrated into an Expense Tracker app.
 You only have read-only access to the user's finances. You CANNOT execute budget changes or write actions.
@@ -88,7 +86,6 @@ Your goal is to help the user understand their expenses and manage their budget.
 
 Rules:
 - The user's exact categories are: ${categoriesList}.
-- The user's exact accounts/payment methods are: ${accountsList}.
 - IMPORTANT: If the user asks about a general topic (like "food", "dining"), you MUST intuitively map it to the closest matching category ID (like "Groceries"). Do NOT just use the keyword as a category filter.
 - ONLY use exact category names from the list for the "category" filter.
 - If the user asks for "highest", "biggest", or "top" expenses, you MUST use the "top_expenses" action.
@@ -108,7 +105,6 @@ Action Schema:
           "amount": { "type": "number", "description": "The amount spent." },
           "note": { "type": "string", "description": "A short note or vendor name (max 4 words)." },
           "categoryId": { "type": "string", "description": "The closest matching category ID from the user's categories list." },
-          "accountId": { "type": "string", "description": "The closest matching account ID from the user's accounts list, if detected from text (e.g. matching last 4 digits). If none found, leave null." },
           "date": { "type": "string", "description": "The date of the transaction in YYYY-MM-DD format. Defaults to today." }
         },
         "required": ["amount", "categoryId"]
@@ -216,10 +212,9 @@ Action Schema:
       finalContent = parsed.params?.response || "I'm here to help with your finances!";
     }
     else if (action === 'add_expense') {
-      const { amount, note, categoryId, accountId, date } = parsed.params;
+      const { amount, note, categoryId, date } = parsed.params;
       
       const cat = settings?.categories?.find((c: any) => c.id === categoryId);
-      const acc = settings?.accounts?.find((a: any) => a.id === accountId);
       const categoryName = cat ? cat.name : (settings?.categories?.[0]?.name || 'Unknown');
       const emoji = cat ? cat.emoji : '📝';
 
@@ -230,9 +225,7 @@ Action Schema:
           amount: parseFloat(amount) || 0, 
           note: note || 'Expense', 
           categoryId: cat ? cat.id : (settings?.categories?.[0]?.id || ''),
-          accountId: acc ? acc.id : null,
           categoryName,
-          accountName: acc ? acc.name : 'Cash / None',
           emoji,
           date: date || now.toISOString().split('T')[0] 
         } 

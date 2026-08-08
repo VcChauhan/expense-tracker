@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { formatINR, Settings, Category, Account } from '@/lib/types';
+import { formatINR, Settings, Category } from '@/lib/types';
 import { computeSalaryBreakdown } from '@/lib/taxUtils';
 import { Save, Wallet, Folder, Edit2, ArrowUp, ArrowDown, Trash2, CheckCircle2, XCircle, Sparkles, CreditCard } from 'lucide-react';
 import { CategoryIcon } from '@/components/CategoryIcon';
@@ -38,19 +38,13 @@ export default function SettingsPage() {
   const [otherDeductions, setOtherDeductions] = useState<number>(0);
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [accounts, setAccounts] = useState<Account[]>([]);
   const [editingCat, setEditingCat] = useState<Category | null>(null);
-  const [editingAcc, setEditingAcc] = useState<Account | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [showAddAccForm, setShowAddAccForm] = useState(false);
   const [newCat, setNewCat] = useState<{ name: string; emoji: string; monthlyBudget: number; notes: string; color: string }>({
     name: '', emoji: '🏷️', monthlyBudget: 0, notes: '', color: PRESET_COLORS[0],
   });
-  const [newAcc, setNewAcc] = useState<{ name: string; type: 'credit_card' | 'bank' | 'cash'; last4Digits: string; color: string }>({
-    name: '', type: 'credit_card', last4Digits: '', color: PRESET_COLORS[0],
-  });
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
-  const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean; type: 'category' | 'account'; id: string } | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean; type: 'category'; id: string } | null>(null);
 
   useEffect(() => {
     fetchSettings();
@@ -68,7 +62,6 @@ export default function SettingsPage() {
       setDeductions80D(data.deductions80D || 0);
       setOtherDeductions(data.otherDeductions || 0);
       setCategories(data.categories || []);
-      setAccounts(data.accounts || []);
     } catch (err) {
       showToast('Error loading settings', 'error');
     } finally {
@@ -104,7 +97,6 @@ export default function SettingsPage() {
         deductions80D,
         otherDeductions,
         categories,
-        accounts,
       };
       const res = await fetch('/api/settings', {
         method: 'PUT',
@@ -149,35 +141,13 @@ export default function SettingsPage() {
     setCategories(updated);
   };
 
-  const addAccount = () => {
-    if (!newAcc.name.trim()) return;
-    const acc: Account = {
-      id: uuidv4(),
-      name: newAcc.name.trim(),
-      type: newAcc.type,
-      last4Digits: newAcc.last4Digits.trim(),
-      color: newAcc.color || PRESET_COLORS[0],
-    };
-    setAccounts(prev => [...prev, acc]);
-    setNewAcc({ name: '', type: 'credit_card', last4Digits: '', color: PRESET_COLORS[0] });
-    setShowAddAccForm(false);
-  };
-
-  const updateAccount = (id: string, updated: Partial<Account>) => {
-    setAccounts(prev => prev.map(a => a.id === id ? { ...a, ...updated } : a));
-  };
-
-  const handleDeleteClick = (type: 'category' | 'account', id: string) => {
+  const handleDeleteClick = (type: 'category', id: string) => {
     setConfirmDialog({ isOpen: true, type, id });
   };
 
   const confirmDelete = () => {
     if (!confirmDialog) return;
-    if (confirmDialog.type === 'category') {
-      setCategories(prev => prev.filter(c => c.id !== confirmDialog.id));
-    } else {
-      setAccounts(prev => prev.filter(a => a.id !== confirmDialog.id));
-    }
+    setCategories(prev => prev.filter(c => c.id !== confirmDialog.id));
     setConfirmDialog(null);
     showToast('Deleted successfully', 'success');
   };
@@ -433,101 +403,6 @@ export default function SettingsPage() {
               </div>
             );
           })}
-        </div>
-      </div>
-
-      <div className="card mb-32" style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)" }}>
-        <div className="page-header-row mb-16">
-          <h2 style={{ fontSize: 18, fontWeight: 700, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 8 }}>
-            <CreditCard size={20} /> Accounts & Cards
-          </h2>
-          <button className="btn btn-primary btn-sm" onClick={() => setShowAddAccForm(s => !s)}>
-            {showAddAccForm ? "Cancel" : "Add Account"}
-          </button>
-        </div>
-
-        {showAddAccForm && (
-          <div className="card mb-16" style={{ borderColor: "var(--accent-primary)" }}>
-            <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 16, color: "var(--accent-primary)" }}>New Account / Card</h3>
-            <div className="grid-2">
-              <div className="form-group">
-                <label className="form-label">Name</label>
-                <input type="text" className="form-input" placeholder="Name"
-                  value={newAcc.name} onChange={e => setNewAcc(n => ({ ...n, name: e.target.value }))} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Type</label>
-                <select className="form-select" value={newAcc.type} onChange={e => setNewAcc(n => ({ ...n, type: e.target.value as any }))}>
-                  <option value="credit_card">Credit Card</option>
-                  <option value="bank">Bank Account</option>
-                  <option value="cash">Cash / Wallet</option>
-                </select>
-              </div>
-            </div>
-            <div className="grid-2">
-              <div className="form-group">
-                <label className="form-label">Last 4 Digits (Optional)</label>
-                <input type="text" className="form-input" placeholder="e.g. 3249" maxLength={4}
-                  value={newAcc.last4Digits} onChange={e => setNewAcc(n => ({ ...n, last4Digits: e.target.value }))} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Color</label>
-                <div className="flex gap-8" style={{ flexWrap: "wrap" }}>
-                  {PRESET_COLORS.map(col => (
-                    <button key={col} type="button"
-                      style={{ width: 28, height: 28, borderRadius: "50%", background: col, border: newAcc.color === col ? "3px solid white" : "3px solid transparent", cursor: "pointer", boxShadow: newAcc.color === col ? `0 0 0 2px ${col}` : "none" }}
-                      onClick={() => setNewAcc(n => ({ ...n, color: col }))} />
-                  ))}
-                </div>
-              </div>
-            </div>
-            <button className="btn btn-primary" onClick={addAccount}>Add Account</button>
-          </div>
-        )}
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {accounts.map((acc) => (
-            <div key={acc.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px", background: "var(--bg-secondary)", borderRadius: "var(--radius-md)", border: "1px solid var(--border)" }}>
-              <div style={{ width: 40, height: 40, borderRadius: "50%", background: `${acc.color}22`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <Wallet size={20} color={acc.color} />
-              </div>
-              <div style={{ flex: 1 }}>
-                {editingAcc?.id === acc.id ? (
-                  <input type="text" className="form-input" style={{ width: "100%", marginBottom: 4 }} value={editingAcc.name} onChange={e => setEditingAcc({ ...editingAcc, name: e.target.value })} />
-                ) : (
-                  <div style={{ fontWeight: 600, color: "var(--text-primary)" }}>{acc.name}</div>
-                )}
-                {editingAcc?.id === acc.id ? (
-                  <select className="form-select" style={{ width: 120 }} value={editingAcc.type} onChange={e => setEditingAcc({ ...editingAcc, type: e.target.value as any })}>
-                    <option value="credit_card">Credit Card</option>
-                    <option value="bank">Bank Account</option>
-                    <option value="cash">Cash / Wallet</option>
-                  </select>
-                ) : (
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
-                    <span style={{ fontSize: 11, background: "var(--bg-input)", padding: "2px 6px", borderRadius: 4, color: "var(--text-muted)", textTransform: "capitalize" }}>{acc.type.replace("_", " ")}</span>
-                    {acc.last4Digits && <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>•••• {acc.last4Digits}</span>}
-                  </div>
-                )}
-              </div>
-              <div style={{ display: "flex", gap: 4 }}>
-                {editingAcc?.id === acc.id ? (
-                  <>
-                    <button className="btn btn-primary btn-sm" onClick={() => { updateAccount(acc.id, editingAcc); setEditingAcc(null); }}>✓</button>
-                    <button className="btn btn-secondary btn-sm" onClick={() => setEditingAcc(null)}>✕</button>
-                  </>
-                ) : (
-                  <>
-                    <button className="btn-text" style={{ cursor: "pointer", border: "none", padding: "4px", display: "flex", alignItems: "center" }} onClick={() => setEditingAcc({ ...acc })} title="Edit"><Edit2 size={16} /></button>
-                    <button className="btn-text" style={{ cursor: "pointer", border: "none", padding: "4px", display: "flex", alignItems: "center", color: "var(--danger)" }} onClick={() => handleDeleteClick('account', acc.id)} title="Delete"><Trash2 size={16} /></button>
-                  </>
-                )}
-              </div>
-            </div>
-          ))}
-          {accounts.length === 0 && (
-            <div style={{ textAlign: "center", color: "var(--text-muted)", padding: "20px 0" }}>No accounts added yet.</div>
-          )}
         </div>
       </div>
 
