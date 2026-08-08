@@ -405,4 +405,4 @@ export default function HikePage() {
   );
 }
 
-export { DeltaBadge };
+
