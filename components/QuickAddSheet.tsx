@@ -234,10 +234,17 @@ export default function QuickAddSheet() {
       <dialog 
         ref={dialogRef}
         style={{
-          margin: 'auto auto 0 auto',
+          margin: 0,
+          marginTop: 'auto',
+          marginLeft: 'auto',
+          marginRight: 'auto',
+          bottom: 0,
+          position: 'fixed',
           width: '100%',
           maxWidth: '500px',
-          maxHeight: '90vh',
+          maxHeight: '85vh',
+          boxSizing: 'border-box',
+          overscrollBehavior: 'contain',
           overflowY: 'auto',
           border: 'none',
           borderRadius: '24px 24px 0 0',
