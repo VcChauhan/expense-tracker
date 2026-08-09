@@ -220,22 +220,20 @@ export default function QuickAddSheet() {
       <div 
         style={{
           position: 'fixed',
-          top: '50%',
+          bottom: 0,
           left: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: '90%',
+          transform: 'translateX(-50%)',
+          width: '100%',
           maxWidth: '500px',
-          maxHeight: '85vh',
+          maxHeight: '85%',
           boxSizing: 'border-box',
           overflowY: 'auto',
           background: 'var(--bg-card)',
           padding: '24px 20px',
           color: 'var(--text-primary)',
           boxShadow: 'var(--shadow-lg)',
-          borderRadius: '24px',
+          borderRadius: '24px 24px 0 0',
           zIndex: 10000,
-          display: 'flex',
-          flexDirection: 'column'
         }}
       >
         <div style={{ width: 40, height: 4, borderRadius: 2, background: 'var(--border)', margin: '0 auto 24px auto', flexShrink: 0 }} />
