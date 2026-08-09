@@ -161,11 +161,6 @@ export default function DashboardPage() {
           <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>{getGreeting()}, Vivek</h1>
           <p style={{ fontSize: 14, color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>Here's your financial overview</p>
         </div>
-        <div style={{ display: 'flex', gap: 12 }}>
-          <button style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--bg-card)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-primary)', cursor: 'pointer' }}>
-            <Bell size={20} />
-          </button>
-        </div>
       </div>
 
       {/* ── Dashboard Alert Center ── */}
