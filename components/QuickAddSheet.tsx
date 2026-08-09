@@ -20,7 +20,6 @@ export default function QuickAddSheet() {
   const [form, setForm] = useState({ date: today, categoryId: '', amount: '', note: '' });
   const [splitWays, setSplitWays] = useState<number>(1);
   const [categoryTotals, setCategoryTotals] = useState<{_id: string; total: number}[]>([]);
-  const dialogRef = useRef<HTMLDialogElement>(null);
 
   // If on the /login page, hide the FAB
   const isLoginPage = pathname === '/login';
@@ -36,11 +35,7 @@ export default function QuickAddSheet() {
   }, []);
 
   useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-
     if (isOpen) {
-      dialog.showModal();
       document.body.style.overflow = 'hidden';
       const now = new Date();
       fetch(`/api/analytics/monthly?month=${now.getMonth() + 1}&year=${now.getFullYear()}`)
@@ -48,7 +43,6 @@ export default function QuickAddSheet() {
         .then(data => setCategoryTotals(data.categoryTotals || []))
         .catch(console.error);
     } else {
-      dialog.close();
       document.body.style.overflow = '';
     }
 
@@ -67,25 +61,9 @@ export default function QuickAddSheet() {
     latestSubmit.current = handleSubmit;
   }, [handleSubmit]);
 
-  // Handle light dismiss and keyboard events
+  // Handle keyboard events
   useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    
-    const handleCancel = (e: Event) => {
-      e.preventDefault();
-      setIsOpen(false);
-    };
-    
-    const handleClick = (e: MouseEvent) => {
-      if (e.target === dialog) {
-        setIsOpen(false); // clicked backdrop
-      }
-    };
-    
-    const handleGlobalOpen = () => {
-      setIsOpen(true);
-    };
+    const handleGlobalOpen = () => setIsOpen(true);
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isOpen) return;
@@ -99,18 +77,16 @@ export default function QuickAddSheet() {
         setForm(f => ({ ...f, amount: f.amount.includes('.') ? f.amount : (f.amount ? f.amount + '.' : '0.') }));
       } else if (e.key === 'Enter') {
         latestSubmit.current();
+      } else if (e.key === 'Escape') {
+        setIsOpen(false);
       }
     };
 
     window.addEventListener('open-quick-add', handleGlobalOpen);
     window.addEventListener('keydown', handleKeyDown);
-    dialog.addEventListener('cancel', handleCancel);
-    dialog.addEventListener('click', handleClick);
     return () => {
       window.removeEventListener('open-quick-add', handleGlobalOpen);
       window.removeEventListener('keydown', handleKeyDown);
-      dialog.removeEventListener('cancel', handleCancel);
-      dialog.removeEventListener('click', handleClick);
     };
   }, [isOpen]);
 
@@ -227,34 +203,42 @@ export default function QuickAddSheet() {
     }
   }
 
-  if (isLoginPage) return null;
+  if (isLoginPage || !isOpen) return null;
 
   return (
     <>
-      <dialog 
-        ref={dialogRef}
+      <div 
+        onClick={() => setIsOpen(false)}
         style={{
-          margin: 0,
-          marginTop: 'auto',
-          marginLeft: 'auto',
-          marginRight: 'auto',
-          bottom: 0,
           position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          zIndex: 9999,
+          backdropFilter: 'blur(2px)'
+        }} 
+      />
+      <div 
+        style={{
+          position: 'fixed',
+          bottom: 0,
+          left: '50%',
+          transform: 'translateX(-50%)',
           width: '100%',
           maxWidth: '500px',
           maxHeight: '85vh',
           boxSizing: 'border-box',
-          overscrollBehavior: 'contain',
           overflowY: 'auto',
-          border: 'none',
-          borderRadius: '24px 24px 0 0',
           background: 'var(--bg-card)',
           padding: '24px 20px',
           color: 'var(--text-primary)',
-          boxShadow: 'var(--shadow-sm)',
+          boxShadow: 'var(--shadow-lg)',
+          borderRadius: '24px 24px 0 0',
+          zIndex: 10000,
+          display: 'flex',
+          flexDirection: 'column'
         }}
       >
-        <div style={{ width: 40, height: 4, borderRadius: 2, background: 'var(--border)', margin: '0 auto 24px auto' }} />
+        <div style={{ width: 40, height: 4, borderRadius: 2, background: 'var(--border)', margin: '0 auto 24px auto', flexShrink: 0 }} />
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -487,7 +471,7 @@ export default function QuickAddSheet() {
           </button>
         </div>
         )}
-      </dialog>
+      </div>
     </>
   );
 }
