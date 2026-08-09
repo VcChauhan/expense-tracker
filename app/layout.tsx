@@ -52,8 +52,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </main>
           </div>
           <BottomNav />
-          <QuickAddSheet />
         </div>
+        <QuickAddSheet />
       </body>
     </html>
   );
