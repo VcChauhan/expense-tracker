@@ -700,7 +700,26 @@ export default function ExpensesPage() {
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>Note</label>
-                <input type="text" style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '12px 16px', borderRadius: 12, fontSize: 16 }} value={reviewForm.note || ''} onChange={e => setReviewForm({ ...reviewForm, note: e.target.value })} />
+                <input type="text" style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '12px 16px', borderRadius: 12, fontSize: 16, marginBottom: allTags.length > 0 ? 12 : 0 }} value={reviewForm.note || ''} onChange={e => setReviewForm({ ...reviewForm, note: e.target.value })} />
+                
+                {allTags.length > 0 && (
+                  <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 4 }}>
+                    {allTags.slice(0, 8).map(tag => (
+                      <button 
+                        key={tag} type="button"
+                        onClick={() => {
+                          const currentNote = (reviewForm.note || '').trim();
+                          if (!currentNote.includes(tag)) {
+                            setReviewForm(f => ({ ...f, note: currentNote ? `${currentNote} ${tag}` : tag }));
+                          }
+                        }}
+                        style={{ padding: '6px 12px', borderRadius: 9999, background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
                 <button style={{ flex: 1, padding: 14, borderRadius: 12, border: 'none', background: 'var(--border)', color: 'var(--text-primary)', fontWeight: 600, fontSize: 16, cursor: 'pointer' }} onClick={() => setReviewSuggestion(null)}>Cancel</button>
