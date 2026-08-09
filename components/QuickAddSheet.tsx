@@ -220,10 +220,10 @@ export default function QuickAddSheet() {
       <div 
         style={{
           position: 'fixed',
-          bottom: 0,
+          top: '50%',
           left: '50%',
-          transform: 'translateX(-50%)',
-          width: '100%',
+          transform: 'translate(-50%, -50%)',
+          width: '90%',
           maxWidth: '500px',
           maxHeight: '85vh',
           boxSizing: 'border-box',
@@ -232,7 +232,7 @@ export default function QuickAddSheet() {
           padding: '24px 20px',
           color: 'var(--text-primary)',
           boxShadow: 'var(--shadow-lg)',
-          borderRadius: '24px 24px 0 0',
+          borderRadius: '24px',
           zIndex: 10000,
           display: 'flex',
           flexDirection: 'column'
