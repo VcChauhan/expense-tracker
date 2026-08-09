@@ -50,6 +50,8 @@ export default function ExpensesPage() {
   const [sortBy, setSortBy]               = useState<SortField>('date');
   const [sortDir, setSortDir]             = useState<SortDir>('desc');
 
+  const [filterTag, setFilterTag]         = useState('');
+
   // Edit modal
   const [editingExp, setEditingExp]     = useState<Expense | null>(null);
   const [saving, setSaving]             = useState(false);
@@ -117,6 +119,11 @@ export default function ExpensesPage() {
   // Client-side sort and filter
   const filtered = useMemo(() => {
     let list = [...expenses];
+    
+    if (filterTag) {
+      list = list.filter(exp => exp.note?.toLowerCase().includes(filterTag.toLowerCase()));
+    }
+    
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       list = list.filter(exp => {
@@ -161,6 +168,40 @@ export default function ExpensesPage() {
   function showToast(msg: string, type: 'success' | 'error') {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
+  }
+
+  // Extract all unique tags from expenses
+  const allTags = useMemo(() => {
+    const tags = new Set<string>();
+    expenses.forEach(exp => {
+      const matches = exp.note?.match(/#[a-zA-Z0-9_-]+/g);
+      if (matches) matches.forEach(m => tags.add(m.toLowerCase()));
+    });
+    return Array.from(tags).sort();
+  }, [expenses]);
+
+  function downloadCSV() {
+    const headers = ['Date', 'Category', 'Amount', 'Note'];
+    const rows = filtered.map(exp => {
+      const cat = getCategoryById(exp.categoryId)?.name || 'Unknown';
+      return [
+        exp.date,
+        `"${cat}"`,
+        exp.amount,
+        `"${(exp.note || '').replace(/"/g, '""')}"`
+      ].join(',');
+    });
+    
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `ExpenseIQ_Export_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('Download started', 'success');
   }
 
   function navigateMonth(dir: number) {
@@ -308,6 +349,13 @@ export default function ExpensesPage() {
             {filtered.length} • {formatINR(totalSpent)}
           </div>
           
+          <button 
+            onClick={downloadCSV}
+            style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', cursor: 'pointer', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 6, borderRadius: 9999, color: 'var(--text-primary)', fontSize: 12, fontWeight: 600 }}
+          >
+            Export
+          </button>
+          
           <div style={{ position: 'relative' }}>
             <button 
               onClick={() => setMenuOpen(!menuOpen)} 
@@ -430,14 +478,21 @@ export default function ExpensesPage() {
       {/* Filters */}
       <div style={{ display: 'flex', overflowX: 'auto', gap: 8, padding: '0 16px 16px', scrollbarWidth: 'none' }}>
         <button
-          onClick={() => { setFilterCategory(''); }}
-          style={{ whiteSpace: 'nowrap', padding: '6px 16px', borderRadius: 9999, border: '1px solid var(--border)', background: (!filterCategory) ? 'var(--text-primary)' : 'var(--bg-card)', color: (!filterCategory) ? 'var(--bg-card)' : 'var(--text-primary)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+          onClick={() => { setFilterCategory(''); setFilterTag(''); }}
+          style={{ whiteSpace: 'nowrap', padding: '6px 16px', borderRadius: 9999, border: '1px solid var(--border)', background: (!filterCategory && !filterTag) ? 'var(--text-primary)' : 'var(--bg-card)', color: (!filterCategory && !filterTag) ? 'var(--bg-card)' : 'var(--text-primary)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
         >All</button>
+        {allTags.map(tag => (
+          <button
+            key={tag}
+            onClick={() => { setFilterTag(filterTag === tag ? '' : tag); setFilterCategory(''); }}
+            style={{ whiteSpace: 'nowrap', padding: '6px 16px', borderRadius: 9999, border: `1px solid ${filterTag === tag ? 'var(--accent)' : 'var(--border)'}`, background: filterTag === tag ? 'var(--accent)' : 'var(--bg-card)', color: filterTag === tag ? '#fff' : 'var(--text-primary)', fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}
+          >{tag}</button>
+        ))}
         {settings?.categories?.map(c => (
           <button
             key={c.id}
-            onClick={() => { setFilterCategory(c.id); }}
-            style={{ whiteSpace: 'nowrap', padding: '6px 16px', borderRadius: 9999, border: '1px solid var(--border)', background: filterCategory === c.id ? 'var(--text-primary)' : 'var(--bg-card)', color: filterCategory === c.id ? 'var(--bg-card)' : 'var(--text-primary)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+            onClick={() => { setFilterCategory(c.id); setFilterTag(''); }}
+            style={{ whiteSpace: 'nowrap', padding: '6px 16px', borderRadius: 9999, border: '1px solid var(--border)', background: filterCategory === c.id ? 'var(--text-primary)' : 'var(--bg-card)', color: filterCategory === c.id ? 'var(--bg-card)' : 'var(--text-primary)', fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}
           >{c.name}</button>
         ))}
       </div>
