@@ -45,6 +45,7 @@ export interface Expense {
   categoryId: string;
   amount: number;
   note: string;
+  tags: string[];
   createdAt: string;
 }
 

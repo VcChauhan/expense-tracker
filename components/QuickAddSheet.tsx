@@ -5,6 +5,7 @@ import { Settings } from '@/lib/types';
 import { useRouter, usePathname } from 'next/navigation';
 import { CategoryIcon } from './CategoryIcon';
 import { Sparkles } from 'lucide-react';
+import { TagSelector } from './TagSelector';
 
 export default function QuickAddSheet() {
   const router = useRouter();
@@ -17,7 +18,7 @@ export default function QuickAddSheet() {
   const [voiceSuggestion, setVoiceSuggestion] = useState<{ transcript: string; amount: string; categoryId: string; note: string; } | null>(null);
   
   const today = new Date().toISOString().split('T')[0];
-  const [form, setForm] = useState({ date: today, categoryId: '', amount: '', note: '' });
+  const [form, setForm] = useState<{ date: string, categoryId: string, amount: string, note: string, tags: string[] }>({ date: today, categoryId: '', amount: '', note: '', tags: [] });
   const [splitWays, setSplitWays] = useState<number>(1);
   const [categoryTotals, setCategoryTotals] = useState<{_id: string; total: number}[]>([]);
   const [recentTags, setRecentTags] = useState<string[]>([]);
@@ -46,8 +47,9 @@ export default function QuickAddSheet() {
            if (data.recent && Array.isArray(data.recent)) {
              const tags = new Set<string>();
              data.recent.forEach((exp: any) => {
-               const matches = exp.note?.match(/#[a-zA-Z0-9_-]+/g);
-               if (matches) matches.forEach((m: string) => tags.add(m.toLowerCase()));
+               if (exp.tags && Array.isArray(exp.tags)) {
+                 exp.tags.forEach((t: string) => tags.add(t.toLowerCase()));
+               }
              });
              setRecentTags(Array.from(tags).slice(0, 8));
            }
@@ -115,7 +117,7 @@ export default function QuickAddSheet() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...form, amount: finalAmount, note: finalNote }),
       });
-      setForm({ date: today, categoryId: settings?.categories[0]?.id ?? '', amount: '', note: '' });
+      setForm({ date: today, categoryId: settings?.categories[0]?.id ?? '', amount: '', note: '', tags: [] });
       setSplitWays(1);
       setIsOpen(false);
       router.refresh();
@@ -416,7 +418,7 @@ export default function QuickAddSheet() {
 
 
           {/* Note and Date Inputs */}
-          <div style={{ display: 'flex', gap: 8, marginBottom: recentTags.length > 0 ? 8 : 20 }}>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
             <input 
               type="date"
               value={form.date}
@@ -428,7 +430,7 @@ export default function QuickAddSheet() {
             />
               <input 
               type="text"
-              placeholder="Notes or #tags"
+              placeholder="Notes (optional)"
               value={form.note}
               onChange={e => setForm(f => ({ ...f, note: e.target.value }))}
               style={{
@@ -440,24 +442,13 @@ export default function QuickAddSheet() {
             />
           </div>
 
-          {recentTags.length > 0 && (
-            <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 4, marginBottom: 12 }}>
-              {recentTags.map(tag => (
-                <button 
-                  key={tag} type="button"
-                  onClick={() => {
-                    const currentNote = form.note.trim();
-                    if (!currentNote.includes(tag)) {
-                      setForm(f => ({ ...f, note: currentNote ? `${currentNote} ${tag}` : tag }));
-                    }
-                  }}
-                  style={{ padding: '6px 12px', borderRadius: 9999, background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}
-                >
-                  {tag}
-                </button>
-              ))}
-            </div>
-          )}
+          <div style={{ marginBottom: 20 }}>
+            <TagSelector 
+              selectedTags={form.tags}
+              suggestedTags={recentTags}
+              onChange={tags => setForm(f => ({ ...f, tags }))}
+            />
+          </div>
 
           {/* Keypad */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 24 }}>

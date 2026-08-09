@@ -68,14 +68,15 @@ ${habitsString}
 Task:
 1. Determine if this transaction is an actual expense. If it is a credit card bill payment, a transfer to another of the user's own accounts, or an investment, it is NOT an expense (set "isExpense": false).
 2. If it is an expense, select the most appropriate Category ID based on the SMS text and past habits.
-3. Generate a short, crisp label/note (max 4 words) describing the transaction (e.g. "Swiggy Order", "Uber Ride").
-4. IMPORTANT: If the user's past habits show they frequently use a specific hashtag (like #lunch or #grocery) for similar transactions, you MUST append that exact hashtag to the end of your generated note.
+3. Generate a short, crisp label describing the transaction (e.g. "Swiggy Order", "Uber Ride").
+4. Extract any relevant tags based on past habits (e.g., if the user always tags Swiggy with "lunch", output "lunch" in the tags array). Do NOT put hashtags in the label.
 
 Respond strictly with JSON matching this schema:
 {
   "isExpense": boolean,
   "categoryId": string,
-  "label": string
+  "label": string,
+  "tags": string[]
 }
 `;
 

@@ -44,13 +44,19 @@ export async function POST(request: Request) {
   try {
     await dbConnect();
     const body = await request.json();
-    const { date, categoryId, amount, note } = body;
+    const { date, categoryId, amount, note, tags } = body;
 
     if (!date || !categoryId || amount === undefined) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const expense = await Expense.create({ date, categoryId, amount: parseFloat(amount), note: note ?? '' });
+    const expense = await Expense.create({ 
+      date, 
+      categoryId, 
+      amount: parseFloat(amount), 
+      note: note ?? '', 
+      tags: tags ?? [] 
+    });
     return NextResponse.json(expense, { status: 201 });
   } catch (error) {
     console.error('POST /api/expenses error:', error);

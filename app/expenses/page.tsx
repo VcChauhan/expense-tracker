@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { formatINR, MONTHS, SHORT_MONTHS, Expense, Settings, Category, Suggestion } from '@/lib/types';
 import { CalendarDays, Edit2, Trash2, CheckCircle2, XCircle, ChevronLeft, ChevronRight, Sparkles, MoreVertical, LayoutList, GitCommit, Search } from 'lucide-react';
 import { CategoryIcon } from '@/components/CategoryIcon';
+import { TagSelector } from '@/components/TagSelector';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { ExpenseTimelineView } from '@/components/ExpenseTimelineView';
 
@@ -13,6 +14,7 @@ type SortDir = 'asc' | 'desc';
 
 export default function ExpensesPage() {
   const now = new Date();
+  const today = now.toISOString().split('T')[0];
   const [settings, setSettings] = useState<Settings | null>(null);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,7 +61,7 @@ export default function ExpensesPage() {
   // Suggestions
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [reviewSuggestion, setReviewSuggestion] = useState<Suggestion | null>(null);
-  const [reviewForm, setReviewForm] = useState({ date: new Date().toISOString().split('T')[0], categoryId: '', amount: '', note: '' });
+  const [reviewForm, setReviewForm]     = useState({ date: today, categoryId: '', amount: '', note: '', tags: [] as string[] });
   const [reviewSplitWays, setReviewSplitWays] = useState<number>(1);
 
   useEffect(() => {
@@ -121,14 +123,14 @@ export default function ExpensesPage() {
     let list = [...expenses];
     
     if (filterTag) {
-      list = list.filter(exp => exp.note?.toLowerCase().includes(filterTag.toLowerCase()));
+      list = list.filter(exp => (exp.tags || []).some(t => t.toLowerCase() === filterTag.toLowerCase()));
     }
     
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       list = list.filter(exp => {
         const cat = settings?.categories?.find(c => c.id === exp.categoryId);
-        return exp.note?.toLowerCase().includes(q) || cat?.name?.toLowerCase().includes(q) || String(exp.amount).includes(q);
+        return exp.note?.toLowerCase().includes(q) || cat?.name?.toLowerCase().includes(q) || String(exp.amount).includes(q) || exp.tags?.some(t => t.toLowerCase().includes(q));
       });
     }
     const mul = sortDir === 'asc' ? 1 : -1;
@@ -137,7 +139,7 @@ export default function ExpensesPage() {
       return mul * (a.amount - b.amount);
     });
     return list;
-  }, [expenses, sortBy, sortDir, searchQuery, settings]);
+  }, [expenses, sortBy, sortDir, searchQuery, settings, filterTag]);
 
   // Group by day for monthly view
   const groupedByDay = useMemo(() => {
@@ -174,21 +176,24 @@ export default function ExpensesPage() {
   const allTags = useMemo(() => {
     const tags = new Set<string>();
     expenses.forEach(exp => {
-      const matches = exp.note?.match(/#[a-zA-Z0-9_-]+/g);
-      if (matches) matches.forEach(m => tags.add(m.toLowerCase()));
+      if (exp.tags && Array.isArray(exp.tags)) {
+        exp.tags.forEach(t => tags.add(t.toLowerCase()));
+      }
     });
     return Array.from(tags).sort();
   }, [expenses]);
 
   function downloadCSV() {
-    const headers = ['Date', 'Category', 'Amount', 'Note'];
+    const headers = ['Date', 'Category', 'Amount', 'Note', 'Tags'];
     const rows = filtered.map(exp => {
       const cat = getCategoryById(exp.categoryId)?.name || 'Unknown';
+      const tagsStr = exp.tags ? exp.tags.join(', ') : '';
       return [
         exp.date,
         `"${cat}"`,
         exp.amount,
-        `"${(exp.note || '').replace(/"/g, '""')}"`
+        `"${(exp.note || '').replace(/"/g, '""')}"`,
+        `"${tagsStr.replace(/"/g, '""')}"`
       ].join(',');
     });
     
@@ -261,12 +266,12 @@ export default function ExpensesPage() {
       } catch {}
       return;
     }
-    setReviewForm({
-      date: sug.date,
-      categoryId: sug.suggestedCategory || settings?.categories[0]?.id || '',
-
-      amount: String(sug.amount),
-      note: sug.suggestedLabel || `SMS: ${sug.smsBody.substring(0, 30)}...`,
+    setReviewForm({ 
+        date: sug.date || today, 
+        categoryId: sug.suggestedCategory || settings?.categories[0]?.id || '', 
+        amount: sug.amount ? String(sug.amount) : '', 
+        note: sug.suggestedLabel || '',
+        tags: (sug as any).suggestedTags || []
     });
     setReviewSplitWays(1);
     setReviewSuggestion(sug);
@@ -284,7 +289,7 @@ export default function ExpensesPage() {
 
       await fetch('/api/expenses', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...reviewForm, amount: finalAmount, note: finalNote }),
+        body: JSON.stringify({ ...reviewForm, amount: finalAmount, note: finalNote, tags: reviewForm.tags }),
       });
       await fetch(`/api/suggestions/${reviewSuggestion._id}`, { method: 'DELETE' });
       showToast('Expense added!', 'success');
@@ -627,6 +632,13 @@ export default function ExpensesPage() {
                 <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>Note</label>
                 <input type="text" style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '12px 16px', borderRadius: 12, fontSize: 16 }} value={editingExp.note || ''} onChange={e => setEditingExp({ ...editingExp, note: e.target.value })} />
               </div>
+              <div>
+                <TagSelector 
+                  selectedTags={editingExp.tags || []} 
+                  onChange={tags => setEditingExp({ ...editingExp, tags })}
+                  suggestedTags={allTags.slice(0, 8)} 
+                />
+              </div>
               <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
                 <button style={{ flex: 1, padding: 14, borderRadius: 12, border: 'none', background: 'var(--border)', color: 'var(--text-primary)', fontWeight: 600, fontSize: 16, cursor: 'pointer' }} onClick={() => setEditingExp(null)}>Cancel</button>
                 <button style={{ flex: 1, padding: 14, borderRadius: 12, border: 'none', background: 'var(--accent)', color: '#fff', fontWeight: 600, fontSize: 16, cursor: 'pointer', opacity: saving ? 0.7 : 1 }} onClick={handleUpdate} disabled={saving}>{saving ? 'Saving...' : 'Save Changes'}</button>
@@ -700,26 +712,14 @@ export default function ExpensesPage() {
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>Note</label>
-                <input type="text" style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '12px 16px', borderRadius: 12, fontSize: 16, marginBottom: allTags.length > 0 ? 12 : 0 }} value={reviewForm.note || ''} onChange={e => setReviewForm({ ...reviewForm, note: e.target.value })} />
-                
-                {allTags.length > 0 && (
-                  <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 4 }}>
-                    {allTags.slice(0, 8).map(tag => (
-                      <button 
-                        key={tag} type="button"
-                        onClick={() => {
-                          const currentNote = (reviewForm.note || '').trim();
-                          if (!currentNote.includes(tag)) {
-                            setReviewForm(f => ({ ...f, note: currentNote ? `${currentNote} ${tag}` : tag }));
-                          }
-                        }}
-                        style={{ padding: '6px 12px', borderRadius: 9999, background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}
-                      >
-                        {tag}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                <input type="text" style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '12px 16px', borderRadius: 12, fontSize: 16 }} value={reviewForm.note || ''} onChange={e => setReviewForm({ ...reviewForm, note: e.target.value })} />
+              </div>
+              <div>
+                <TagSelector 
+                  selectedTags={reviewForm.tags} 
+                  onChange={tags => setReviewForm({ ...reviewForm, tags })}
+                  suggestedTags={allTags.slice(0, 8)} 
+                />
               </div>
               <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
                 <button style={{ flex: 1, padding: 14, borderRadius: 12, border: 'none', background: 'var(--border)', color: 'var(--text-primary)', fontWeight: 600, fontSize: 16, cursor: 'pointer' }} onClick={() => setReviewSuggestion(null)}>Cancel</button>
