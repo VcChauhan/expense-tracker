@@ -68,6 +68,7 @@ export interface Suggestion {
   status: 'pending' | 'approved' | 'rejected';
   suggestedCategory?: string;
   suggestedLabel?: string;
+  suggestedTags?: string[];
 }
 
 export interface MonthlyAnalytics {

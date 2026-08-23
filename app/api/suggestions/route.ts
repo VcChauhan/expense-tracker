@@ -39,11 +39,12 @@ export async function POST(req: Request) {
 
     await connectMongo();
 
-    let suggestedCategory = undefined;
-    let suggestedLabel = undefined;
+    let suggestedCategory = data.suggestedCategory;
+    let suggestedLabel = data.suggestedLabel;
+    let suggestedTags = data.suggestedTags || [];
 
-    // Use Groq if API key is present
-    if (process.env.GROQ_API_KEY) {
+    // If payload is NOT pre-parsed on device and Groq API key is present, call Groq as fallback
+    if (!suggestedLabel && process.env.GROQ_API_KEY && data.smsBody) {
       try {
         const settings = await Settings.findOne();
         const categories = settings?.categories || [];
@@ -100,6 +101,9 @@ Respond strictly with JSON matching this schema:
           suggestedLabel = parsed.isExpense === false 
             ? `⚠️ Ignore: ${parsed.label}` 
             : parsed.label;
+          if (Array.isArray(parsed.tags)) {
+            suggestedTags = parsed.tags;
+          }
         }
       } catch (aiError) {
         console.error('Groq AI failed, skipping auto-categorization:', aiError);
@@ -107,13 +111,14 @@ Respond strictly with JSON matching this schema:
     }
 
     const suggestion = await Suggestion.create({
-      smsBody: data.smsBody,
+      smsBody: data.smsBody ? scrubSms(data.smsBody) : 'On-Device Private SMS',
       sender: data.sender,
       amount: data.amount,
       date: data.date,
       status: 'pending',
       suggestedCategory,
       suggestedLabel,
+      suggestedTags,
     });
 
     return NextResponse.json(suggestion, { status: 201 });
