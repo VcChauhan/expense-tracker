@@ -135,14 +135,66 @@ export function generateLocalFullReport(payload: any) {
 
   const actionableSteps = [
     savingsRate >= 20 ? 'Maintain your current savings momentum by transferring surplus funds to your top savings goal.' : 'Review discretionary spending in high-burn categories to push your savings rate above 20%.',
-    over ? `Set a weekly spend cap for ${over.name} to bring it back within budget.` : 'All categories are within budget limits. Keep up the consistent tracking!'
-  ];
+export function generateLocalBudgetInsights(categories: any[]): { categoryId: string; message: string }[] {
+  const insights: { categoryId: string; message: string }[] = [];
+  const overbudget = categories.filter((c: any) => c.budgetLimit > 0 && c.actualSpent > c.budgetLimit);
+  const underbudget = categories.filter((c: any) => c.budgetLimit > 0 && c.actualSpent < c.budgetLimit * 0.7);
+
+  for (const over of overbudget) {
+    const overage = Math.round(over.actualSpent - over.budgetLimit);
+    let msg = `${over.name} is ₹${overage} over budget this month.`;
+    if (underbudget.length > 0) {
+      msg += ` Consider rebalancing surplus funds from ${underbudget[0].name}.`;
+    }
+    insights.push({
+      categoryId: over.id,
+      message: msg
+    });
+  }
+
+  return insights;
+}
+
+export function generateLocalHikeInsights(hikePercent: number, categories: any[]): Insight[] {
+  const overspentCats = categories.filter((c: any) => c.actualSpentThisYear > c.currentAnnualBudget);
+  if (overspentCats.length > 0) {
+    const names = overspentCats.map((c: any) => c.name).join(', ');
+    return [{
+      type: 'hike_advice',
+      message: `With your ${hikePercent}% hike, prioritize increasing budgets for ${names} where you frequently exceed annual limits, rather than boosting all categories equally.`
+    }];
+  }
+
+  return [{
+    type: 'hike_advice',
+    message: `A ${hikePercent}% hike is a great milestone! Consider allocating 50% of your net pay increase directly into your Savings Goals before expanding discretionary categories.`
+  }];
+}
+
+export function parseVoiceInputLocally(text: string, categories: any[]) {
+  const lower = text.toLowerCase();
+  
+  // Extract amount
+  const amountMatch = lower.match(/(?:rs\.?|inr|rupees|₹)?\s*(\d+(?:\.\d+)?)/i) || lower.match(/(\d+)\s*(?:rs|rupees|inr|₹)/i);
+  const amount = amountMatch ? parseFloat(amountMatch[1]) : 0;
+
+  // Match category
+  let categoryId = categories[0]?.id || 'general';
+  for (const cat of categories) {
+    if (lower.includes(cat.name.toLowerCase())) {
+      categoryId = cat.id;
+      break;
+    }
+  }
+
+  // Clean note (max 4 words)
+  let note = text.replace(/(?:rs\.?|inr|rupees|₹)?\s*\d+(?:\.\d+)?/gi, '').trim();
+  if (!note) note = 'Voice expense';
+  const words = note.split(/\s+/).slice(0, 4).join(' ');
 
   return {
-    executiveSummary: savingsRate >= 20 
-      ? `Great financial health this month! You have saved ${savingsRate}% of your income with ₹${totalSpent} spent total.` 
-      : `Your total spending this month is ₹${totalSpent} (savings rate ${savingsRate}%). Review top categories to optimize your budget.`,
-    momComparisons,
-    actionableSteps
+    amount,
+    categoryId,
+    note: words.charAt(0).toUpperCase() + words.slice(1)
   };
 }

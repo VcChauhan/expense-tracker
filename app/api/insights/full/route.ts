@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import connectMongo from '@/lib/mongodb';
 import Expense from '@/lib/models/Expense';
 import Settings from '@/lib/models/Settings';
-import OpenAI from "openai";
 import { generateLocalFullReport } from '@/lib/localInsights';
 
 export async function GET(req: Request) {
@@ -128,56 +127,6 @@ export async function GET(req: Request) {
           categories: categoriesPayload
         }
       };
-    }
-
-    if (!process.env.GROQ_API_KEY) {
-      const localReport = generateLocalFullReport(payload);
-      return NextResponse.json({ report: localReport, rawData: payload }, { headers });
-    }
-
-    try {
-      const prompt = `
-You are the Chief Financial Officer (CFO) AI for the user. 
-Analyze the user's aggregated spending data. Compare the current month against BOTH last month and the 3-month average to provide deep insights.
-Data:
-${JSON.stringify(payload, null, 2)}
-
-Respond strictly with a JSON object matching this exact schema:
-{
-  "executiveSummary": "A 2-3 sentence overview of their month...",
-  "momComparisons": [
-    {
-      "category": "Category Name",
-      "trend": "up" | "down" | "flat",
-      "difference": 1200, 
-      "analysis": "1 sentence explaining if this is good or bad..."
-    }
-  ],
-  "actionableSteps": [
-    "A concrete, specific action..."
-  ]
-}
-`;
-
-      const client = new OpenAI({
-        apiKey: process.env.GROQ_API_KEY,
-        baseURL: "https://api.groq.com/openai/v1",
-      });
-
-      const response = await client.chat.completions.create({
-        model: 'llama-3.3-70b-versatile',
-        messages: [{ role: 'user', content: prompt }],
-        response_format: { type: "json_object" }
-      });
-
-      const responseContent = response.choices[0]?.message?.content;
-
-      if (responseContent) {
-        const parsed = JSON.parse(responseContent);
-        return NextResponse.json({ report: parsed, rawData: payload }, { headers });
-      }
-    } catch (aiErr) {
-      console.warn('Groq AI failed for full insights, using local analytics generator:', aiErr);
     }
 
     const localReport = generateLocalFullReport(payload);

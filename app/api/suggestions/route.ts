@@ -2,18 +2,12 @@ import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 import connectMongo from '@/lib/mongodb';
 import Suggestion from '@/lib/models/Suggestion';
-import Settings from '@/lib/models/Settings';
-import Expense from '@/lib/models/Expense';
-import OpenAI from "openai";
 
 function scrubSms(text: string): string {
   if (!text) return text;
   return text
-    // Redact masked account numbers (e.g., XX1234, XXXXX1234)
     .replace(/[Xx]{2,}\d+/g, '[ACCOUNT]')
-    // Redact long sequences of digits (8+ digits: phone numbers, customer IDs, etc.)
     .replace(/\b\d{8,}\b/g, '[ID]')
-    // Redact UPI routing strings (e.g. UPI/P2A/367680408468/)
     .replace(/UPI\/[a-zA-Z0-9-]+\/[a-zA-Z0-9-]+\/?/gi, 'UPI/[REDACTED]/');
 }
 
@@ -39,80 +33,13 @@ export async function POST(req: Request) {
 
     await connectMongo();
 
-    let suggestedCategory = data.suggestedCategory;
-    let suggestedLabel = data.suggestedLabel;
-    let suggestedTags = data.suggestedTags || [];
-
-    // If payload is NOT pre-parsed on device and Groq API key is present, call Groq as fallback
-    if (!suggestedLabel && process.env.GROQ_API_KEY && data.smsBody) {
-      try {
-        const settings = await Settings.findOne();
-        const categories = settings?.categories || [];
-        const recentExpenses = await Expense.find().sort({ createdAt: -1 }).limit(50);
-
-        const categoriesString = categories.map((c: any) => `${c.name} (ID: ${c.id})`).join(', ');
-        const habitsString = recentExpenses.map(e => `Amount: ${e.amount}, Note: ${e.note}, CategoryID: ${e.categoryId}`).join('\n');
-        const safeSms = scrubSms(data.smsBody);
-
-        const prompt = `
-Analyze this incoming SMS transaction:
-SMS Body: "${safeSms}"
-Amount: ${data.amount}
-Sender: ${data.sender}
-
-Available Categories:
-${categoriesString}
-
-User's recent transaction habits:
-${habitsString}
-
-Task:
-1. Determine if this transaction is an actual expense. If it is a credit card bill payment, a transfer to another of the user's own accounts, or an investment, it is NOT an expense (set "isExpense": false).
-2. If it is an expense, select the most appropriate Category ID based on the SMS text and past habits.
-3. Generate a short, crisp label describing the transaction (e.g. "Swiggy Order", "Uber Ride").
-4. Extract any relevant tags based on past habits (e.g., if the user always tags Swiggy with "lunch", output "lunch" in the tags array). Do NOT put hashtags in the label.
-
-Respond strictly with JSON matching this schema:
-{
-  "isExpense": boolean,
-  "categoryId": string,
-  "label": string,
-  "tags": string[]
-}
-`;
-
-        const client = new OpenAI({
-          apiKey: process.env.GROQ_API_KEY,
-          baseURL: "https://api.groq.com/openai/v1",
-        });
-
-        const response = await client.chat.completions.create({
-          model: 'llama-3.3-70b-versatile',
-          messages: [{ role: 'user', content: prompt }],
-          response_format: { type: "json_object" }
-        });
-
-        const responseContent = response.choices[0]?.message?.content;
-        
-        if (responseContent) {
-          const parsed = JSON.parse(responseContent);
-          
-          suggestedCategory = parsed.categoryId;
-          suggestedLabel = parsed.isExpense === false 
-            ? `⚠️ Ignore: ${parsed.label}` 
-            : parsed.label;
-          if (Array.isArray(parsed.tags)) {
-            suggestedTags = parsed.tags;
-          }
-        }
-      } catch (aiError) {
-        console.error('Groq AI failed, skipping auto-categorization:', aiError);
-      }
-    }
+    const suggestedCategory = data.suggestedCategory || 'general';
+    const suggestedLabel = data.suggestedLabel || (data.smsBody ? 'UPI Payment' : 'On-Device Expense');
+    const suggestedTags = data.suggestedTags || [];
 
     const suggestion = await Suggestion.create({
       smsBody: data.smsBody ? scrubSms(data.smsBody) : 'On-Device Private SMS',
-      sender: data.sender,
+      sender: data.sender || 'Bank SMS',
       amount: data.amount,
       date: data.date,
       status: 'pending',

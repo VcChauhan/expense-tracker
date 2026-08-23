@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import connectMongo from '@/lib/mongodb';
 import Expense from '@/lib/models/Expense';
 import Settings from '@/lib/models/Settings';
-import OpenAI from "openai";
 import { generateLocalDashboardInsights } from '@/lib/localInsights';
 
 export async function GET(req: Request) {
@@ -22,16 +21,11 @@ export async function GET(req: Request) {
     const year = parseInt(yStr);
     const month = mStr ? parseInt(mStr) : new Date().getMonth() + 1;
     
-    // Set caching headers based on scope
     const headers = new Headers();
     if (scope === 'annual') {
-      headers.set('Cache-Control', 'private, max-age=86400'); // 24 hours in browser
+      headers.set('Cache-Control', 'private, max-age=86400');
     } else {
-      headers.set('Cache-Control', 'private, max-age=900'); // 15 mins in browser
-    }
-
-    if (!process.env.GROQ_API_KEY) {
-      return NextResponse.json({ insights: [{ type: "general", message: "To enable Smart Insights, please add a GROQ_API_KEY to your environment variables." }] });
+      headers.set('Cache-Control', 'private, max-age=900');
     }
 
     await connectMongo();
@@ -45,8 +39,6 @@ export async function GET(req: Request) {
     if (scope === 'annual') {
       const regex = new RegExp(`^${year}-`);
       currentExpenses = await Expense.find({ date: { $regex: regex } });
-      // For annual historical, we might compare vs last year, but to keep it simple and safe:
-      // We will just aggregate the current year.
     } else {
       const regex = new RegExp(`^${year}-${monthStr}`);
       let m3 = month - 3;
@@ -59,10 +51,6 @@ export async function GET(req: Request) {
         Expense.find({ date: { $regex: regex } }),
         Expense.find({ date: { $gte: threeMonthsAgoPrefix, $lt: `${year}-${monthStr}` } })
       ]);
-    }
-
-    if (!currentExpenses.length) {
-      return NextResponse.json({ insights: [{ type: "general", message: `You haven't logged any expenses for this ${scope === 'annual' ? 'year' : 'month'} yet.` }] }, { headers });
     }
 
     const salary = settings?.monthlySalary || 0;
@@ -93,7 +81,7 @@ export async function GET(req: Request) {
       };
     } else {
       const savingsRatePercentage = salary > 0 ? ((salary - totalSpent) / salary) * 100 : 0;
-      const daysElapsed = new Date().getDate(); // approximate based on current day
+      const daysElapsed = new Date().getDate();
       const totalDays = new Date(year, month, 0).getDate();
       const projectedMonthEndSpend = daysElapsed > 0 ? (totalSpent / daysElapsed) * totalDays : totalSpent;
 
@@ -124,61 +112,6 @@ export async function GET(req: Request) {
           categories: categoriesPayload
         }
       };
-    }
-
-    if (!process.env.GROQ_API_KEY) {
-      const localInsights = generateLocalDashboardInsights(payload, scope);
-      return NextResponse.json({ insights: localInsights }, { headers });
-    }
-
-    try {
-      const prompt = `
-You are a highly intelligent personal finance assistant integrated into an Expense Tracker app.
-Analyze the following user's aggregated ${scope === 'annual' ? 'yearly' : 'monthly'} spending data.
-This data is purely mathematical (no sensitive info). 
-
-Data:
-${JSON.stringify(payload, null, 2)}
-
-Task:
-Write exactly 2 or 3 insightful, encouraging, and actionable pieces of financial advice for this ${scope === 'annual' ? 'year' : 'month'}.
-Cover these areas if applicable:
-1. "savings_coaching": Comment on their savings rate${scope === 'annual' ? ' for the year' : ' and projected spend'}.
-2. "rebalancing": Notice if they are overspending in one category but saving in another, and suggest shifting budget.
-3. "general": Any anomaly or positive trend.
-
-Do not use robotic formatting. Use a conversational, friendly tone.
-
-Respond strictly with a JSON array matching this schema:
-{
-  "insights": [
-    {
-      "type": "rebalancing" | "savings_coaching" | "general",
-      "message": "The insight text..."
-    }
-  ]
-}
-`;
-
-      const client = new OpenAI({
-        apiKey: process.env.GROQ_API_KEY,
-        baseURL: "https://api.groq.com/openai/v1",
-      });
-
-      const response = await client.chat.completions.create({
-        model: 'llama-3.3-70b-versatile',
-        messages: [{ role: 'user', content: prompt }],
-        response_format: { type: "json_object" }
-      });
-
-      const responseContent = response.choices[0]?.message?.content;
-
-      if (responseContent) {
-        const parsed = JSON.parse(responseContent);
-        return NextResponse.json({ insights: parsed.insights }, { headers });
-      }
-    } catch (aiError) {
-      console.warn('Groq AI failed for dashboard insights, using local analytics generator:', aiError);
     }
 
     const localInsights = generateLocalDashboardInsights(payload, scope);
