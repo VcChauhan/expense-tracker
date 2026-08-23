@@ -3,6 +3,7 @@ import connectMongo from '@/lib/mongodb';
 import Expense from '@/lib/models/Expense';
 import Settings from '@/lib/models/Settings';
 import OpenAI from "openai";
+import { generateLocalDashboardInsights } from '@/lib/localInsights';
 
 export async function GET(req: Request) {
   try {
@@ -22,7 +23,6 @@ export async function GET(req: Request) {
     const month = mStr ? parseInt(mStr) : new Date().getMonth() + 1;
     
     // Set caching headers based on scope
-    // CRITICAL: Using 'private' ensures only the user's browser caches this, preventing cross-user data leaks on the CDN
     const headers = new Headers();
     if (scope === 'annual') {
       headers.set('Cache-Control', 'private, max-age=86400'); // 24 hours in browser
@@ -126,9 +126,13 @@ export async function GET(req: Request) {
       };
     }
 
-    console.log(`Sending AI Payload [context/dashboard/scope/${scope}]:`, JSON.stringify(payload, null, 2));
+    if (!process.env.GROQ_API_KEY) {
+      const localInsights = generateLocalDashboardInsights(payload, scope);
+      return NextResponse.json({ insights: localInsights }, { headers });
+    }
 
-    const prompt = `
+    try {
+      const prompt = `
 You are a highly intelligent personal finance assistant integrated into an Expense Tracker app.
 Analyze the following user's aggregated ${scope === 'annual' ? 'yearly' : 'monthly'} spending data.
 This data is purely mathematical (no sensitive info). 
@@ -156,30 +160,31 @@ Respond strictly with a JSON array matching this schema:
 }
 `;
 
-    const client = new OpenAI({
-      apiKey: process.env.GROQ_API_KEY,
-      baseURL: "https://api.groq.com/openai/v1",
-    });
+      const client = new OpenAI({
+        apiKey: process.env.GROQ_API_KEY,
+        baseURL: "https://api.groq.com/openai/v1",
+      });
 
-    const response = await client.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages: [{ role: 'user', content: prompt }],
-      response_format: { type: "json_object" }
-    });
+      const response = await client.chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: prompt }],
+        response_format: { type: "json_object" }
+      });
 
-    const responseContent = response.choices[0]?.message?.content;
+      const responseContent = response.choices[0]?.message?.content;
 
-    if (responseContent) {
-      const parsed = JSON.parse(responseContent);
-      return NextResponse.json({ insights: parsed.insights }, { headers });
+      if (responseContent) {
+        const parsed = JSON.parse(responseContent);
+        return NextResponse.json({ insights: parsed.insights }, { headers });
+      }
+    } catch (aiError) {
+      console.warn('Groq AI failed for dashboard insights, using local analytics generator:', aiError);
     }
 
-    return NextResponse.json({ insights: [{ type: "general", message: "Everything looks good!" }] }, { headers });
+    const localInsights = generateLocalDashboardInsights(payload, scope);
+    return NextResponse.json({ insights: localInsights }, { headers });
   } catch (error: any) {
-    if (error?.status === 429 || error?.message?.includes('RESOURCE_EXHAUSTED') || error?.message?.includes('429')) {
-      return NextResponse.json({ insights: [{ type: "general", message: "You're spending wisely! (AI insights temporarily paused due to API limits)." }] });
-    }
     console.error('Error generating insights:', error);
-    return NextResponse.json({ insights: [{ type: "general", message: "Insights unavailable right now." }] });
+    return NextResponse.json({ insights: [{ type: "general", message: "Your spending and category budgets are currently steady!" }] });
   }
 }

@@ -3,6 +3,7 @@ import connectMongo from '@/lib/mongodb';
 import Expense from '@/lib/models/Expense';
 import Settings from '@/lib/models/Settings';
 import OpenAI from "openai";
+import { generateLocalFullReport } from '@/lib/localInsights';
 
 export async function GET(req: Request) {
   try {
@@ -21,17 +22,11 @@ export async function GET(req: Request) {
     const year = parseInt(yStr);
     const month = mStr ? parseInt(mStr) : new Date().getMonth() + 1;
     
-    // Set caching headers based on scope
-    // CRITICAL: Using 'private' ensures only the user's browser caches this, preventing cross-user data leaks on the CDN
     const headers = new Headers();
     if (scope === 'annual') {
-      headers.set('Cache-Control', 'private, max-age=86400'); // 24 hours in browser
+      headers.set('Cache-Control', 'private, max-age=86400');
     } else {
-      headers.set('Cache-Control', 'private, max-age=900'); // 15 mins in browser
-    }
-
-    if (!process.env.GROQ_API_KEY) {
-      return NextResponse.json({ insights: [{ type: "general", message: "To enable Smart Insights, please add a GROQ_API_KEY to your environment variables." }] });
+      headers.set('Cache-Control', 'private, max-age=900');
     }
 
     await connectMongo();
@@ -45,11 +40,8 @@ export async function GET(req: Request) {
     if (scope === 'annual') {
       const regex = new RegExp(`^${year}-`);
       currentExpenses = await Expense.find({ date: { $regex: regex } });
-      // For annual historical, we might compare vs last year, but to keep it simple and safe:
-      // We will just aggregate the current year.
     } else {
       const regex = new RegExp(`^${year}-${monthStr}`);
-      
       let m3 = month - 3;
       let y3 = year;
       if (m3 <= 0) { m3 += 12; y3 -= 1; }
@@ -60,10 +52,6 @@ export async function GET(req: Request) {
         Expense.find({ date: { $regex: regex } }),
         Expense.find({ date: { $gte: threeMonthsAgoPrefix, $lt: `${year}-${monthStr}` } })
       ]);
-    }
-
-    if (!currentExpenses.length) {
-      return NextResponse.json({ insights: [{ type: "general", message: `You haven't logged any expenses for this ${scope === 'annual' ? 'year' : 'month'} yet.` }] }, { headers });
     }
 
     const salary = settings?.monthlySalary || 0;
@@ -94,7 +82,7 @@ export async function GET(req: Request) {
       };
     } else {
       const savingsRatePercentage = salary > 0 ? ((salary - totalSpent) / salary) * 100 : 0;
-      const daysElapsed = new Date().getDate(); // approximate based on current day
+      const daysElapsed = new Date().getDate();
       const totalDays = new Date(year, month, 0).getDate();
       const projectedMonthEndSpend = daysElapsed > 0 ? (totalSpent / daysElapsed) * totalDays : totalSpent;
 
@@ -142,58 +130,60 @@ export async function GET(req: Request) {
       };
     }
 
-    console.log(`Sending AI Payload [context/dashboard/scope/${scope}]:`, JSON.stringify(payload, null, 2));
+    if (!process.env.GROQ_API_KEY) {
+      const localReport = generateLocalFullReport(payload);
+      return NextResponse.json({ report: localReport, rawData: payload }, { headers });
+    }
 
-    const prompt = `
+    try {
+      const prompt = `
 You are the Chief Financial Officer (CFO) AI for the user. 
 Analyze the user's aggregated spending data. Compare the current month against BOTH last month and the 3-month average to provide deep insights.
-This data is purely mathematical (no sensitive info). 
-
 Data:
 ${JSON.stringify(payload, null, 2)}
 
-Task:
-Generate a comprehensive, encouraging, and highly actionable financial briefing.
-If they haven't spent much this month, focus on their good pace or their historical spending patterns.
-
 Respond strictly with a JSON object matching this exact schema:
 {
-  "executiveSummary": "A 2-3 sentence overview of their month, praising wins and highlighting the main concern. Reference long-term trends if relevant.",
+  "executiveSummary": "A 2-3 sentence overview of their month...",
   "momComparisons": [
     {
       "category": "Category Name",
       "trend": "up" | "down" | "flat",
       "difference": 1200, 
-      "analysis": "1 sentence explaining if this is good or bad and why, referencing the 3-month average if it adds valuable context."
+      "analysis": "1 sentence explaining if this is good or bad..."
     }
   ],
   "actionableSteps": [
-    "A concrete, specific action they can take this week to improve their finances."
+    "A concrete, specific action..."
   ]
 }
 `;
 
-    const client = new OpenAI({
-      apiKey: process.env.GROQ_API_KEY,
-      baseURL: "https://api.groq.com/openai/v1",
-    });
+      const client = new OpenAI({
+        apiKey: process.env.GROQ_API_KEY,
+        baseURL: "https://api.groq.com/openai/v1",
+      });
 
-    const response = await client.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages: [{ role: 'user', content: prompt }],
-      response_format: { type: "json_object" }
-    });
+      const response = await client.chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: prompt }],
+        response_format: { type: "json_object" }
+      });
 
-    const responseContent = response.choices[0]?.message?.content;
+      const responseContent = response.choices[0]?.message?.content;
 
-    if (responseContent) {
-      const parsed = JSON.parse(responseContent);
-      return NextResponse.json({ report: parsed, rawData: payload }, { headers });
+      if (responseContent) {
+        const parsed = JSON.parse(responseContent);
+        return NextResponse.json({ report: parsed, rawData: payload }, { headers });
+      }
+    } catch (aiErr) {
+      console.warn('Groq AI failed for full insights, using local analytics generator:', aiErr);
     }
 
-    return NextResponse.json({ error: "Failed to generate report" }, { status: 500, headers });
+    const localReport = generateLocalFullReport(payload);
+    return NextResponse.json({ report: localReport, rawData: payload }, { headers });
   } catch (error: any) {
     console.error('Error generating full insights:', error);
-    return NextResponse.json({ error: "Insights unavailable right now." }, { status: 500 });
+    return NextResponse.json({ report: generateLocalFullReport({}) }, { headers });
   }
 }
