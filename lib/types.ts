@@ -19,6 +19,15 @@ export interface SavingsGoal {
   color: string;
 }
 
+export interface QuickTemplate {
+  id: string;
+  name: string;
+  amount: number;
+  categoryId: string;
+  tags: string[];
+  icon: string;
+}
+
 export interface Settings {
   _id?: string;
   annualSalary: number;
@@ -35,6 +44,7 @@ export interface Settings {
   effectiveTaxRate?: number;
   categories: Category[];
   savingsGoals?: SavingsGoal[];
+  quickTemplates?: QuickTemplate[];
   expenseViewLayout?: 'list' | 'timeline';
   updatedAt?: string;
 }

@@ -6,6 +6,8 @@ import { useRouter, usePathname } from 'next/navigation';
 import { CategoryIcon } from './CategoryIcon';
 import { Sparkles } from 'lucide-react';
 import { TagSelector } from './TagSelector';
+import { QuickTemplates } from './QuickTemplates';
+import { QuickTemplate } from '@/lib/types';
 
 export default function QuickAddSheet() {
   const router = useRouter();
@@ -357,6 +359,23 @@ export default function QuickAddSheet() {
           </div>
         ) : (
           <div>
+          {/* Quick Templates */}
+          {settings && (
+            <QuickTemplates
+              templates={settings.quickTemplates || []}
+              categories={settings.categories || []}
+              onSelect={(t: QuickTemplate) => {
+                setForm(f => ({ ...f, amount: String(t.amount), categoryId: t.categoryId, tags: t.tags || [] }));
+              }}
+              onSave={async (templates: QuickTemplate[]) => {
+                try {
+                  const res = await fetch('/api/settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ quickTemplates: templates }) });
+                  if (res.ok) { const s = await res.json(); setSettings(s); }
+                } catch (e) { console.error(e); }
+              }}
+            />
+          )}
+
           {/* Amount Display */}
           <div style={{ 
             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', marginBottom: 24, background: 'var(--bg-elevated)', padding: '16px', borderRadius: 'var(--r-lg)', 

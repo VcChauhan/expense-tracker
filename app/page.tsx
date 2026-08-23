@@ -15,6 +15,7 @@ import { TimeTravelSlider } from '@/components/TimeTravelSlider';
 import { SubscriptionAudit } from '@/components/SubscriptionAudit';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { FocusWheel, WheelData } from '@/components/FocusWheel';
+import { MonthlyRecapCard } from '@/components/MonthlyRecapCard';
 
 interface CategoryTotal { _id: string; total: number; count: number; }
 interface MonthTotal    { _id: string; total: number; count: number; }
@@ -212,6 +213,21 @@ export default function DashboardPage() {
         <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0', color: 'var(--text-secondary)' }}>Loading...</div>
       ) : (
         <>
+          {/* ── Monthly Recap Card ── */}
+          {!isAnnual && monthlySalary > 0 && (
+            <MonthlyRecapCard
+              spent={monthlySpent}
+              income={monthlySalary}
+              budget={monthlyBudget}
+              categories={settings?.categories ?? []}
+              categoryTotals={categoryTotals}
+              historicalAverage={historicalAverage}
+              savingsGoals={settings?.savingsGoals}
+              month={selectedMonth}
+              year={selectedYear}
+            />
+          )}
+
           {/* ── Hero FocusWheel Card ── */}
           {/* ── Hero FocusWheel Card ── */}
           <div style={{ position: 'relative', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 20, padding: '48px 24px', marginBottom: 24, display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
@@ -287,6 +303,31 @@ export default function DashboardPage() {
                       <div style={{ width: '100%', height: 8, background: 'var(--bg-elevated)', borderRadius: 4, overflow: 'hidden' }}>
                         <div style={{ height: '100%', background: goal.color, width: `${Math.min(100, progress)}%`, borderRadius: 4, transition: 'width 0.5s ease-out' }} />
                       </div>
+                      
+                      {/* Auto-Projection */}
+                      {(() => {
+                        const avgMonthlySavings = monthlySalary > 0 
+                          ? (historicalAverage > 0 ? monthlySalary - historicalAverage : monthlySavings)
+                          : 0;
+                        const remaining = goal.targetAmount - goal.currentAmount;
+                        if (remaining <= 0) return (
+                          <div style={{ marginTop: 8, fontSize: 12, color: 'var(--success)', fontWeight: 600 }}>🎉 Goal reached!</div>
+                        );
+                        if (avgMonthlySavings <= 0) return (
+                          <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-muted)' }}>Set income to see projection</div>
+                        );
+                        const monthsToGoal = Math.ceil(remaining / avgMonthlySavings);
+                        const projectedDate = new Date();
+                        projectedDate.setMonth(projectedDate.getMonth() + monthsToGoal);
+                        const projectedStr = `${MONTHS[projectedDate.getMonth()].slice(0, 3)} ${projectedDate.getFullYear()}`;
+                        const targetDate = goal.targetDate ? new Date(goal.targetDate) : null;
+                        const isOnTrack = targetDate ? projectedDate <= targetDate : true;
+                        return (
+                          <div style={{ marginTop: 8, fontSize: 12, fontWeight: 600, color: isOnTrack ? 'var(--success)' : 'var(--warning)' }}>
+                            {isOnTrack ? '🎯' : '⏳'} {isOnTrack ? 'On track' : 'At current pace'} — {projectedStr}
+                          </div>
+                        );
+                      })()}
                     </div>
                   );
                 })}

@@ -19,6 +19,15 @@ export interface ISavingsGoal {
   color: string;
 }
 
+export interface IQuickTemplate {
+  id: string;
+  name: string;
+  amount: number;
+  categoryId: string;
+  tags: string[];
+  icon: string;
+}
+
 export interface ISettings extends Document {
   annualSalary: number;
   monthlySalary: number;       // computed in-hand monthly
@@ -36,6 +45,7 @@ export interface ISettings extends Document {
   effectiveTaxRate: number;
   categories: ICategory[];
   savingsGoals: ISavingsGoal[];
+  quickTemplates: IQuickTemplate[];
   expenseViewLayout?: 'list' | 'timeline';
   updatedAt: Date;
 }
@@ -59,6 +69,15 @@ const SavingsGoalSchema = new Schema<ISavingsGoal>({
   color: { type: String, default: '#10b981' },
 });
 
+const QuickTemplateSchema = new Schema<IQuickTemplate>({
+  id: { type: String, required: true },
+  name: { type: String, required: true },
+  amount: { type: Number, required: true, default: 0 },
+  categoryId: { type: String, required: true },
+  tags: { type: [String], default: [] },
+  icon: { type: String, default: '⚡' },
+});
+
 const SettingsSchema = new Schema<ISettings>(
   {
     annualSalary:     { type: Number, required: true, default: 0 },
@@ -75,6 +94,7 @@ const SettingsSchema = new Schema<ISettings>(
     effectiveTaxRate: { type: Number, default: 0 },
     categories:       { type: [CategorySchema], default: [] },
     savingsGoals:     { type: [SavingsGoalSchema], default: [] },
+    quickTemplates:   { type: [QuickTemplateSchema], default: [] },
     expenseViewLayout: { type: String, enum: ['list', 'timeline'], default: 'list' },
   },
   { timestamps: true }
