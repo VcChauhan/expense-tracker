@@ -38,6 +38,26 @@ export default function QuickAddSheet() {
     }
   }, []);
 
+  // Smart Tag Auto-Predictor based on note text
+  function handleNoteChange(text: string) {
+    setForm(f => {
+      const updated = { ...f, note: text };
+      if (f.tags.length === 0) {
+        const lower = text.toLowerCase();
+        if (lower.includes('swiggy') || lower.includes('zomato') || lower.includes('chai') || lower.includes('lunch')) {
+          updated.tags = ['lunch'];
+        } else if (lower.includes('uber') || lower.includes('ola') || lower.includes('auto') || lower.includes('petrol')) {
+          updated.tags = ['commute'];
+        } else if (lower.includes('badminton') || lower.includes('turf') || lower.includes('gym')) {
+          updated.tags = ['badminton'];
+        } else if (lower.includes('blinkit') || lower.includes('zepto') || lower.includes('grocery')) {
+          updated.tags = ['grocery'];
+        }
+      }
+      return updated;
+    });
+  }
+
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -451,7 +471,7 @@ export default function QuickAddSheet() {
               type="text"
               placeholder="Notes (optional)"
               value={form.note}
-              onChange={e => setForm(f => ({ ...f, note: e.target.value }))}
+              onChange={e => handleNoteChange(e.target.value)}
               style={{
                 flex: 1, padding: '12px', borderRadius: 'var(--r-md)', background: 'var(--bg-elevated)', 
                 border: '1px solid var(--border)',

@@ -7,6 +7,8 @@ import { CategoryIcon } from '@/components/CategoryIcon';
 import { TagSelector } from '@/components/TagSelector';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { ExpenseTimelineView } from '@/components/ExpenseTimelineView';
+import { ExpenseCalendarView } from '@/components/ExpenseCalendarView';
+import { Calendar } from 'lucide-react';
 
 type ViewMode = 'monthly' | 'annual';
 type SortField = 'date' | 'amount';
@@ -23,17 +25,17 @@ export default function ExpensesPage() {
 
   // Filters
   const [viewMode, setViewMode]           = useState<ViewMode>('monthly');
-  const [viewLayout, setViewLayout]       = useState<'list' | 'timeline'>('list');
+  const [viewLayout, setViewLayout]       = useState<'list' | 'timeline' | 'calendar'>('list');
   const [menuOpen, setMenuOpen]           = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('expenseViewLayout');
-      if (saved === 'list' || saved === 'timeline') setViewLayout(saved);
+      if (saved === 'list' || saved === 'timeline' || saved === 'calendar') setViewLayout(saved);
     }
   }, []);
 
-  function handleSetViewLayout(layout: 'list' | 'timeline') {
+  function handleSetViewLayout(layout: 'list' | 'timeline' | 'calendar') {
     setViewLayout(layout);
     if (typeof window !== 'undefined') localStorage.setItem('expenseViewLayout', layout);
     setMenuOpen(false);
@@ -388,6 +390,13 @@ export default function ExpensesPage() {
                     <GitCommit size={16} />
                     Winding
                   </button>
+                  <button 
+                    onClick={() => handleSetViewLayout('calendar')}
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', background: viewLayout === 'calendar' ? 'var(--bg-elevated)' : 'transparent', border: 'none', borderRadius: 8, color: viewLayout === 'calendar' ? 'var(--accent)' : 'var(--text-primary)', fontWeight: 600, fontSize: 14, cursor: 'pointer', textAlign: 'left' }}
+                  >
+                    <Calendar size={16} />
+                    Heatmap Calendar
+                  </button>
                 </div>
               </>
             )}
@@ -510,6 +519,14 @@ export default function ExpensesPage() {
           <div style={{ fontSize: 48, marginBottom: 16 }}>📭</div>
           <h3 style={{ fontSize: 18, color: 'var(--text-primary)', marginBottom: 8 }}>No expenses found</h3>
           <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Try changing filters or add a new expense.</p>
+        </div>
+      ) : viewLayout === 'calendar' ? (
+        <div style={{ padding: '0 16px' }}>
+          <ExpenseCalendarView
+            expenses={filtered}
+            selectedMonth={selectedMonth}
+            selectedYear={selectedYear}
+          />
         </div>
       ) : viewLayout === 'timeline' ? (
         <ExpenseTimelineView 

@@ -16,6 +16,8 @@ import { SubscriptionAudit } from '@/components/SubscriptionAudit';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { FocusWheel, WheelData } from '@/components/FocusWheel';
 import { MonthlyRecapCard } from '@/components/MonthlyRecapCard';
+import { AffordabilityChecker } from '@/components/AffordabilityChecker';
+import { RebalanceModal } from '@/components/RebalanceModal';
 
 interface CategoryTotal { _id: string; total: number; count: number; }
 interface MonthTotal    { _id: string; total: number; count: number; }
@@ -61,6 +63,7 @@ export default function DashboardPage() {
   const [dailyTotals, setDailyTotals]     = useState<{_id: string; total: number}[]>([]);
   const [recentExpenses, setRecentExpenses] = useState<Expense[]>([]);
   const [historicalAverage, setHistoricalAverage] = useState(0);
+  const [showRebalanceModal, setShowRebalanceModal] = useState(false);
   const [loading, setLoading]             = useState(true);
 
   const fetchData = useCallback(async () => {
@@ -166,16 +169,25 @@ export default function DashboardPage() {
 
       {/* ── Dashboard Alert Center ── */}
       {overBudgetCategories.length > 0 && (
-        <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: 12, padding: '12px 16px', marginBottom: 24, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-          <div style={{ color: 'var(--danger)', marginTop: 2 }}>
-            <Bell size={20} />
+        <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: 16, padding: '14px 18px', marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+            <div style={{ color: 'var(--danger)', marginTop: 2 }}>
+              <Bell size={20} />
+            </div>
+            <div>
+              <h3 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 4px 0', color: 'var(--danger)' }}>Budget Alert</h3>
+              <p style={{ fontSize: 13, margin: 0, color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                You have exceeded monthly budget for: <strong style={{ color: 'var(--text-primary)' }}>{overBudgetCategories.map(c => c.name).join(', ')}</strong>.
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 4px 0', color: 'var(--danger)' }}>Budget Alert</h3>
-            <p style={{ fontSize: 13, margin: 0, color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-              You have exceeded your monthly budget for: <strong style={{ color: 'var(--text-primary)' }}>{overBudgetCategories.map(c => c.name).join(', ')}</strong>.
-            </p>
-          </div>
+
+          <button
+            onClick={() => setShowRebalanceModal(true)}
+            style={{ padding: '8px 14px', borderRadius: 10, background: 'var(--danger)', color: '#fff', border: 'none', fontWeight: 600, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}
+          >
+            ⚡ Auto-Rebalance Budget
+          </button>
         </div>
       )}
 
@@ -272,6 +284,15 @@ export default function DashboardPage() {
               <span style={{ fontSize: 16, fontWeight: 600, color: budgetPct >= 100 ? 'var(--danger)' : budgetPct >= 80 ? 'var(--warning)' : 'var(--success)', marginTop: 8 }}>{budgetPct.toFixed(0)}% used</span>
             </FocusWheel>
           </div>
+
+          {/* ── "Can I Afford This?" Analyzer ── */}
+          <AffordabilityChecker
+            monthlySalary={monthlySalary}
+            monthlySpent={monthlySpent}
+            monthlyBudget={monthlyBudget}
+            categories={settings?.categories ?? []}
+            activeTotalsMap={activeTotalsMap}
+          />
 
           {/* ── Savings Goals Progress ── */}
           {settings?.savingsGoals && settings.savingsGoals.length > 0 && (
@@ -397,6 +418,29 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {showRebalanceModal && (
+            <RebalanceModal
+              categories={settings?.categories ?? []}
+              activeTotalsMap={activeTotalsMap}
+              onClose={() => setShowRebalanceModal(false)}
+              onApprove={async (updatedCategories) => {
+                try {
+                  const res = await fetch('/api/settings', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ categories: updatedCategories })
+                  });
+                  if (res.ok) {
+                    const s = await res.json();
+                    setSettings(s);
+                    setShowRebalanceModal(false);
+                  }
+                } catch (err) {
+                  console.error('Failed to approve rebalance:', err);
+                }
+              }}
+            />
+          )}
         </>
       )}
     </div>

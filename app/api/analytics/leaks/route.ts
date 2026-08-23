@@ -13,32 +13,42 @@ export async function GET(req: Request) {
 
     const expenses = await Expense.find({ date: { $gte: dateStr } }).sort({ date: -1 });
 
-    // Group by amount + categoryId
-    const groups: Record<string, { count: number; amount: number; name: string; dates: string[] }> = {};
+    // Group by categoryId + normalized note keyword
+    const groups: Record<string, { count: number; amounts: number[]; name: string; dates: string[] }> = {};
 
     expenses.forEach(exp => {
-      // Ignore very small or very large charges from recurring checks unless they match exactly
-      const key = `${exp.amount}-${exp.categoryId}`;
+      const cleanName = (exp.note || 'Unnamed').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 10);
+      const key = `${exp.categoryId}-${cleanName}`;
       if (!groups[key]) {
-        groups[key] = { count: 0, amount: exp.amount, name: exp.note || 'Unnamed Charge', dates: [] };
+        groups[key] = { count: 0, amounts: [], name: exp.note || 'Unnamed Charge', dates: [] };
       }
       groups[key].count += 1;
+      groups[key].amounts.push(exp.amount);
       groups[key].dates.push(exp.date);
-      // Prefer longer notes for the name
       if (exp.note && exp.note.length > groups[key].name.length) {
         groups[key].name = exp.note;
       }
     });
 
     const leaks = Object.values(groups)
-      .filter(g => g.count >= 2 && g.amount > 0)
-      .map(g => ({
-        name: g.name,
-        amount: g.amount,
-        frequency: g.count,
-        lastCharged: g.dates[0], // it's sorted descending
-        annualCost: g.amount * 12
-      }))
+      .filter(g => g.count >= 2 && g.amounts[0] > 0)
+      .map(g => {
+        const latestAmount = g.amounts[0];
+        const prevAmount = g.amounts[1] || latestAmount;
+        const isPriceHike = latestAmount > prevAmount && prevAmount > 0;
+        const hikePercent = isPriceHike ? Math.round(((latestAmount - prevAmount) / prevAmount) * 100) : 0;
+
+        return {
+          name: g.name,
+          amount: latestAmount,
+          prevAmount,
+          isPriceHike,
+          hikePercent,
+          frequency: g.count,
+          lastCharged: g.dates[0],
+          annualCost: latestAmount * 12
+        };
+      })
       .sort((a, b) => b.annualCost - a.annualCost);
 
     return NextResponse.json({ leaks });
