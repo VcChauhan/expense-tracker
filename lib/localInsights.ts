@@ -135,6 +135,18 @@ export function generateLocalFullReport(payload: any) {
 
   const actionableSteps = [
     savingsRate >= 20 ? 'Maintain your current savings momentum by transferring surplus funds to your top savings goal.' : 'Review discretionary spending in high-burn categories to push your savings rate above 20%.',
+    over ? `Set a weekly spend cap for ${over.name} to bring it back within budget.` : 'All categories are within budget limits. Keep up the consistent tracking!'
+  ];
+
+  return {
+    executiveSummary: savingsRate >= 20 
+      ? `Great financial health this month! You have saved ${savingsRate}% of your income with ₹${totalSpent} spent total.` 
+      : `Your total spending this month is ₹${totalSpent} (savings rate ${savingsRate}%). Review top categories to optimize your budget.`,
+    momComparisons,
+    actionableSteps
+  };
+}
+
 export function generateLocalBudgetInsights(categories: any[]): { categoryId: string; message: string }[] {
   const insights: { categoryId: string; message: string }[] = [];
   const overbudget = categories.filter((c: any) => c.budgetLimit > 0 && c.actualSpent > c.budgetLimit);
