@@ -22,8 +22,11 @@ export const metadata: Metadata = {
     title: 'ExpenseIQ',
   },
   icons: {
-    apple: '/icons/apple-touch-icon.png',
-    icon:  '/icons/icon-192.png',
+    icon: [
+      { url: '/icon-dark.png', media: '(prefers-color-scheme: dark)' },
+      { url: '/icon-light.png', media: '(prefers-color-scheme: light)' },
+    ],
+    apple: '/apple-touch-icon.png',
   },
 };
 
