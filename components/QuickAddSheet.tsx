@@ -7,6 +7,8 @@ import { CategoryIcon } from './CategoryIcon';
 import { Sparkles } from 'lucide-react';
 import { TagSelector } from './TagSelector';
 import { QuickTemplates } from './QuickTemplates';
+import { PaymentMethodSelector } from './PaymentMethodSelector';
+import { PaymentMethod } from '@/lib/types';
 import { QuickTemplate } from '@/lib/types';
 
 export default function QuickAddSheet() {
@@ -20,7 +22,7 @@ export default function QuickAddSheet() {
   const [voiceSuggestion, setVoiceSuggestion] = useState<{ transcript: string; amount: string; categoryId: string; note: string; } | null>(null);
   
   const today = new Date().toISOString().split('T')[0];
-  const [form, setForm] = useState<{ date: string, categoryId: string, amount: string, note: string, tags: string[] }>({ date: today, categoryId: '', amount: '', note: '', tags: [] });
+  const [form, setForm] = useState<{ date: string, categoryId: string, amount: string, note: string, tags: string[], paymentMethod: PaymentMethod }>({ date: today, categoryId: '', amount: '', note: '', tags: [], paymentMethod: 'upi' });
   const [splitWays, setSplitWays] = useState<number>(1);
   const [categoryTotals, setCategoryTotals] = useState<{_id: string; total: number}[]>([]);
   const [recentTags, setRecentTags] = useState<string[]>([]);
@@ -139,7 +141,7 @@ export default function QuickAddSheet() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...form, amount: finalAmount, note: finalNote }),
       });
-      setForm({ date: today, categoryId: settings?.categories[0]?.id ?? '', amount: '', note: '', tags: [] });
+      setForm({ date: today, categoryId: settings?.categories[0]?.id ?? '', amount: '', note: '', tags: [], paymentMethod: 'upi' });
       setSplitWays(1);
       setIsOpen(false);
       router.refresh();
@@ -478,6 +480,14 @@ export default function QuickAddSheet() {
                 color: 'var(--text-primary)', fontSize: 14, outline: 'none', minWidth: 0,
                 transition: 'border 0.3s'
               }}
+            />
+          </div>
+
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>Payment Method</div>
+            <PaymentMethodSelector
+              value={form.paymentMethod}
+              onChange={paymentMethod => setForm(f => ({ ...f, paymentMethod }))}
             />
           </div>
 

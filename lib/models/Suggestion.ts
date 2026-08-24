@@ -10,6 +10,7 @@ export interface ISuggestion extends Document {
   suggestedAccount?: string;  // Optional: an initial guess for the account ID
   suggestedLabel?: string;    // Optional: AI-generated transaction label
   suggestedTags?: string[];   // Optional: On-device suggested tags
+  suggestedPaymentMethod?: string; // Optional: upi, credit_card, debit_card, netbanking
 }
 
 const SuggestionSchema = new Schema<ISuggestion>({
@@ -22,6 +23,7 @@ const SuggestionSchema = new Schema<ISuggestion>({
   suggestedAccount: { type: String, required: false },
   suggestedLabel: { type: String, required: false },
   suggestedTags: { type: [String], default: [] },
+  suggestedPaymentMethod: { type: String, default: 'upi' },
 }, { timestamps: true });
 
 // Prevent model recompilation error in Next.js HMR

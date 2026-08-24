@@ -7,6 +7,7 @@ export interface IExpense extends Document {
   amount: number;
   note: string;
   tags: string[];
+  paymentMethod: string;
   createdAt: Date;
 }
 
@@ -18,6 +19,7 @@ const ExpenseSchema = new Schema<IExpense>(
     amount: { type: Number, required: true, min: 0 },
     note: { type: String, default: '' },
     tags: { type: [String], default: [] },
+    paymentMethod: { type: String, default: 'upi' },
   },
   { timestamps: true }
 );

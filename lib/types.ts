@@ -49,6 +49,8 @@ export interface Settings {
   updatedAt?: string;
 }
 
+export type PaymentMethod = 'upi' | 'credit_card' | 'debit_card' | 'netbanking' | 'cash' | 'other';
+
 export interface Expense {
   _id: string;
   date: string;
@@ -56,6 +58,7 @@ export interface Expense {
   amount: number;
   note: string;
   tags: string[];
+  paymentMethod?: PaymentMethod;
   createdAt: string;
 }
 
@@ -69,6 +72,7 @@ export interface Suggestion {
   suggestedCategory?: string;
   suggestedLabel?: string;
   suggestedTags?: string[];
+  suggestedPaymentMethod?: PaymentMethod;
 }
 
 export interface MonthlyAnalytics {

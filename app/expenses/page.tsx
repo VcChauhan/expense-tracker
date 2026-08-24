@@ -8,6 +8,7 @@ import { TagSelector } from '@/components/TagSelector';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { ExpenseTimelineView } from '@/components/ExpenseTimelineView';
 import { ExpenseCalendarView } from '@/components/ExpenseCalendarView';
+import { PaymentMethodBadge, PaymentMethodSelector } from '@/components/PaymentMethodSelector';
 import { semanticFilterExpenses } from '@/lib/semanticSearch';
 import { Calendar } from 'lucide-react';
 
@@ -270,7 +271,8 @@ export default function ExpensesPage() {
         categoryId: sug.suggestedCategory || settings?.categories[0]?.id || '', 
         amount: sug.amount ? String(sug.amount) : '', 
         note: sug.suggestedLabel || '',
-        tags: (sug as any).suggestedTags || []
+        tags: (sug as any).suggestedTags || [],
+        paymentMethod: (sug as any).suggestedPaymentMethod || 'upi'
     });
     setReviewSplitWays(1);
     setReviewSuggestion(sug);
@@ -327,7 +329,8 @@ export default function ExpensesPage() {
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
             <span>{cat?.name}</span>
-
+            <span>•</span>
+            <PaymentMethodBadge method={exp.paymentMethod || 'upi'} />
           </div>
         </div>
         <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', marginLeft: 12 }}>
@@ -645,6 +648,13 @@ export default function ExpensesPage() {
               <div>
                 <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>Note</label>
                 <input type="text" style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '12px 16px', borderRadius: 12, fontSize: 16 }} value={editingExp.note || ''} onChange={e => setEditingExp({ ...editingExp, note: e.target.value })} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>Payment Method</label>
+                <PaymentMethodSelector 
+                  value={editingExp.paymentMethod || 'upi'} 
+                  onChange={paymentMethod => setEditingExp({ ...editingExp, paymentMethod })}
+                />
               </div>
               <div>
                 <TagSelector 

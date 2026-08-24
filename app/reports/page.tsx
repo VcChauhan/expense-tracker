@@ -11,6 +11,7 @@ import { CategoryIcon } from '@/components/CategoryIcon';
 import AiInsights from '@/components/AiInsights';
 import { SubscriptionAudit } from '@/components/SubscriptionAudit';
 import { PredictiveCashflowCard } from '@/components/PredictiveCashflowCard';
+import { PaymentMethodBreakdownCard } from '@/components/PaymentMethodBreakdownCard';
 
 type ViewMode = 'monthly' | 'annual';
 
@@ -216,6 +217,10 @@ export default function ReportsPage() {
 
           <div style={{ padding: '0 16px 24px' }}>
             <SubscriptionAudit />
+          </div>
+
+          <div style={{ padding: '0 16px' }}>
+            <PaymentMethodBreakdownCard expenses={expenses} />
           </div>
           
           <div style={{ padding: '0 16px 24px' }}>

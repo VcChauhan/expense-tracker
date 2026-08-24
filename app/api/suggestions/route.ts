@@ -36,6 +36,7 @@ export async function POST(req: Request) {
     const suggestedCategory = data.suggestedCategory || 'general';
     const suggestedLabel = data.suggestedLabel || (data.smsBody ? 'UPI Payment' : 'On-Device Expense');
     const suggestedTags = data.suggestedTags || [];
+    const suggestedPaymentMethod = data.suggestedPaymentMethod || 'upi';
 
     const suggestion = await Suggestion.create({
       smsBody: data.smsBody ? scrubSms(data.smsBody) : 'On-Device Private SMS',
@@ -46,6 +47,7 @@ export async function POST(req: Request) {
       suggestedCategory,
       suggestedLabel,
       suggestedTags,
+      suggestedPaymentMethod,
     });
 
     return NextResponse.json(suggestion, { status: 201 });

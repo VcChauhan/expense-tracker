@@ -44,7 +44,7 @@ export async function POST(request: Request) {
   try {
     await dbConnect();
     const body = await request.json();
-    const { date, categoryId, amount, note, tags } = body;
+    const { date, categoryId, amount, note, tags, paymentMethod } = body;
 
     if (!date || !categoryId || amount === undefined) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -55,7 +55,8 @@ export async function POST(request: Request) {
       categoryId, 
       amount: parseFloat(amount), 
       note: note ?? '', 
-      tags: tags ?? [] 
+      tags: tags ?? [],
+      paymentMethod: paymentMethod || 'upi'
     });
     return NextResponse.json(expense, { status: 201 });
   } catch (error) {
