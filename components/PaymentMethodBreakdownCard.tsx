@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { Expense, formatINR } from '@/lib/types';
-import { PAYMENT_METHODS, PaymentMethodBadge } from './PaymentMethodSelector';
+import { PaymentMethodBadge } from './PaymentMethodSelector';
 import { CreditCard } from 'lucide-react';
 
 interface PaymentMethodBreakdownCardProps {
@@ -11,25 +11,21 @@ interface PaymentMethodBreakdownCardProps {
 
 export function PaymentMethodBreakdownCard({ expenses }: PaymentMethodBreakdownCardProps) {
   const { breakdown, total } = useMemo(() => {
-    const map: Record<string, number> = {
-      upi: 0,
-      credit_card: 0,
-      debit_card: 0,
-      netbanking: 0,
-      cash: 0,
-      other: 0,
-    };
-
+    const map: Record<string, number> = {};
     let grandTotal = 0;
+
     expenses.forEach(exp => {
-      const method = exp.paymentMethod || 'upi';
-      map[method] = (map[method] ?? 0) + exp.amount;
+      let rawMethod = exp.paymentMethod || 'upi';
+      if (!rawMethod.startsWith('credit_card') && rawMethod !== 'cash') {
+        rawMethod = 'upi';
+      }
+      map[rawMethod] = (map[rawMethod] ?? 0) + exp.amount;
       grandTotal += exp.amount;
     });
 
     const list = Object.entries(map)
       .map(([method, amount]) => ({
-        method: method as any,
+        method,
         amount,
         pct: grandTotal > 0 ? (amount / grandTotal) * 100 : 0
       }))
@@ -48,14 +44,14 @@ export function PaymentMethodBreakdownCard({ expenses }: PaymentMethodBreakdownC
           <CreditCard size={18} />
         </div>
         <div>
-          <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Payment Method Breakdown</h3>
-          <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0 }}>Credit Card vs UPI vs Debit Card split</p>
+          <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Payment Breakdown</h3>
+          <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0 }}>Credit Cards vs UPI Default</p>
         </div>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {breakdown.map(item => {
-          const info = PAYMENT_METHODS.find(m => m.id === item.method) || { label: item.method, color: 'var(--accent)' };
+          const color = item.method.startsWith('credit_card') ? '#3B82F6' : item.method === 'cash' ? '#EC4899' : '#10B981';
           return (
             <div key={item.method}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
@@ -65,7 +61,7 @@ export function PaymentMethodBreakdownCard({ expenses }: PaymentMethodBreakdownC
                 </div>
               </div>
               <div style={{ height: 6, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${item.pct}%`, background: info.color, borderRadius: 3, transition: 'width 0.5s ease' }} />
+                <div style={{ height: '100%', width: `${item.pct}%`, background: color, borderRadius: 3, transition: 'width 0.5s ease' }} />
               </div>
             </div>
           );
