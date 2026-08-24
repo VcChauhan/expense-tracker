@@ -10,6 +10,7 @@ import { Wallet, CreditCard, PiggyBank, CalendarDays, ChevronLeft, ChevronRight,
 import { CategoryIcon } from '@/components/CategoryIcon';
 import AiInsights from '@/components/AiInsights';
 import { SubscriptionAudit } from '@/components/SubscriptionAudit';
+import { PredictiveCashflowCard } from '@/components/PredictiveCashflowCard';
 
 type ViewMode = 'monthly' | 'annual';
 
@@ -37,6 +38,7 @@ export default function ReportsPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [analytics, setAnalytics] = useState<AnnualAnalytics | null>(null);
   const [monthlyAnalytics, setMonthlyAnalytics] = useState<any>(null);
+  const [expenses, setExpenses] = useState<any[]>([]);
   
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -44,15 +46,20 @@ export default function ReportsPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [sRes, aRes, mRes] = await Promise.all([
+      const [sRes, aRes, mRes, expRes] = await Promise.all([
         fetch('/api/settings'),
         fetch(`/api/analytics/annual?year=${selectedYear}`),
-        fetch(`/api/analytics/monthly?month=${selectedMonth + 1}&year=${selectedYear}`)
+        fetch(`/api/analytics/monthly?month=${selectedMonth + 1}&year=${selectedYear}`),
+        fetch('/api/expenses?limit=300')
       ]);
-      const [s, a, m] = await Promise.all([sRes.json(), aRes.json(), mRes.json()]);
-      setSettings(s); setAnalytics(a); setMonthlyAnalytics(m);
-    } finally { setLoading(false); }
-  }, [selectedYear, selectedMonth]);
+      const [s, a, m, exps] = await Promise.all([sRes.json(), aRes.json(), mRes.json(), expRes.json()]);
+      if (s && !s.error) setSettings(s);
+      setAnalytics(a);
+      setMonthlyAnalytics(m);
+      if (Array.isArray(exps)) setExpenses(exps);
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
+  }, [selectedMonth, selectedYear]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -199,6 +206,14 @@ export default function ReportsPage() {
 
       {viewMode === 'monthly' ? (
         <>
+          <div style={{ padding: '0 16px' }}>
+            <PredictiveCashflowCard
+              salary={settings?.monthlyIncome || 0}
+              expenses={expenses}
+              categories={settings?.categories || []}
+            />
+          </div>
+
           <div style={{ padding: '0 16px 24px' }}>
             <SubscriptionAudit />
           </div>

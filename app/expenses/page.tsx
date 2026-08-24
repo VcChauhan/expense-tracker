@@ -8,6 +8,7 @@ import { TagSelector } from '@/components/TagSelector';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { ExpenseTimelineView } from '@/components/ExpenseTimelineView';
 import { ExpenseCalendarView } from '@/components/ExpenseCalendarView';
+import { semanticFilterExpenses } from '@/lib/semanticSearch';
 import { Calendar } from 'lucide-react';
 
 type ViewMode = 'monthly' | 'annual';
@@ -129,11 +130,7 @@ export default function ExpensesPage() {
     }
     
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      list = list.filter(exp => {
-        const cat = settings?.categories?.find(c => c.id === exp.categoryId);
-        return exp.note?.toLowerCase().includes(q) || cat?.name?.toLowerCase().includes(q) || String(exp.amount).includes(q) || exp.tags?.some(t => t.toLowerCase().includes(q));
-      });
+      list = semanticFilterExpenses(list, searchQuery, settings?.categories || []);
     }
     const mul = sortDir === 'asc' ? 1 : -1;
     list.sort((a, b) => {
