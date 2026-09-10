@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { formatINR, MONTHS, SHORT_MONTHS, Expense, Settings, Category, Suggestion } from '@/lib/types';
-import { CalendarDays, Edit2, Trash2, CheckCircle2, XCircle, ChevronLeft, ChevronRight, Sparkles, MoreVertical, LayoutList, GitCommit, Search } from 'lucide-react';
+import { formatINR, MONTHS, SHORT_MONTHS, Expense, Settings, Category, Suggestion, PaymentMethod } from '@/lib/types';
+import { CalendarDays, Edit2, Trash2, CheckCircle2, XCircle, ChevronLeft, ChevronRight, Sparkles, LayoutList, GitCommit, Search, Download, SlidersHorizontal, X, Calendar } from 'lucide-react';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { TagSelector } from '@/components/TagSelector';
 import { ConfirmModal } from '@/components/ConfirmModal';
@@ -10,7 +10,6 @@ import { ExpenseTimelineView } from '@/components/ExpenseTimelineView';
 import { ExpenseCalendarView } from '@/components/ExpenseCalendarView';
 import { PaymentMethodBadge, PaymentMethodSelector } from '@/components/PaymentMethodSelector';
 import { semanticFilterExpenses } from '@/lib/semanticSearch';
-import { Calendar } from 'lucide-react';
 
 type ViewMode = 'monthly' | 'annual';
 type SortField = 'date' | 'amount';
@@ -57,6 +56,10 @@ export default function ExpensesPage() {
   const [sortDir, setSortDir]             = useState<SortDir>('desc');
 
   const [filterTag, setFilterTag]         = useState('');
+  const [filterPaymentMethod, setFilterPaymentMethod] = useState('');
+  const [minAmount, setMinAmount]         = useState('');
+  const [maxAmount, setMaxAmount]         = useState('');
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
   // Edit modal
   const [editingExp, setEditingExp]     = useState<Expense | null>(null);
@@ -129,6 +132,18 @@ export default function ExpensesPage() {
     if (filterTag) {
       list = list.filter(exp => (exp.tags || []).some(t => t.toLowerCase() === filterTag.toLowerCase()));
     }
+
+    if (filterPaymentMethod) {
+      list = list.filter(exp => (exp.paymentMethod || 'upi') === filterPaymentMethod);
+    }
+
+    if (minAmount && !isNaN(parseFloat(minAmount))) {
+      list = list.filter(exp => exp.amount >= parseFloat(minAmount));
+    }
+
+    if (maxAmount && !isNaN(parseFloat(maxAmount))) {
+      list = list.filter(exp => exp.amount <= parseFloat(maxAmount));
+    }
     
     if (searchQuery.trim()) {
       list = semanticFilterExpenses(list, searchQuery, settings?.categories || []);
@@ -139,7 +154,7 @@ export default function ExpensesPage() {
       return mul * (a.amount - b.amount);
     });
     return list;
-  }, [expenses, sortBy, sortDir, searchQuery, settings, filterTag]);
+  }, [expenses, sortBy, sortDir, searchQuery, settings, filterTag, filterPaymentMethod, minAmount, maxAmount]);
 
   // Group by day for monthly view
   const groupedByDay = useMemo(() => {
@@ -349,58 +364,88 @@ export default function ExpensesPage() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', paddingBottom: 80 }}>
       {/* Header */}
-      <div style={{ padding: '24px 16px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Expense Log</h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ background: 'var(--accent)', color: '#fff', padding: '4px 12px', borderRadius: 9999, fontSize: 13, fontWeight: 600 }}>
-            {filtered.length} • {formatINR(totalSpent)}
+      <div style={{ padding: '24px 16px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+        <div>
+          <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Expense Log</h1>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
+            <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{filtered.length} entries</span> • <span style={{ color: 'var(--accent-2)', fontWeight: 800 }}>{formatINR(totalSpent)}</span>
           </div>
-          
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* CSV Download Button */}
           <button 
             onClick={downloadCSV}
-            style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', cursor: 'pointer', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 6, borderRadius: 9999, color: 'var(--text-primary)', fontSize: 12, fontWeight: 600 }}
+            style={{
+              background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+              cursor: 'pointer', padding: '7px 14px', display: 'flex', alignItems: 'center', gap: 6,
+              borderRadius: 9999, color: 'var(--text-primary)', fontSize: 12, fontWeight: 700,
+              boxShadow: 'var(--shadow-xs)', fontFamily: "'DM Sans', sans-serif",
+            }}
           >
-            Export
+            <Download size={13} color="var(--accent-2)" />
+            Export CSV
           </button>
-          
-          <div style={{ position: 'relative' }}>
-            <button 
-              onClick={() => setMenuOpen(!menuOpen)} 
-              style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', cursor: 'pointer', padding: 8, display: 'flex', borderRadius: '50%', color: 'var(--text-primary)' }}
-            >
-              <MoreVertical size={16} />
-            </button>
-            
-            {menuOpen && (
-              <>
-                <div onClick={() => setMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
-                <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: 8, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 4px 20px rgba(0,0,0,0.1)', padding: 8, minWidth: 160, zIndex: 50 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', padding: '8px 12px 4px' }}>View Layout</div>
-                  <button 
-                    onClick={() => handleSetViewLayout('list')}
-                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', background: viewLayout === 'list' ? 'var(--bg-elevated)' : 'transparent', border: 'none', borderRadius: 8, color: viewLayout === 'list' ? 'var(--accent)' : 'var(--text-primary)', fontWeight: 600, fontSize: 14, cursor: 'pointer', textAlign: 'left' }}
-                  >
-                    <LayoutList size={16} />
-                    List
-                  </button>
-                  <button 
-                    onClick={() => handleSetViewLayout('timeline')}
-                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', background: viewLayout === 'timeline' ? 'var(--bg-elevated)' : 'transparent', border: 'none', borderRadius: 8, color: viewLayout === 'timeline' ? 'var(--accent)' : 'var(--text-primary)', fontWeight: 600, fontSize: 14, cursor: 'pointer', textAlign: 'left' }}
-                  >
-                    <GitCommit size={16} />
-                    Winding
-                  </button>
-                  <button 
-                    onClick={() => handleSetViewLayout('calendar')}
-                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', background: viewLayout === 'calendar' ? 'var(--bg-elevated)' : 'transparent', border: 'none', borderRadius: 8, color: viewLayout === 'calendar' ? 'var(--accent)' : 'var(--text-primary)', fontWeight: 600, fontSize: 14, cursor: 'pointer', textAlign: 'left' }}
-                  >
-                    <Calendar size={16} />
-                    Heatmap Calendar
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+        </div>
+      </div>
+
+      {/* ── View Layout Segmented Control ── */}
+      <div style={{ padding: '0 16px', marginBottom: 16 }}>
+        <div style={{
+          display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
+          background: 'var(--bg-card)', border: '1px solid var(--border)',
+          borderRadius: 14, padding: 3, gap: 4,
+        }}>
+          <button
+            onClick={() => handleSetViewLayout('list')}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              padding: '8px 0', borderRadius: 11, border: 'none',
+              background: viewLayout === 'list' ? 'var(--accent)' : 'transparent',
+              color: viewLayout === 'list' ? '#fff' : 'var(--text-secondary)',
+              fontWeight: 700, fontSize: 13, cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              fontFamily: "'DM Sans', sans-serif",
+              boxShadow: viewLayout === 'list' ? '0 2px 10px rgba(124,92,252,0.3)' : 'none',
+            }}
+          >
+            <LayoutList size={15} />
+            <span>List</span>
+          </button>
+
+          <button
+            onClick={() => handleSetViewLayout('timeline')}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              padding: '8px 0', borderRadius: 11, border: 'none',
+              background: viewLayout === 'timeline' ? 'var(--accent)' : 'transparent',
+              color: viewLayout === 'timeline' ? '#fff' : 'var(--text-secondary)',
+              fontWeight: 700, fontSize: 13, cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              fontFamily: "'DM Sans', sans-serif",
+              boxShadow: viewLayout === 'timeline' ? '0 2px 10px rgba(124,92,252,0.3)' : 'none',
+            }}
+          >
+            <GitCommit size={15} />
+            <span>Timeline</span>
+          </button>
+
+          <button
+            onClick={() => handleSetViewLayout('calendar')}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              padding: '8px 0', borderRadius: 11, border: 'none',
+              background: viewLayout === 'calendar' ? 'var(--accent)' : 'transparent',
+              color: viewLayout === 'calendar' ? '#fff' : 'var(--text-secondary)',
+              fontWeight: 700, fontSize: 13, cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              fontFamily: "'DM Sans', sans-serif",
+              boxShadow: viewLayout === 'calendar' ? '0 2px 10px rgba(124,92,252,0.3)' : 'none',
+            }}
+          >
+            <Calendar size={15} />
+            <span>Calendar</span>
+          </button>
         </div>
       </div>
 
@@ -434,7 +479,7 @@ export default function ExpensesPage() {
                 </div>
                 
                 <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                  "{sug.smsBody}"
+                  &quot;{sug.smsBody}&quot;
                 </div>
 
                 <div style={{ display: 'flex', gap: 8, marginTop: 'auto' }}>
@@ -447,7 +492,7 @@ export default function ExpensesPage() {
         </div>
       )}
 
-      {/* Controls */}
+      {/* Period Navigator Controls */}
       <div style={{ padding: '0 16px', display: 'flex', gap: 12, marginBottom: 16 }}>
         <div style={{ display: 'flex', background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border)', overflow: 'hidden' }}>
           <button onClick={() => setViewMode('monthly')} style={{ padding: '8px 12px', background: viewMode === 'monthly' ? 'var(--border)' : 'transparent', border: 'none', color: 'var(--text-primary)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>M</button>
@@ -470,9 +515,9 @@ export default function ExpensesPage() {
         </div>
       </div>
 
-      {/* Search */}
-      <div style={{ padding: '0 16px', marginBottom: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, padding: '0 12px' }}>
+      {/* Search & Filter Trigger */}
+      <div style={{ padding: '0 16px', marginBottom: 12, display: 'flex', gap: 8 }}>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, padding: '0 12px' }}>
           <Search size={18} color="var(--text-secondary)" />
           <input 
             type="text" 
@@ -487,9 +532,183 @@ export default function ExpensesPage() {
             </button>
           )}
         </div>
+
+        <button
+          onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            padding: '0 14px', borderRadius: 16,
+            background: showAdvancedFilters || filterPaymentMethod || minAmount || maxAmount ? 'var(--accent)' : 'var(--bg-card)',
+            border: '1px solid var(--border)',
+            color: showAdvancedFilters || filterPaymentMethod || minAmount || maxAmount ? '#fff' : 'var(--text-primary)',
+            cursor: 'pointer', fontSize: 13, fontWeight: 700,
+          }}
+          title="Advanced Filters"
+        >
+          <SlidersHorizontal size={16} />
+        </button>
       </div>
 
-      {/* Filters */}
+      {/* Advanced Filters Expandable Drawer */}
+      {showAdvancedFilters && (
+        <div style={{
+          margin: '0 16px 14px', padding: '16px', borderRadius: 18,
+          background: 'var(--bg-card)', border: '1px solid var(--border)',
+          display: 'flex', flexDirection: 'column', gap: 12,
+          animation: 'fadeIn 0.2s ease',
+        }}>
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>
+              Payment Method
+            </label>
+            <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 4 }}>
+              {['', 'upi', 'credit_card', 'debit_card', 'cash', 'netbanking'].map((pm) => (
+                <button
+                  key={pm}
+                  onClick={() => setFilterPaymentMethod(filterPaymentMethod === pm ? '' : pm)}
+                  style={{
+                    padding: '6px 12px', borderRadius: 99, fontSize: 12, fontWeight: 700,
+                    border: '1px solid var(--border)',
+                    background: filterPaymentMethod === pm ? 'var(--accent)' : 'var(--bg-elevated)',
+                    color: filterPaymentMethod === pm ? '#fff' : 'var(--text-secondary)',
+                    cursor: 'pointer', whiteSpace: 'nowrap',
+                  }}
+                >
+                  {pm === '' ? 'All Methods' : pm === 'upi' ? 'UPI' : pm === 'credit_card' ? 'Credit Card' : pm === 'debit_card' ? 'Debit Card' : pm === 'cash' ? 'Cash' : 'NetBanking'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>
+                Min Amount (₹)
+              </label>
+              <input
+                type="number"
+                placeholder="0"
+                value={minAmount}
+                onChange={e => setMinAmount(e.target.value)}
+                style={{
+                  width: '100%', padding: '8px 10px', borderRadius: 10,
+                  background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                  color: 'var(--text-primary)', fontSize: 13, boxSizing: 'border-box',
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>
+                Max Amount (₹)
+              </label>
+              <input
+                type="number"
+                placeholder="No limit"
+                value={maxAmount}
+                onChange={e => setMaxAmount(e.target.value)}
+                style={{
+                  width: '100%', padding: '8px 10px', borderRadius: 10,
+                  background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                  color: 'var(--text-primary)', fontSize: 13, boxSizing: 'border-box',
+                }}
+              />
+            </div>
+          </div>
+
+          {(filterPaymentMethod || minAmount || maxAmount) && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => { setFilterPaymentMethod(''); setMinAmount(''); setMaxAmount(''); }}
+                style={{ background: 'none', border: 'none', color: 'var(--danger)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+              >
+                Reset Filters
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Active Filter Dismissible Chips */}
+      {(filterCategory || filterTag || filterPaymentMethod || minAmount || maxAmount) && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '0 16px 12px' }}>
+          {filterCategory && (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              padding: '4px 10px', borderRadius: 99, background: 'var(--accent-dim)',
+              color: 'var(--accent-2)', fontSize: 12, fontWeight: 700,
+            }}>
+              {getCategoryById(filterCategory)?.name || 'Category'}
+              <button onClick={() => setFilterCategory('')} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0, display: 'flex' }}>
+                <X size={12} />
+              </button>
+            </span>
+          )}
+
+          {filterTag && (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              padding: '4px 10px', borderRadius: 99, background: 'var(--accent-dim)',
+              color: 'var(--accent-2)', fontSize: 12, fontWeight: 700,
+            }}>
+              #{filterTag}
+              <button onClick={() => setFilterTag('')} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0, display: 'flex' }}>
+                <X size={12} />
+              </button>
+            </span>
+          )}
+
+          {filterPaymentMethod && (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              padding: '4px 10px', borderRadius: 99, background: 'var(--accent-dim)',
+              color: 'var(--accent-2)', fontSize: 12, fontWeight: 700,
+            }}>
+              Method: {filterPaymentMethod.replace('_', ' ').toUpperCase()}
+              <button onClick={() => setFilterPaymentMethod('')} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0, display: 'flex' }}>
+                <X size={12} />
+              </button>
+            </span>
+          )}
+
+          {minAmount && (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              padding: '4px 10px', borderRadius: 99, background: 'var(--accent-dim)',
+              color: 'var(--accent-2)', fontSize: 12, fontWeight: 700,
+            }}>
+              ≥ ₹{minAmount}
+              <button onClick={() => setMinAmount('')} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0, display: 'flex' }}>
+                <X size={12} />
+              </button>
+            </span>
+          )}
+
+          {maxAmount && (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              padding: '4px 10px', borderRadius: 99, background: 'var(--accent-dim)',
+              color: 'var(--accent-2)', fontSize: 12, fontWeight: 700,
+            }}>
+              ≤ ₹{maxAmount}
+              <button onClick={() => setMaxAmount('')} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0, display: 'flex' }}>
+                <X size={12} />
+              </button>
+            </span>
+          )}
+
+          <button
+            onClick={() => { setFilterCategory(''); setFilterTag(''); setFilterPaymentMethod(''); setMinAmount(''); setMaxAmount(''); }}
+            style={{
+              padding: '4px 8px', borderRadius: 99, background: 'transparent',
+              border: 'none', color: 'var(--text-muted)', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+            }}
+          >
+            Clear All
+          </button>
+        </div>
+      )}
+
+      {/* Category Pills Row */}
       <div style={{ display: 'flex', overflowX: 'auto', gap: 8, padding: '0 16px 16px', scrollbarWidth: 'none' }}>
         <button
           onClick={() => { setFilterCategory(''); setFilterTag(''); }}

@@ -10,6 +10,7 @@ import { QuickTemplates } from './QuickTemplates';
 import { PaymentMethodSelector } from './PaymentMethodSelector';
 import { PaymentMethod } from '@/lib/types';
 import { QuickTemplate } from '@/lib/types';
+import { lightTap, successBuzz, errorShake, warningPulse } from '@/lib/haptics';
 
 export default function QuickAddSheet() {
   const router = useRouter();
@@ -131,11 +132,13 @@ export default function QuickAddSheet() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...form, amount: finalAmount, note: finalNote }),
       });
+      successBuzz();
       setForm({ date: today, categoryId: settings?.categories[0]?.id ?? '', amount: '', note: '', tags: [], paymentMethod: 'upi' });
       setSplitWays(1);
       setIsOpen(false);
       router.refresh();
     } catch (err) {
+      errorShake();
       console.error(err);
     } finally {
       setLoading(false);
@@ -219,6 +222,7 @@ export default function QuickAddSheet() {
   }
 
   function handleKey(key: string) {
+    lightTap();
     if (key === 'backspace') {
       setForm(f => ({ ...f, amount: f.amount.slice(0, -1) }));
     } else if (key === '.') {

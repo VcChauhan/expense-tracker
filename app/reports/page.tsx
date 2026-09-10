@@ -6,12 +6,13 @@ import {
   ResponsiveContainer, LineChart, Line, BarChart, Bar
 } from 'recharts';
 import { formatINR, SHORT_MONTHS, MONTHS, Settings, AnnualAnalytics } from '@/lib/types';
-import { Wallet, CreditCard, PiggyBank, CalendarDays, ChevronLeft, ChevronRight, TrendingUp } from 'lucide-react';
+import { Wallet, CreditCard, PiggyBank, CalendarDays, ChevronLeft, ChevronRight, TrendingUp, Store } from 'lucide-react';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import AiInsights from '@/components/AiInsights';
 import { SubscriptionAudit } from '@/components/SubscriptionAudit';
 import { PredictiveCashflowCard } from '@/components/PredictiveCashflowCard';
 import { PaymentMethodBreakdownCard } from '@/components/PaymentMethodBreakdownCard';
+import { NetWorthTracker } from '@/components/NetWorthTracker';
 
 type ViewMode = 'monthly' | 'annual';
 
@@ -99,6 +100,27 @@ export default function ReportsPage() {
     return data;
   }, [monthlyAnalytics, selectedMonth, selectedYear]);
 
+  // Top Merchants derivation
+  const topMerchants = useMemo(() => {
+    const map: Record<string, { total: number; count: number; categoryId: string }> = {};
+    expenses.forEach((exp: any) => {
+      let merchant = (exp.note || '').trim();
+      if (!merchant) return;
+      merchant = merchant.replace(/\s*\(Split:.*?\)/i, '').trim();
+      merchant = merchant.replace(/\s*\(Recurring\)/i, '').trim();
+      if (!merchant) return;
+      const cleanName = merchant.split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+      if (!map[cleanName]) map[cleanName] = { total: 0, count: 0, categoryId: exp.categoryId };
+      map[cleanName].total += exp.amount;
+      map[cleanName].count += 1;
+    });
+
+    return Object.entries(map)
+      .map(([name, data]) => ({ name, ...data }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 10);
+  }, [expenses]);
+
   function navigateMonth(dir: number) {
     let m = selectedMonth + dir, y = selectedYear;
     if (m < 0)  { m = 11; y--; }
@@ -180,6 +202,13 @@ export default function ReportsPage() {
           )}
         </div>
       </div>
+
+      {/* ── Net Worth Tracker Hero Card ── */}
+      {settings && (
+        <div style={{ padding: '0 16px 20px' }}>
+          <NetWorthTracker settings={settings} onUpdate={setSettings} />
+        </div>
+      )}
 
       {/* 2x2 Stat Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, padding: '0 16px 24px' }}>
@@ -371,6 +400,64 @@ export default function ReportsPage() {
             </div>
           </div>
         </>
+      )}
+
+      {/* ── Top Merchants Section ── */}
+      {topMerchants.length > 0 && (
+        <div style={{ padding: '0 16px 32px' }}>
+          <div style={{
+            background: 'var(--bg-card)', border: '1px solid var(--border)',
+            borderRadius: 20, padding: '20px 16px',
+            boxShadow: 'var(--shadow-xs)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+              <Store size={18} color="var(--accent)" />
+              <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                Top Merchants & Vendors
+              </h2>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {topMerchants.map((m, idx) => {
+                const maxSpend = topMerchants[0].total;
+                const pctOfTop = maxSpend > 0 ? (m.total / maxSpend) * 100 : 0;
+                const cat = settings?.categories.find(c => c.id === m.categoryId);
+
+                return (
+                  <div key={m.name} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{
+                          fontSize: 11, fontWeight: 800, color: 'var(--accent-2)',
+                          width: 20, height: 20, borderRadius: '50%',
+                          background: 'var(--accent-dim)', display: 'flex',
+                          alignItems: 'center', justifyContent: 'center'
+                        }}>
+                          {idx + 1}
+                        </span>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
+                          {m.name}
+                        </span>
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                          • {m.count} txn{m.count > 1 ? 's' : ''}
+                        </span>
+                      </div>
+                      <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>
+                        {formatINR(m.total)}
+                      </span>
+                    </div>
+                    <div style={{ height: 5, background: 'var(--bg-elevated)', borderRadius: 99, overflow: 'hidden' }}>
+                      <div style={{
+                        height: '100%', width: `${pctOfTop}%`,
+                        background: cat?.color || 'var(--accent)',
+                        borderRadius: 99, transition: 'width 0.6s ease',
+                      }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

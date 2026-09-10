@@ -4,9 +4,13 @@ import { useState, useEffect, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { formatINR, Settings, Category, SavingsGoal } from '@/lib/types';
 import { computeSalaryBreakdown } from '@/lib/taxUtils';
-import { Save, Wallet, Folder, Edit2, ArrowUp, ArrowDown, Trash2, CheckCircle2, XCircle, Sparkles, CreditCard } from 'lucide-react';
+import { Save, Wallet, Folder, Edit2, ArrowUp, ArrowDown, Trash2, CheckCircle2, XCircle, Sparkles, CreditCard, Bell, Repeat, Compass } from 'lucide-react';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { ConfirmModal } from '@/components/ConfirmModal';
+import { PushNotificationSetup } from '@/components/PushNotificationSetup';
+import { RecurringExpenseManager } from '@/components/RecurringExpenseManager';
+import { CreditCardTracker } from '@/components/CreditCardTracker';
+import { OnboardingWizard } from '@/components/OnboardingWizard';
 
 interface BudgetInsight {
   categoryId: string;
@@ -51,6 +55,8 @@ export default function SettingsPage() {
   });
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean; type: 'category' | 'goal'; id: string } | null>(null);
+  const [rawSettings, setRawSettings] = useState<Settings | null>(null);
+  const [showTour, setShowTour] = useState(false);
 
   useEffect(() => {
     fetchSettings();
@@ -61,6 +67,7 @@ export default function SettingsPage() {
       const res = await fetch('/api/settings');
       if (!res.ok) throw new Error('Failed to fetch settings');
       const data: Settings = await res.json();
+      setRawSettings(data);
       setAnnualSalary(String(data.annualSalary || 0));
       setTaxRegime(data.taxRegime || 'new');
       setBasicPercent(data.basicPercent ?? 50);
@@ -540,6 +547,55 @@ export default function SettingsPage() {
           })}
         </div>
       </div>
+
+      {/* ── Push Notifications ── */}
+      <div style={{ marginBottom: 24 }}>
+        <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 12, letterSpacing: '-0.3px', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Bell size={18} color="var(--accent)" />
+          Notifications & Alerts
+        </h2>
+        <PushNotificationSetup />
+      </div>
+
+      {/* ── Recurring Expenses ── */}
+      {rawSettings && (
+        <div style={{ marginBottom: 24 }}>
+          <RecurringExpenseManager settings={rawSettings} onUpdate={setRawSettings} />
+        </div>
+      )}
+
+      {/* ── Credit Cards & Billing Cycles ── */}
+      {rawSettings && (
+        <div style={{ marginBottom: 24 }}>
+          <CreditCardTracker settings={rawSettings} onUpdate={setRawSettings} />
+        </div>
+      )}
+
+      {/* ── Guided Setup Tour Trigger ── */}
+      <div style={{ margin: '32px 0 24px', textAlign: 'center' }}>
+        <button
+          onClick={() => setShowTour(true)}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 8,
+            padding: '12px 20px', borderRadius: 99,
+            background: 'var(--bg-elevated)', border: '1.5px solid var(--border)',
+            color: 'var(--text-primary)', fontSize: 13, fontWeight: 700,
+            cursor: 'pointer', fontFamily: "'DM Sans', sans-serif",
+            boxShadow: 'var(--shadow-xs)',
+          }}
+        >
+          <Compass size={16} color="var(--accent)" />
+          Launch Guided Setup Wizard
+        </button>
+      </div>
+
+      {showTour && rawSettings && (
+        <OnboardingWizard
+          initialSettings={rawSettings}
+          onComplete={(updated) => { setRawSettings(updated); fetchSettings(); }}
+          onClose={() => setShowTour(false)}
+        />
+      )}
 
       {toast && (
         <div className="toast-container">

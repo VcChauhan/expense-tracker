@@ -28,6 +28,35 @@ export interface QuickTemplate {
   icon: string;
 }
 
+export interface RecurringExpense {
+  id: string;
+  name: string;
+  amount: number;
+  categoryId: string;
+  dayOfMonth: number; // 1 - 31
+  isActive: boolean;
+  lastLoggedMonth?: string; // e.g. "2026-09"
+}
+
+export interface NetWorthEntry {
+  id: string;
+  name: string;
+  type: 'asset' | 'liability';
+  amount: number;
+  category: string; // e.g. "Bank", "MF / Stocks", "EPF / PF", "Real Estate", "Loan", "Card Due"
+  lastUpdated: string;
+}
+
+export interface CreditCard {
+  id: string;
+  name: string;
+  last4?: string;
+  limit: number;
+  billingDay: number; // statement generated on this day of month
+  paymentDueDays: number; // e.g. 20 days after bill date
+  color: string;
+}
+
 export interface Settings {
   _id?: string;
   annualSalary: number;
@@ -45,7 +74,10 @@ export interface Settings {
   categories: Category[];
   savingsGoals?: SavingsGoal[];
   quickTemplates?: QuickTemplate[];
-  expenseViewLayout?: 'list' | 'timeline';
+  recurringExpenses?: RecurringExpense[];
+  netWorthEntries?: NetWorthEntry[];
+  creditCards?: CreditCard[];
+  expenseViewLayout?: 'list' | 'timeline' | 'calendar';
   updatedAt?: string;
 }
 

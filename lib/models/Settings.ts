@@ -28,6 +28,35 @@ export interface IQuickTemplate {
   icon: string;
 }
 
+export interface IRecurringExpense {
+  id: string;
+  name: string;
+  amount: number;
+  categoryId: string;
+  dayOfMonth: number;
+  isActive: boolean;
+  lastLoggedMonth?: string;
+}
+
+export interface INetWorthEntry {
+  id: string;
+  name: string;
+  type: 'asset' | 'liability';
+  amount: number;
+  category: string;
+  lastUpdated: string;
+}
+
+export interface ICreditCard {
+  id: string;
+  name: string;
+  last4?: string;
+  limit: number;
+  billingDay: number;
+  paymentDueDays: number;
+  color: string;
+}
+
 export interface ISettings extends Document {
   annualSalary: number;
   monthlySalary: number;       // computed in-hand monthly
@@ -46,7 +75,10 @@ export interface ISettings extends Document {
   categories: ICategory[];
   savingsGoals: ISavingsGoal[];
   quickTemplates: IQuickTemplate[];
-  expenseViewLayout?: 'list' | 'timeline';
+  recurringExpenses?: IRecurringExpense[];
+  netWorthEntries?: INetWorthEntry[];
+  creditCards?: ICreditCard[];
+  expenseViewLayout?: 'list' | 'timeline' | 'calendar';
   updatedAt: Date;
 }
 
@@ -78,6 +110,35 @@ const QuickTemplateSchema = new Schema<IQuickTemplate>({
   icon: { type: String, default: '⚡' },
 });
 
+const RecurringExpenseSchema = new Schema<IRecurringExpense>({
+  id: { type: String, required: true },
+  name: { type: String, required: true },
+  amount: { type: Number, required: true, default: 0 },
+  categoryId: { type: String, required: true },
+  dayOfMonth: { type: Number, required: true, default: 1 },
+  isActive: { type: Boolean, default: true },
+  lastLoggedMonth: { type: String, default: '' },
+});
+
+const NetWorthEntrySchema = new Schema<INetWorthEntry>({
+  id: { type: String, required: true },
+  name: { type: String, required: true },
+  type: { type: String, enum: ['asset', 'liability'], required: true },
+  amount: { type: Number, required: true, default: 0 },
+  category: { type: String, default: 'General' },
+  lastUpdated: { type: String, default: () => new Date().toISOString().split('T')[0] },
+});
+
+const CreditCardSchema = new Schema<ICreditCard>({
+  id: { type: String, required: true },
+  name: { type: String, required: true },
+  last4: { type: String, default: '' },
+  limit: { type: Number, required: true, default: 0 },
+  billingDay: { type: Number, required: true, default: 1 },
+  paymentDueDays: { type: Number, default: 20 },
+  color: { type: String, default: '#8b5cf6' },
+});
+
 const SettingsSchema = new Schema<ISettings>(
   {
     annualSalary:     { type: Number, required: true, default: 0 },
@@ -95,7 +156,10 @@ const SettingsSchema = new Schema<ISettings>(
     categories:       { type: [CategorySchema], default: [] },
     savingsGoals:     { type: [SavingsGoalSchema], default: [] },
     quickTemplates:   { type: [QuickTemplateSchema], default: [] },
-    expenseViewLayout: { type: String, enum: ['list', 'timeline'], default: 'list' },
+    recurringExpenses: { type: [RecurringExpenseSchema], default: [] },
+    netWorthEntries:  { type: [NetWorthEntrySchema], default: [] },
+    creditCards:      { type: [CreditCardSchema], default: [] },
+    expenseViewLayout: { type: String, enum: ['list', 'timeline', 'calendar'], default: 'list' },
   },
   { timestamps: true }
 );

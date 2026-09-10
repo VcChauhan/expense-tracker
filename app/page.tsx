@@ -6,8 +6,8 @@ import {
   AreaChart, Area, Tooltip, ResponsiveContainer,
   XAxis, YAxis, CartesianGrid
 } from 'recharts';
-import { Target, Bell, TrendingUp, TrendingDown, Minus } from 'lucide-react';
-import { formatINR, MONTHS, SHORT_MONTHS, Settings } from '@/lib/types';
+import { Target, Bell, TrendingUp, TrendingDown, Minus, Sparkles, ArrowRight, Repeat } from 'lucide-react';
+import { formatINR, MONTHS, SHORT_MONTHS, Settings, Expense } from '@/lib/types';
 
 import { HealthScoreCard } from '@/components/HealthScoreCard';
 import { TimeTravelSlider } from '@/components/TimeTravelSlider';
@@ -16,6 +16,9 @@ import { FocusWheel } from '@/components/FocusWheel';
 import { MonthlyRecapCard } from '@/components/MonthlyRecapCard';
 import { AffordabilityChecker } from '@/components/AffordabilityChecker';
 import { RebalanceModal } from '@/components/RebalanceModal';
+import { SubscriptionAudit } from '@/components/SubscriptionAudit';
+import { CreditCardTracker } from '@/components/CreditCardTracker';
+import { OnboardingWizard } from '@/components/OnboardingWizard';
 
 interface CategoryTotal { _id: string; total: number; count: number; }
 interface MonthTotal    { _id: string; total: number; count: number; }
@@ -62,18 +65,34 @@ export default function DashboardPage() {
   const [recentExpenses, setRecentExpenses] = useState<Expense[]>([]);
   const [historicalAverage, setHistoricalAverage] = useState(0);
   const [showRebalanceModal, setShowRebalanceModal] = useState(false);
+  const [pendingSuggestionsCount, setPendingSuggestionsCount] = useState(0);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [loading, setLoading]             = useState(true);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [settingsRes, monthlyRes, annualRes] = await Promise.all([
+      const [settingsRes, monthlyRes, annualRes, suggestionsRes] = await Promise.all([
         fetch('/api/settings'),
         fetch(`/api/analytics/monthly?month=${selectedMonth + 1}&year=${selectedYear}`),
         fetch(`/api/analytics/annual?year=${selectedYear}`),
+        fetch('/api/suggestions'),
       ]);
-      const [s, m, a] = await Promise.all([settingsRes.json(), monthlyRes.json(), annualRes.json()]);
-      if (s && !s.error) setSettings(s);
+      const [s, m, a, sugs] = await Promise.all([
+        settingsRes.json(),
+        monthlyRes.json(),
+        annualRes.json(),
+        suggestionsRes.json(),
+      ]);
+      if (s && !s.error) {
+        setSettings(s);
+        if ((!s.annualSalary || s.annualSalary === 0) && typeof window !== 'undefined' && !localStorage.getItem('onboardingDismissed')) {
+          setShowOnboarding(true);
+        }
+      }
+      if (Array.isArray(sugs)) {
+        setPendingSuggestionsCount(sugs.length);
+      }
       setCategoryTotals(Array.isArray(m.categoryTotals) ? m.categoryTotals : []);
       setRecentExpenses(Array.isArray(m.recent) ? m.recent : []);
       setDailyTotals(Array.isArray(m.dailyTotals) ? m.dailyTotals : []);
@@ -178,6 +197,47 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+
+      {/* ── SMS Review Banner ── */}
+      {pendingSuggestionsCount > 0 && (
+        <Link
+          href="/expenses"
+          style={{
+            textDecoration: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            background: 'linear-gradient(135deg, rgba(124, 92, 252, 0.18) 0%, rgba(167, 139, 250, 0.12) 100%)',
+            border: '1.5px solid rgba(124, 92, 252, 0.35)',
+            borderRadius: 18,
+            padding: '12px 16px',
+            marginBottom: 16,
+            boxShadow: '0 4px 14px rgba(124, 92, 252, 0.15)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{
+              width: 34, height: 34, borderRadius: 10,
+              background: 'var(--accent)', color: '#fff',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
+            }}>
+              <Sparkles size={16} />
+            </div>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-primary)' }}>
+                {pendingSuggestionsCount} UPI / Bank Transaction{pendingSuggestionsCount > 1 ? 's' : ''} Awaiting Review
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                Auto-detected on device • Tap to review or split
+              </div>
+            </div>
+          </div>
+          <div style={{ color: 'var(--accent-2)', display: 'flex', alignItems: 'center' }}>
+            <ArrowRight size={16} />
+          </div>
+        </Link>
+      )}
 
       {/* ── Budget Alert ── */}
       {overBudgetCategories.length > 0 && (
@@ -550,6 +610,55 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {/* ── Subscription & Leak Audit ── */}
+          <SubscriptionAudit />
+
+          {/* ── Recurring Due This Month Widget ── */}
+          {(() => {
+            const currentYM = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
+            const dueRecurring = (settings?.recurringExpenses || []).filter(r => r.isActive && r.lastLoggedMonth !== currentYM);
+            if (dueRecurring.length === 0) return null;
+            return (
+              <div style={{
+                background: 'var(--bg-card)', border: '1px solid var(--border)',
+                borderRadius: 20, padding: '16px 18px', marginBottom: 20,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Repeat size={16} color="var(--accent)" />
+                    <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                      Recurring Due This Month ({dueRecurring.length})
+                    </h3>
+                  </div>
+                  <Link href="/settings" style={{ fontSize: 12, color: 'var(--accent-2)', textDecoration: 'none', fontWeight: 700 }}>
+                    Manage →
+                  </Link>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {dueRecurring.slice(0, 3).map(item => (
+                    <div key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-elevated)', borderRadius: 12, padding: '10px 12px' }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
+                        {item.name} <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>(Due Day {item.dayOfMonth})</span>
+                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>
+                        {formatINR(item.amount)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ── Credit Card Tracker ── */}
+          {settings && (
+            <CreditCardTracker
+              settings={settings}
+              expenses={recentExpenses}
+              onUpdate={setSettings}
+            />
+          )}
+
           {showRebalanceModal && (
             <RebalanceModal
               categories={settings?.categories ?? []}
@@ -574,6 +683,17 @@ export default function DashboardPage() {
             />
           )}
         </>
+      )}
+
+      {showOnboarding && settings && (
+        <OnboardingWizard
+          initialSettings={settings}
+          onComplete={(updated) => { setSettings(updated); setShowOnboarding(false); }}
+          onClose={() => {
+            if (typeof window !== 'undefined') localStorage.setItem('onboardingDismissed', 'true');
+            setShowOnboarding(false);
+          }}
+        />
       )}
     </div>
   );
