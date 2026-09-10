@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { Category, formatINR } from '@/lib/types';
-import { ChevronDown, ChevronUp, Activity, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
+import { ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
 
 interface HealthScoreCardProps {
   spent: number;
@@ -23,6 +23,48 @@ type CatalogItem = {
   impact: number;
 };
 
+function ScoreRing({ score, color }: { score: number; color: string }) {
+  const size = 72;
+  const strokeWidth = 7;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const progress = Math.min(100, Math.max(0, score));
+  const dashOffset = circumference - (progress / 100) * circumference;
+
+  return (
+    <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
+      <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+        {/* Track */}
+        <circle
+          cx={size / 2} cy={size / 2} r={radius}
+          fill="none"
+          stroke="var(--bg-elevated)"
+          strokeWidth={strokeWidth}
+        />
+        {/* Progress */}
+        <circle
+          cx={size / 2} cy={size / 2} r={radius}
+          fill="none"
+          stroke={color}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={dashOffset}
+          style={{ transition: 'stroke-dashoffset 0.8s cubic-bezier(0.16, 1, 0.3, 1)' }}
+        />
+      </svg>
+      {/* Score label */}
+      <div style={{
+        position: 'absolute', inset: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        flexDirection: 'column',
+      }}>
+        <span style={{ fontSize: 20, fontWeight: 900, color, lineHeight: 1, letterSpacing: '-0.5px' }}>{score}</span>
+      </div>
+    </div>
+  );
+}
+
 export function HealthScoreCard({ spent, budget, income, safePerDay, categories, activeTotalsMap, historicalAverage, isAnnual }: HealthScoreCardProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -34,7 +76,7 @@ export function HealthScoreCard({ spent, budget, income, safePerDay, categories,
     let budgetScore = 0;
     let budgetStatus: 'good' | 'warning' | 'bad' = 'good';
     let budgetMsg = '';
-    
+
     if (budget === 0) {
       budgetScore = 40;
       budgetMsg = 'No budget limit set.';
@@ -60,10 +102,9 @@ export function HealthScoreCard({ spent, budget, income, safePerDay, categories,
     let savingsScore = 0;
     let savingsStatus: 'good' | 'warning' | 'bad' = 'good';
     let savingsMsg = '';
-    
     const savings = income - spent;
-    const targetSavings = income * 0.20; // 20% savings goal
-    
+    const targetSavings = income * 0.20;
+
     if (income === 0) {
       savingsScore = 30;
       savingsMsg = 'No income set to calculate savings.';
@@ -85,21 +126,21 @@ export function HealthScoreCard({ spent, budget, income, safePerDay, categories,
     // 3. Category Discipline (Max 30 pts)
     let catScore = 30;
     const overageCategories = [];
-    
+
     for (const cat of categories) {
       const catSpent = activeTotalsMap[cat.id] ?? 0;
       const catLimit = isAnnual ? cat.monthlyBudget * 12 : cat.monthlyBudget;
-      
+
       if (catLimit > 0 && catSpent > catLimit) {
         overageCategories.push(cat.name);
-        catScore -= 10; // Lose 10 pts per overage category
+        catScore -= 10;
       }
     }
-    
+
     catScore = Math.max(0, catScore);
     let catStatus: 'good' | 'warning' | 'bad' = 'good';
     let catMsg = 'All categories are within their limits.';
-    
+
     if (overageCategories.length > 0) {
       catStatus = overageCategories.length > 2 ? 'bad' : 'warning';
       catMsg = `Over budget in: ${overageCategories.join(', ')}.`;
@@ -112,7 +153,7 @@ export function HealthScoreCard({ spent, budget, income, safePerDay, categories,
       let momentumScore = 0;
       let momentumStatus: 'good' | 'warning' | 'bad' = 'good';
       let momentumMsg = '';
-      
+
       if (spent < historicalAverage) {
         momentumScore = 10;
         momentumMsg = `Awesome! You are spending less than your 3-month average of ${formatINR(historicalAverage)}.`;
@@ -124,63 +165,121 @@ export function HealthScoreCard({ spent, budget, income, safePerDay, categories,
       totalScore += momentumScore;
     }
 
-    return { 
-      score: Math.min(100, Math.round(totalScore)), // Cap at 100
-      catalog: items 
+    return {
+      score: Math.min(100, Math.round(totalScore)),
+      catalog: items
     };
   }, [spent, budget, income, categories, activeTotalsMap, isAnnual, historicalAverage]);
 
   let scoreColor = 'var(--success)';
-  if (score < 50) scoreColor = 'var(--danger)';
-  else if (score < 80) scoreColor = 'var(--warning)';
+  let scoreBg = 'var(--success-dim)';
+  let scoreLabel = 'Looking Great!';
+  let scoreEmoji = '🟢';
+  if (score < 50) {
+    scoreColor = 'var(--danger)';
+    scoreBg = 'var(--danger-dim)';
+    scoreLabel = 'Critical Warning';
+    scoreEmoji = '🔴';
+  } else if (score < 80) {
+    scoreColor = 'var(--warning)';
+    scoreBg = 'var(--warning-dim)';
+    scoreLabel = 'Needs Attention';
+    scoreEmoji = '🟡';
+  }
+
+  const statusConfig = {
+    good:    { Icon: CheckCircle2, color: 'var(--success)', bg: 'var(--success-dim)', label: 'Good' },
+    warning: { Icon: AlertTriangle, color: 'var(--warning)', bg: 'var(--warning-dim)', label: 'Warning' },
+    bad:     { Icon: XCircle,      color: 'var(--danger)',  bg: 'var(--danger-dim)',  label: 'Issue' },
+  };
 
   return (
-    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 20, marginBottom: 24, overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
+    <div style={{
+      background: 'var(--bg-card)',
+      border: '1px solid var(--border)',
+      borderRadius: 24,
+      marginBottom: 20,
+      overflow: 'hidden',
+    }}>
       {/* Header / Summary */}
-      <div 
+      <div
         onClick={() => setExpanded(!expanded)}
-        style={{ padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', background: expanded ? 'var(--bg-elevated)' : 'transparent', transition: 'background 0.2s' }}
+        style={{
+          padding: '20px 20px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          cursor: 'pointer',
+          transition: 'background 0.2s',
+        }}
+        onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = 'var(--bg-elevated)'; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          {/* Score Circle */}
-          <div style={{ position: 'relative', width: 64, height: 64, borderRadius: '50%', background: `color-mix(in srgb, ${scoreColor} 15%, transparent)`, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${scoreColor}` }}>
-            <span style={{ fontSize: 22, fontWeight: 800, color: scoreColor }}>{score}</span>
-          </div>
+          <ScoreRing score={score} color={scoreColor} />
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-              <Activity size={16} color="var(--text-secondary)" />
-              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Financial Health</span>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 4 }}>
+              Financial Health
             </div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)' }}>
-              {score >= 80 ? 'Looking Great!' : score >= 50 ? 'Needs Attention' : 'Critical Warning'}
+            <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.3px', marginBottom: 4 }}>
+              {scoreLabel}
+            </div>
+            {/* Mini progress bar */}
+            <div style={{ width: 120, height: 4, background: 'var(--bg-elevated)', borderRadius: 99, overflow: 'hidden' }}>
+              <div style={{
+                height: '100%',
+                width: `${score}%`,
+                background: scoreColor,
+                borderRadius: 99,
+                transition: 'width 0.8s var(--ease)',
+              }} />
             </div>
           </div>
         </div>
-        <div>
-          {expanded ? <ChevronUp color="var(--text-muted)" /> : <ChevronDown color="var(--text-muted)" />}
+        <div style={{
+          width: 32, height: 32, borderRadius: '50%',
+          background: 'var(--bg-elevated)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          border: '1px solid var(--border)',
+          flexShrink: 0,
+        }}>
+          {expanded ? <ChevronUp size={16} color="var(--text-muted)" /> : <ChevronDown size={16} color="var(--text-muted)" />}
         </div>
       </div>
 
       {/* Expandable Catalog */}
       {expanded && (
-        <div style={{ padding: '0 24px 24px 24px', borderTop: '1px solid var(--border)' }}>
-          <h4 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: '20px 0 16px 0' }}>Score Breakdown</h4>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ padding: '0 20px 20px 20px', borderTop: '1px solid var(--border)' }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.6px', margin: '18px 0 14px' }}>
+            Score Breakdown
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {catalog.map(item => {
-              const Icon = item.status === 'good' ? CheckCircle2 : item.status === 'warning' ? AlertTriangle : XCircle;
-              const color = item.status === 'good' ? 'var(--success)' : item.status === 'warning' ? 'var(--warning)' : 'var(--danger)';
-              
+              const { Icon, color, bg } = statusConfig[item.status];
+
               return (
-                <div key={item.id} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                  <div style={{ marginTop: 2 }}>
-                    <Icon size={18} color={color} />
+                <div key={item.id} style={{
+                  display: 'flex', gap: 12, alignItems: 'flex-start',
+                  background: 'var(--bg-elevated)',
+                  borderRadius: 14, padding: '12px 14px',
+                  border: `1px solid ${item.status === 'good' ? 'var(--border)' : color + '33'}`,
+                  borderLeft: `3px solid ${color}`,
+                }}>
+                  <div style={{
+                    width: 30, height: 30, borderRadius: 8,
+                    background: bg, flexShrink: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    marginTop: 1,
+                  }}>
+                    <Icon size={16} color={color} />
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
                       <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{item.aspect}</span>
-                      <span style={{ fontSize: 13, fontWeight: 700, color }}>{Math.round(item.impact)} pts</span>
+                      <span style={{
+                        fontSize: 12, fontWeight: 800, color,
+                        background: bg, padding: '2px 8px', borderRadius: 99,
+                      }}>{Math.round(item.impact)} pts</span>
                     </div>
-                    <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                    <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
                       {item.message}
                     </div>
                   </div>

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Settings } from '@/lib/types';
 import { useRouter, usePathname } from 'next/navigation';
 import { CategoryIcon } from './CategoryIcon';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, X, Mic, MicOff, ChevronRight } from 'lucide-react';
 import { TagSelector } from './TagSelector';
 import { QuickTemplates } from './QuickTemplates';
 import { PaymentMethodSelector } from './PaymentMethodSelector';
@@ -20,14 +20,13 @@ export default function QuickAddSheet() {
   const [isListening, setIsListening] = useState(false);
   const [voiceSupported, setVoiceSupported] = useState(false);
   const [voiceSuggestion, setVoiceSuggestion] = useState<{ transcript: string; amount: string; categoryId: string; note: string; } | null>(null);
-  
+
   const today = new Date().toISOString().split('T')[0];
   const [form, setForm] = useState<{ date: string, categoryId: string, amount: string, note: string, tags: string[], paymentMethod: PaymentMethod }>({ date: today, categoryId: '', amount: '', note: '', tags: [], paymentMethod: 'upi' });
   const [splitWays, setSplitWays] = useState<number>(1);
   const [categoryTotals, setCategoryTotals] = useState<{_id: string; total: number}[]>([]);
   const [recentTags, setRecentTags] = useState<string[]>([]);
 
-  // If on the /login page, hide the FAB
   const isLoginPage = pathname === '/login';
 
   useEffect(() => {
@@ -40,7 +39,6 @@ export default function QuickAddSheet() {
     }
   }, []);
 
-  // Smart Tag Auto-Predictor based on note text
   function handleNoteChange(text: string) {
     setForm(f => {
       const updated = { ...f, note: text };
@@ -89,23 +87,15 @@ export default function QuickAddSheet() {
   }, [isOpen]);
 
   const latestForm = useRef(form);
-  useEffect(() => {
-    latestForm.current = form;
-  }, [form]);
+  useEffect(() => { latestForm.current = form; }, [form]);
 
   const latestSubmit = useRef(handleSubmit);
-  useEffect(() => {
-    latestSubmit.current = handleSubmit;
-  }, [handleSubmit]);
+  useEffect(() => { latestSubmit.current = handleSubmit; }, [handleSubmit]);
 
-  // Handle keyboard events
   useEffect(() => {
     const handleGlobalOpen = () => setIsOpen(true);
-
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isOpen) return;
-      
-      const currentAmount = latestForm.current.amount;
       if (e.key >= '0' && e.key <= '9') {
         setForm(f => ({ ...f, amount: f.amount + e.key }));
       } else if (e.key === 'Backspace') {
@@ -163,14 +153,14 @@ export default function QuickAddSheet() {
 
       await fetch('/api/expenses', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-           date: today, 
-           categoryId: suggestion.categoryId || settings?.categories[0]?.id || '', 
-           amount: finalAmount, 
-           note: finalNote 
+        body: JSON.stringify({
+           date: today,
+           categoryId: suggestion.categoryId || settings?.categories[0]?.id || '',
+           amount: finalAmount,
+           note: finalNote
         }),
       });
-      setForm({ date: today, categoryId: settings?.categories[0]?.id ?? '', amount: '', note: '' });
+      setForm({ date: today, categoryId: settings?.categories[0]?.id ?? '', amount: '', note: '', tags: [], paymentMethod: 'upi' });
       setSplitWays(1);
       setVoiceSuggestion(null);
       setIsOpen(false);
@@ -192,7 +182,7 @@ export default function QuickAddSheet() {
     recognition.maxAlternatives = 1;
 
     recognition.onstart = () => setIsListening(true);
-    
+
     recognition.onresult = async (event: any) => {
       const transcript = event.results[0][0].transcript;
       setIsListening(false);
@@ -240,21 +230,28 @@ export default function QuickAddSheet() {
     }
   }
 
+  const hasAmount = form.amount && parseFloat(form.amount) > 0;
+  const activeCategory = settings?.categories?.find(c => c.id === form.categoryId);
+
   if (isLoginPage || !isOpen) return null;
 
   return (
     <>
-      <div 
+      {/* Backdrop */}
+      <div
         onClick={() => setIsOpen(false)}
         style={{
-          position: 'fixed',
-          top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0,0,0,0.5)',
-          zIndex: 9999,
-          backdropFilter: 'blur(2px)'
-        }} 
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.6)',
+          backdropFilter: 'blur(6px)',
+          WebkitBackdropFilter: 'blur(6px)',
+          zIndex: 9998,
+          animation: 'fadeIn 0.2s ease-out',
+        }}
       />
-      <div 
+
+      {/* Sheet */}
+      <div
         style={{
           position: 'fixed',
           bottom: 0,
@@ -262,283 +259,331 @@ export default function QuickAddSheet() {
           transform: 'translateX(-50%)',
           width: '100%',
           maxWidth: '500px',
-          maxHeight: '85%',
+          maxHeight: '92dvh',
           boxSizing: 'border-box',
           overflowY: 'auto',
           background: 'var(--bg-card)',
-          padding: '24px 20px',
           color: 'var(--text-primary)',
-          boxShadow: 'var(--shadow-lg)',
-          borderRadius: '24px 24px 0 0',
-          zIndex: 10000,
+          borderRadius: '28px 28px 0 0',
+          zIndex: 9999,
+          border: '1px solid var(--border-strong)',
+          borderBottom: 'none',
+          boxShadow: '0 -8px 60px rgba(0,0,0,0.4)',
+          animation: 'slide-up-fast 0.32s cubic-bezier(0.16, 1, 0.3, 1)',
+          paddingBottom: 'env(safe-area-inset-bottom)',
         }}
       >
-        <div style={{ width: 40, height: 4, borderRadius: 2, background: 'var(--border)', margin: '0 auto 24px auto', flexShrink: 0 }} />
+        {/* Drag Handle */}
+        <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border-strong)', margin: '12px auto 0 auto' }} />
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Quick Add</h2>
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0, color: 'var(--text-primary)', letterSpacing: '-0.4px' }}>
+              Quick Add
+            </h2>
             {voiceSupported && (
               <button
                 type="button"
                 onClick={handleVoiceInput}
-                style={{ 
-                  background: isListening ? 'var(--danger)' : 'var(--accent)', 
-                  border: 'none', color: '#fff', width: 32, height: 32, borderRadius: '50%', cursor: 'pointer', 
+                style={{
+                  background: isListening ? 'var(--danger)' : 'var(--accent-dim)',
+                  border: `1px solid ${isListening ? 'rgba(248,113,113,0.4)' : 'var(--border-glow)'}`,
+                  color: isListening ? '#fff' : 'var(--accent-2)',
+                  width: 34, height: 34, borderRadius: '50%',
+                  cursor: 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  boxShadow: isListening ? '0 0 12px var(--danger)' : 'none',
-                  animation: isListening ? 'pulse 1.5s infinite' : 'none'
+                  boxShadow: isListening ? '0 0 0 0 rgba(248,113,113,0.4)' : 'none',
+                  animation: isListening ? 'ring-pulse 1.2s infinite' : 'none',
+                  transition: 'all 0.2s ease',
                 }}
                 title="Voice Add"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+                {isListening ? <MicOff size={15} /> : <Mic size={15} />}
               </button>
             )}
           </div>
-          <button 
+          <button
             type="button"
             onClick={() => setIsOpen(false)}
-            style={{ background: 'var(--bg-elevated)', border: 'none', color: 'var(--text-secondary)', width: 32, height: 32, borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600 }}
+            style={{
+              background: 'var(--bg-elevated)',
+              border: '1px solid var(--border)',
+              color: 'var(--text-secondary)',
+              width: 34, height: 34, borderRadius: '50%',
+              cursor: 'pointer', display: 'flex',
+              alignItems: 'center', justifyContent: 'center',
+            }}
           >
-            ✕
+            <X size={16} />
           </button>
         </div>
 
-        {voiceSuggestion ? (
-          <div>
-             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-               <Sparkles size={18} color="var(--accent)" />
-               <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Review AI Suggestion</h3>
-             </div>
-             
-             <div style={{ background: 'var(--bg-elevated)', borderRadius: 12, padding: 16, marginBottom: 24, border: '1px solid var(--border)' }}>
-               <div style={{ fontSize: 14, color: 'var(--text-secondary)', fontStyle: 'italic', marginBottom: 16, lineHeight: 1.4 }}>
-                 "{voiceSuggestion.transcript}"
-               </div>
-               
-               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>
-                 <span style={{ fontSize: 14, color: 'var(--text-secondary)' }}>Amount</span>
-                 <span style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)' }}>₹{voiceSuggestion.amount || '0'}</span>
-               </div>
-               
-               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>
-                 <span style={{ fontSize: 14, color: 'var(--text-secondary)' }}>Split ways</span>
-                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                   {splitWays > 1 && voiceSuggestion.amount && (
-                     <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>
-                       = ₹{Math.round((parseFloat(voiceSuggestion.amount) / splitWays) * 100) / 100} / person
-                     </span>
-                   )}
-                   <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-card)', borderRadius: 20, border: '1px solid var(--border)' }}>
-                     <button type="button" onClick={() => setSplitWays(Math.max(1, splitWays - 1))} style={{ background: 'none', border: 'none', padding: '4px 12px', color: 'var(--text-primary)', cursor: 'pointer', fontSize: 16 }}>-</button>
-                     <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', minWidth: 20, textAlign: 'center' }}>{splitWays}</span>
-                     <button type="button" onClick={() => setSplitWays(splitWays + 1)} style={{ background: 'none', border: 'none', padding: '4px 12px', color: 'var(--text-primary)', cursor: 'pointer', fontSize: 16 }}>+</button>
-                   </div>
-                 </div>
-               </div>
-               
-               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>
-                 <span style={{ fontSize: 14, color: 'var(--text-secondary)' }}>Category</span>
-                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                   {voiceSuggestion.categoryId && (
-                     <CategoryIcon name={settings?.categories?.find(c => c.id === voiceSuggestion.categoryId)?.name || ''} size={14} color="var(--accent)" />
-                   )}
-                   <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>
-                     {settings?.categories?.find(c => c.id === voiceSuggestion.categoryId)?.name || 'None'}
-                   </span>
-                 </div>
-               </div>
-               
-               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                 <span style={{ fontSize: 14, color: 'var(--text-secondary)' }}>Note</span>
-                 <span style={{ fontSize: 15, color: 'var(--text-primary)' }}>{voiceSuggestion.note || 'None'}</span>
-               </div>
-             </div>
-             
-             <div style={{ display: 'flex', gap: 12 }}>
-                <button 
+        <div style={{ padding: '16px 20px 24px' }}>
+
+          {voiceSuggestion ? (
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--accent-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Sparkles size={14} color="var(--accent-2)" />
+                </div>
+                <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Review AI Suggestion</h3>
+              </div>
+
+              <div style={{ background: 'var(--bg-elevated)', borderRadius: 16, padding: '14px 16px', marginBottom: 20, border: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)', fontStyle: 'italic', marginBottom: 16, lineHeight: 1.5, borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
+                  "{voiceSuggestion.transcript}"
+                </div>
+
+                {[
+                  { label: 'Amount', value: `₹${voiceSuggestion.amount || '0'}`, large: true },
+                  { label: 'Category', value: settings?.categories?.find(c => c.id === voiceSuggestion.categoryId)?.name || 'None', large: false },
+                  { label: 'Note', value: voiceSuggestion.note || 'None', large: false },
+                ].map((row, i, arr) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: i < arr.length - 1 ? 12 : 0, marginBottom: i < arr.length - 1 ? 12 : 0, borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                    <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{row.label}</span>
+                    <span style={{ fontSize: row.large ? 22 : 15, fontWeight: row.large ? 800 : 600, color: row.large ? 'var(--text-primary)' : 'var(--text-primary)', letterSpacing: row.large ? '-0.5px' : '0' }}>{row.value}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button
                   onClick={() => {
-                     setForm(prev => ({
-                        ...prev,
-                        amount: voiceSuggestion.amount || prev.amount,
-                        categoryId: voiceSuggestion.categoryId || prev.categoryId,
-                        note: voiceSuggestion.note || prev.note
-                     }));
-                     setVoiceSuggestion(null);
+                    setForm(prev => ({
+                      ...prev,
+                      amount: voiceSuggestion.amount || prev.amount,
+                      categoryId: voiceSuggestion.categoryId || prev.categoryId,
+                      note: voiceSuggestion.note || prev.note
+                    }));
+                    setVoiceSuggestion(null);
                   }}
-                  style={{ flex: 1, padding: 14, borderRadius: 12, background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontWeight: 600, cursor: 'pointer', fontSize: 15 }}
+                  style={{ flex: 1, padding: 14, borderRadius: 14, background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontWeight: 700, cursor: 'pointer', fontSize: 14, fontFamily: "'DM Sans', sans-serif" }}
                 >
-                  Edit Manually
+                  Edit
                 </button>
                 <button
                   onClick={() => handleConfirmVoice(voiceSuggestion)}
                   disabled={loading || !voiceSuggestion.amount}
-                  style={{ flex: 1, padding: 14, borderRadius: 12, background: 'linear-gradient(135deg, var(--accent), #5B4FE0)', color: '#fff', border: 'none', fontWeight: 600, cursor: 'pointer', fontSize: 15, display: 'flex', justifyContent: 'center', alignItems: 'center' }}
+                  style={{ flex: 2, padding: 14, borderRadius: 14, background: 'var(--accent-grad)', color: '#fff', border: 'none', fontWeight: 700, cursor: 'pointer', fontSize: 14, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, fontFamily: "'DM Sans', sans-serif" }}
                 >
-                  {loading ? <span className="spinner" style={{ width: 16, height: 16, borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#fff' }} /> : 'Confirm & Save'}
+                  {loading ? <span className="spinner" /> : (<><span>Confirm & Save</span><ChevronRight size={16} /></>)}
                 </button>
-             </div>
-          </div>
-        ) : (
-          <div>
-          {/* Quick Templates */}
-          {settings && (
-            <QuickTemplates
-              templates={settings.quickTemplates || []}
-              categories={settings.categories || []}
-              onSelect={(t: QuickTemplate) => {
-                setForm(f => ({ ...f, amount: String(t.amount), categoryId: t.categoryId, tags: t.tags || [] }));
-              }}
-              onSave={async (templates: QuickTemplate[]) => {
-                try {
-                  const res = await fetch('/api/settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ quickTemplates: templates }) });
-                  if (res.ok) { const s = await res.json(); setSettings(s); }
-                } catch (e) { console.error(e); }
-              }}
-            />
-          )}
-
-          {/* Amount Display */}
-          <div style={{ 
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', marginBottom: 24, background: 'var(--bg-elevated)', padding: '16px', borderRadius: 'var(--r-lg)', 
-            border: '1px solid var(--border)',
-            transition: 'border 0.3s'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-               <span style={{ fontSize: 24, fontWeight: 500, color: 'var(--text-secondary)' }}>₹</span>
-               <div style={{ fontSize: 40, fontWeight: 700, color: 'var(--text-primary)' }}>
-                 {form.amount || '0'}
-               </div>
+              </div>
             </div>
-            
-            {/* Split UI */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12 }}>
-               <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Split ways:</span>
-               <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-card)', borderRadius: 20, border: '1px solid var(--border)' }}>
-                 <button type="button" onClick={() => setSplitWays(Math.max(1, splitWays - 1))} style={{ background: 'none', border: 'none', padding: '4px 12px', color: 'var(--text-primary)', cursor: 'pointer', fontSize: 16 }}>-</button>
-                 <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', minWidth: 20, textAlign: 'center' }}>{splitWays}</span>
-                 <button type="button" onClick={() => setSplitWays(splitWays + 1)} style={{ background: 'none', border: 'none', padding: '4px 12px', color: 'var(--text-primary)', cursor: 'pointer', fontSize: 16 }}>+</button>
-               </div>
-               {splitWays > 1 && form.amount && (
-                 <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>
-                   = ₹{Math.round((parseFloat(form.amount) / splitWays) * 100) / 100} / person
-                 </span>
-               )}
-            </div>
-          </div>
+          ) : (
+            <div>
+              {/* Quick Templates */}
+              {settings && (
+                <QuickTemplates
+                  templates={settings.quickTemplates || []}
+                  categories={settings.categories || []}
+                  onSelect={(t: QuickTemplate) => {
+                    setForm(f => ({ ...f, amount: String(t.amount), categoryId: t.categoryId, tags: t.tags || [] }));
+                  }}
+                  onSave={async (templates: QuickTemplate[]) => {
+                    try {
+                      const res = await fetch('/api/settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ quickTemplates: templates }) });
+                      if (res.ok) { const s = await res.json(); setSettings(s); }
+                    } catch (e) { console.error(e); }
+                  }}
+                />
+              )}
 
-          {/* Category Chips */}
-          <div style={{ 
-            marginBottom: 20,
-            padding: 8, borderRadius: 'var(--r-lg)',
-            border: '2px solid transparent',
-            transition: 'border 0.3s'
-          }}>
-            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 8, scrollbarWidth: 'none', margin: '0 -4px', paddingLeft: 4, paddingRight: 4 }}>
-              {(settings?.categories ?? []).map(cat => {
-                const isSelected = form.categoryId === cat.id;
-                return (
-                  <button 
-                    key={cat.id} type="button"
-                    onClick={() => setForm(f => ({ ...f, categoryId: cat.id }))}
-                    style={{ 
-                      padding: '8px 12px', borderRadius: 'var(--r-full)', fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap',
-                      background: isSelected ? 'var(--accent)' : 'var(--bg-elevated)',
-                      border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
-                      color: isSelected ? '#fff' : 'var(--text-secondary)',
-                      display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', flexShrink: 0
-                    }}
-                  >
-                    <span><CategoryIcon name={cat.name} size={14} color={isSelected ? '#fff' : 'var(--text-secondary)'} /></span>
-                    {cat.name}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-
-          {/* Note and Date Inputs */}
-          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-            <input 
-              type="date"
-              value={form.date}
-              onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-              style={{
-                flexShrink: 0, padding: '12px', borderRadius: 'var(--r-md)', background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-                color: 'var(--text-primary)', fontSize: 14, outline: 'none'
-              }}
-            />
-              <input 
-              type="text"
-              placeholder="Notes (optional)"
-              value={form.note}
-              onChange={e => handleNoteChange(e.target.value)}
-              style={{
-                flex: 1, padding: '12px', borderRadius: 'var(--r-md)', background: 'var(--bg-elevated)', 
-                border: '1px solid var(--border)',
-                color: 'var(--text-primary)', fontSize: 14, outline: 'none', minWidth: 0,
-                transition: 'border 0.3s'
-              }}
-            />
-          </div>
-
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>Payment Method</div>
-            <PaymentMethodSelector
-              value={form.paymentMethod}
-              onChange={paymentMethod => setForm(f => ({ ...f, paymentMethod }))}
-            />
-          </div>
-
-          <div style={{ marginBottom: 20 }}>
-            <TagSelector 
-              selectedTags={form.tags}
-              suggestedTags={recentTags}
-              onChange={tags => setForm(f => ({ ...f, tags }))}
-            />
-          </div>
-
-          {/* Keypad */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 24 }}>
-            {['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'backspace'].map(key => (
-              <button
-                key={key} type="button"
-                onClick={() => handleKey(key)}
-                style={{
-                  height: 48, borderRadius: 'var(--r-lg)', background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-                  color: 'var(--text-primary)', fontSize: 20, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
-                }}
-              >
-                {key === 'backspace' ? '⌫' : key}
-              </button>
-            ))}
-          </div>
-
-          {(() => {
-            const activeCategory = settings?.categories?.find(c => c.id === form.categoryId);
-            const activeTotal = categoryTotals.find(c => c._id === form.categoryId)?.total || 0;
-            const parsedAmount = parseFloat(form.amount) || 0;
-            const finalAmount = splitWays > 1 ? Math.round((parsedAmount / splitWays) * 100) / 100 : parsedAmount;
-            const budget = activeCategory?.monthlyBudget || 0;
-            const newTotal = activeTotal + finalAmount;
-            
-            if (budget > 0 && newTotal > budget && finalAmount > 0) {
-              const overBudgetPct = ((newTotal - budget) / budget * 100).toFixed(0);
-              return (
-                <div style={{ marginBottom: 16, padding: '8px 12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: 8, fontSize: 13, color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span>⚠️</span> This will put you {overBudgetPct}% over your {activeCategory?.name} budget.
+              {/* Amount Display */}
+              <div style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                marginBottom: 20,
+                background: 'var(--bg-elevated)',
+                padding: '20px 16px 14px',
+                borderRadius: 20,
+                border: `1.5px solid ${hasAmount ? 'var(--border-glow)' : 'var(--border)'}`,
+                transition: 'border-color 0.2s ease',
+                boxShadow: hasAmount ? 'var(--shadow-accent)' : 'none',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ fontSize: 28, fontWeight: 500, color: hasAmount ? 'var(--accent-2)' : 'var(--text-muted)', transition: 'color 0.2s' }}>₹</span>
+                  <div style={{
+                    fontSize: 52, fontWeight: 900, letterSpacing: '-2px',
+                    color: hasAmount ? 'var(--text-primary)' : 'var(--text-muted)',
+                    transition: 'color 0.2s',
+                    minWidth: 60, textAlign: 'center',
+                    lineHeight: 1,
+                  }}>
+                    {form.amount || '0'}
+                  </div>
                 </div>
-              );
-            }
-            return null;
-          })()}
 
-          <button onClick={() => handleSubmit()} style={{ width: '100%', background: 'linear-gradient(135deg, var(--accent), #5B4FE0)', color: '#fff', border: 'none', borderRadius: 'var(--r-full)', padding: '16px', fontSize: 16, fontWeight: 600, cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }} disabled={loading || !form.amount}>
-            {loading ? <span className="spinner" style={{ width: 16, height: 16, borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#fff' }} /> : 'Save Expense'}
-          </button>
+                {/* Split UI */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Split</span>
+                  <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-card)', borderRadius: 20, border: '1px solid var(--border)', overflow: 'hidden' }}>
+                    <button type="button" onClick={() => setSplitWays(Math.max(1, splitWays - 1))} style={{ background: 'none', border: 'none', padding: '5px 12px', color: 'var(--text-primary)', cursor: 'pointer', fontSize: 18, fontWeight: 700 }}>−</button>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: splitWays > 1 ? 'var(--accent-2)' : 'var(--text-secondary)', minWidth: 22, textAlign: 'center' }}>{splitWays}</span>
+                    <button type="button" onClick={() => setSplitWays(splitWays + 1)} style={{ background: 'none', border: 'none', padding: '5px 12px', color: 'var(--text-primary)', cursor: 'pointer', fontSize: 18, fontWeight: 700 }}>+</button>
+                  </div>
+                  {splitWays > 1 && form.amount && (
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent-2)' }}>
+                      = ₹{Math.round((parseFloat(form.amount) / splitWays) * 100) / 100}/person
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Category Chips */}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 6, scrollbarWidth: 'none', margin: '0 -20px', paddingLeft: 20, paddingRight: 20 }}>
+                  {(settings?.categories ?? []).map(cat => {
+                    const isSelected = form.categoryId === cat.id;
+                    return (
+                      <button
+                        key={cat.id} type="button"
+                        onClick={() => setForm(f => ({ ...f, categoryId: cat.id }))}
+                        style={{
+                          padding: '8px 14px', borderRadius: 99, fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap',
+                          background: isSelected ? cat.color : 'var(--bg-elevated)',
+                          border: `1.5px solid ${isSelected ? cat.color : 'var(--border)'}`,
+                          color: isSelected ? '#fff' : 'var(--text-secondary)',
+                          display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', flexShrink: 0,
+                          transition: 'all 0.15s ease',
+                          boxShadow: isSelected ? `0 4px 14px ${cat.color}55` : 'none',
+                          fontFamily: "'DM Sans', sans-serif",
+                        }}
+                      >
+                        <CategoryIcon name={cat.name} size={13} color={isSelected ? '#fff' : 'var(--text-secondary)'} />
+                        {cat.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Note and Date Inputs */}
+              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                <input
+                  type="date"
+                  value={form.date}
+                  onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
+                  style={{
+                    flexShrink: 0, padding: '11px 12px', borderRadius: 12,
+                    background: 'var(--bg-elevated)', border: '1.5px solid var(--border)',
+                    color: 'var(--text-primary)', fontSize: 13, outline: 'none',
+                    fontFamily: "'DM Sans', sans-serif",
+                  }}
+                />
+                <input
+                  type="text"
+                  placeholder="Note (optional)"
+                  value={form.note}
+                  onChange={e => handleNoteChange(e.target.value)}
+                  style={{
+                    flex: 1, padding: '11px 14px', borderRadius: 12,
+                    background: 'var(--bg-elevated)',
+                    border: '1.5px solid var(--border)',
+                    color: 'var(--text-primary)', fontSize: 14, outline: 'none', minWidth: 0,
+                    transition: 'border-color 0.2s',
+                    fontFamily: "'DM Sans', sans-serif",
+                  }}
+                  onFocus={e => { (e.target as HTMLInputElement).style.borderColor = 'var(--accent)'; }}
+                  onBlur={e => { (e.target as HTMLInputElement).style.borderColor = 'var(--border)'; }}
+                />
+              </div>
+
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.6px' }}>Payment Method</div>
+                <PaymentMethodSelector
+                  value={form.paymentMethod}
+                  onChange={paymentMethod => setForm(f => ({ ...f, paymentMethod }))}
+                />
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <TagSelector
+                  selectedTags={form.tags}
+                  suggestedTags={recentTags}
+                  onChange={tags => setForm(f => ({ ...f, tags }))}
+                />
+              </div>
+
+              {/* Keypad */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 16 }}>
+                {['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'backspace'].map(key => (
+                  <button
+                    key={key} type="button"
+                    onClick={() => handleKey(key)}
+                    style={{
+                      height: 54, borderRadius: 14,
+                      background: key === 'backspace' ? 'var(--danger-dim)' : 'var(--bg-elevated)',
+                      border: `1px solid ${key === 'backspace' ? 'rgba(248,113,113,0.2)' : 'var(--border)'}`,
+                      color: key === 'backspace' ? 'var(--danger)' : 'var(--text-primary)',
+                      fontSize: key === 'backspace' ? 18 : 22,
+                      fontWeight: 700,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      cursor: 'pointer',
+                      transition: 'all 0.1s ease',
+                      fontFamily: "'DM Sans', sans-serif",
+                    }}
+                    onMouseDown={e => { (e.currentTarget).style.transform = 'scale(0.93)'; (e.currentTarget).style.background = 'var(--bg-input)'; }}
+                    onMouseUp={e => { (e.currentTarget).style.transform = 'scale(1)'; (e.currentTarget).style.background = key === 'backspace' ? 'var(--danger-dim)' : 'var(--bg-elevated)'; }}
+                    onTouchStart={e => { (e.currentTarget).style.transform = 'scale(0.93)'; }}
+                    onTouchEnd={e => { (e.currentTarget).style.transform = 'scale(1)'; }}
+                  >
+                    {key === 'backspace' ? '⌫' : key}
+                  </button>
+                ))}
+              </div>
+
+              {/* Over-budget warning */}
+              {(() => {
+                const activeTotal = categoryTotals.find(c => c._id === form.categoryId)?.total || 0;
+                const parsedAmount = parseFloat(form.amount) || 0;
+                const finalAmount = splitWays > 1 ? Math.round((parsedAmount / splitWays) * 100) / 100 : parsedAmount;
+                const budget = activeCategory?.monthlyBudget || 0;
+                const newTotal = activeTotal + finalAmount;
+
+                if (budget > 0 && newTotal > budget && finalAmount > 0) {
+                  const overBudgetPct = ((newTotal - budget) / budget * 100).toFixed(0);
+                  return (
+                    <div style={{ marginBottom: 14, padding: '10px 14px', background: 'var(--danger-dim)', border: '1px solid rgba(248,113,113,0.25)', borderRadius: 12, fontSize: 13, color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600 }}>
+                      <span style={{ fontSize: 16 }}>⚠️</span>
+                      This will put you {overBudgetPct}% over your {activeCategory?.name} budget.
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
+              {/* Submit Button */}
+              <button
+                onClick={() => handleSubmit()}
+                style={{
+                  width: '100%',
+                  background: hasAmount ? 'var(--accent-grad)' : 'var(--bg-elevated)',
+                  color: hasAmount ? '#fff' : 'var(--text-muted)',
+                  border: 'none',
+                  borderRadius: 99,
+                  padding: '16px',
+                  fontSize: 16,
+                  fontWeight: 800,
+                  cursor: hasAmount ? 'pointer' : 'not-allowed',
+                  display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 10,
+                  boxShadow: hasAmount ? 'var(--shadow-accent)' : 'none',
+                  transition: 'all 0.2s ease',
+                  letterSpacing: '-0.2px',
+                  fontFamily: "'DM Sans', sans-serif",
+                }}
+                disabled={loading || !hasAmount}
+              >
+                {loading ? <span className="spinner" /> : (
+                  <>
+                    Save Expense
+                    {activeCategory && <span style={{ opacity: 0.8, fontSize: 13 }}>→ {activeCategory.name}</span>}
+                  </>
+                )}
+              </button>
+            </div>
+          )}
         </div>
-        )}
       </div>
     </>
   );

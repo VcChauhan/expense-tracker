@@ -23,12 +23,20 @@ export default function BottomNav() {
   }
 
   const navItems = [
-    { href: '/', icon: <LayoutDashboard size={22} strokeWidth={1.8} />, label: 'Home' },
-    { href: '/expenses', icon: <List size={22} strokeWidth={1.8} />, label: 'Log' },
+    { href: '/', icon: <LayoutDashboard size={20} strokeWidth={2} />, label: 'Home' },
+    { href: '/expenses', icon: <List size={20} strokeWidth={2} />, label: 'Log' },
     { isFab: true },
-    { href: '/reports', icon: <BarChart2 size={22} strokeWidth={1.8} />, label: 'Reports' },
-    { isMenu: true, icon: <Menu size={22} strokeWidth={1.8} />, label: 'Menu' }
+    { href: '/reports', icon: <BarChart2 size={20} strokeWidth={2} />, label: 'Reports' },
+    { isMenu: true, icon: <Menu size={20} strokeWidth={2} />, label: 'More' }
   ];
+
+  const menuLinks = [
+    { href: '/insights', icon: <Lightbulb size={20} />, label: 'AI Insights', color: '#FBBF24' },
+    { href: '/settings', icon: <Settings size={20} />, label: 'Settings', color: 'var(--accent-2)' },
+    { href: '/hike', icon: <TrendingUp size={20} />, label: 'Hike Planner', color: 'var(--success)' },
+  ];
+
+  if (pathname === '/login') return null;
 
   return (
     <>
@@ -36,27 +44,32 @@ export default function BottomNav() {
         {navItems.map((item, idx) => {
           if (item.isFab) {
             return (
-              <div key="fab" className="bottom-nav-item" style={{ flex: 1, display: 'flex', justifyContent: 'center', pointerEvents: 'none', position: 'relative' }}>
-                <button 
-                  onClick={triggerQuickAdd} 
-                  style={{ 
+              <div key="fab" style={{ flex: 1, display: 'flex', justifyContent: 'center', position: 'relative', pointerEvents: 'none' }}>
+                <button
+                  onClick={triggerQuickAdd}
+                  style={{
                     pointerEvents: 'auto',
                     position: 'absolute',
-                    top: -20,
-                    width: 56,
-                    height: 56,
+                    top: -22,
+                    width: 60,
+                    height: 60,
                     borderRadius: '50%',
-                    background: 'var(--accent)',
-                    color: '#ffffff',
+                    background: 'var(--accent-grad)',
+                    color: '#fff',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    border: 'none',
-                    boxShadow: '0 8px 24px rgba(139, 124, 246, 0.4)',
-                    cursor: 'pointer'
+                    border: '3px solid var(--bg)',
+                    boxShadow: '0 6px 28px rgba(124,92,252,0.55), 0 2px 8px rgba(0,0,0,0.3)',
+                    cursor: 'pointer',
+                    transition: 'all 0.18s cubic-bezier(0.34, 1.56, 0.64, 1)',
                   }}
+                  onMouseDown={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(0.88)'; }}
+                  onMouseUp={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)'; }}
+                  onTouchStart={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(0.88)'; }}
+                  onTouchEnd={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)'; }}
                 >
-                  <Plus size={28} strokeWidth={2.5} />
+                  <Plus size={26} strokeWidth={2.8} />
                 </button>
               </div>
             );
@@ -67,15 +80,15 @@ export default function BottomNav() {
               <button
                 key="menu"
                 onClick={() => setMenuOpen(true)}
-                className={`bottom-nav-item`}
+                className="bottom-nav-item"
                 style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
               >
                 <div className="bottom-nav-icon-wrapper">
                   <span className="bottom-nav-icon">{item.icon}</span>
                 </div>
-                <span className="bottom-nav-label" style={{ opacity: 0.7 }}>{item.label}</span>
+                <span className="bottom-nav-label">{item.label}</span>
               </button>
-            )
+            );
           }
 
           const isActive = pathname === item.href;
@@ -84,12 +97,15 @@ export default function BottomNav() {
               key={item.href}
               href={item.href!}
               className={`bottom-nav-item ${isActive ? 'active' : ''}`}
-              style={{ background: isActive ? 'transparent' : 'transparent', border: 'none' }} // Remove weird active borders if any
             >
               <div className="bottom-nav-icon-wrapper">
-                <span className="bottom-nav-icon" style={{ color: isActive ? 'var(--accent)' : 'var(--text-secondary)' }}>{item.icon}</span>
+                <span className="bottom-nav-icon" style={{ color: isActive ? 'var(--accent-2)' : 'var(--text-muted)' }}>
+                  {item.icon}
+                </span>
               </div>
-              <span className="bottom-nav-label" style={{ opacity: isActive ? 1 : 0.7, color: isActive ? 'var(--accent)' : 'var(--text-secondary)' }}>{item.label}</span>
+              <span className="bottom-nav-label" style={{ color: isActive ? 'var(--accent-2)' : 'var(--text-muted)' }}>
+                {item.label}
+              </span>
             </Link>
           );
         })}
@@ -97,61 +113,107 @@ export default function BottomNav() {
 
       {/* Mobile Menu Overlay */}
       {menuOpen && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 999, background: 'rgba(0,0,0,0.6)',
-          backdropFilter: 'blur(8px)', display: 'flex', flexDirection: 'column',
-          justifyContent: 'flex-end', animation: 'fadeIn 0.2s ease-out'
-        }} onClick={() => setMenuOpen(false)}>
-          <div style={{
-            background: 'var(--bg-card)', padding: '24px 20px 40px',
-            borderTopLeftRadius: 24, borderTopRightRadius: 24,
-            animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
-          }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-              <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Menu</h2>
-              <button onClick={() => setMenuOpen(false)} style={{ background: 'var(--bg-elevated)', border: 'none', color: 'var(--text-secondary)', width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-                <X size={18} />
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 999,
+            background: 'rgba(0,0,0,0.55)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            display: 'flex', flexDirection: 'column',
+            justifyContent: 'flex-end',
+            animation: 'fadeIn 0.2s ease-out',
+          }}
+          onClick={() => setMenuOpen(false)}
+        >
+          <div
+            style={{
+              background: 'var(--bg-card)',
+              padding: '8px 16px 32px',
+              borderTopLeftRadius: 28,
+              borderTopRightRadius: 28,
+              animation: 'slide-up-fast 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+              border: '1px solid var(--border)',
+              borderBottom: 'none',
+              paddingBottom: 'calc(32px + env(safe-area-inset-bottom))',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Drag Handle */}
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border-strong)', margin: '12px auto 20px auto' }} />
+
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.4px' }}>More Options</h2>
+              <button
+                onClick={() => setMenuOpen(false)}
+                style={{
+                  background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                  color: 'var(--text-secondary)', width: 32, height: 32,
+                  borderRadius: '50%', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', cursor: 'pointer',
+                }}
+              >
+                <X size={16} />
               </button>
             </div>
-            
+
+            {/* Menu Items */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <Link href="/insights" onClick={() => setMenuOpen(false)} style={{
-                display: 'flex', alignItems: 'center', gap: 12, padding: '16px', borderRadius: 16,
-                background: pathname === '/insights' ? 'var(--accent-dim)' : 'var(--bg-elevated)',
-                color: pathname === '/insights' ? 'var(--accent)' : 'var(--text-primary)',
-                textDecoration: 'none', fontWeight: 600, fontSize: 16
-              }}>
-                <Lightbulb size={20} />
-                AI Insights
-              </Link>
-              <Link href="/settings" onClick={() => setMenuOpen(false)} style={{
-                display: 'flex', alignItems: 'center', gap: 12, padding: '16px', borderRadius: 16,
-                background: pathname === '/settings' ? 'var(--accent-dim)' : 'var(--bg-elevated)',
-                color: pathname === '/settings' ? 'var(--accent)' : 'var(--text-primary)',
-                textDecoration: 'none', fontWeight: 600, fontSize: 16
-              }}>
-                <Settings size={20} />
-                Settings
-              </Link>
-              <Link href="/hike" onClick={() => setMenuOpen(false)} style={{
-                display: 'flex', alignItems: 'center', gap: 12, padding: '16px', borderRadius: 16,
-                background: pathname === '/hike' ? 'var(--accent-dim)' : 'var(--bg-elevated)',
-                color: pathname === '/hike' ? 'var(--accent)' : 'var(--text-primary)',
-                textDecoration: 'none', fontWeight: 600, fontSize: 16
-              }}>
-                <TrendingUp size={20} />
-                Hike Planner
-              </Link>
+              {menuLinks.map(link => {
+                const isActive = pathname === link.href;
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setMenuOpen(false)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 14,
+                      padding: '14px 16px', borderRadius: 16,
+                      background: isActive ? 'var(--accent-dim)' : 'var(--bg-elevated)',
+                      border: `1px solid ${isActive ? 'var(--border-glow)' : 'transparent'}`,
+                      color: isActive ? 'var(--accent-2)' : 'var(--text-primary)',
+                      textDecoration: 'none', fontWeight: 700, fontSize: 15,
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <div style={{
+                      width: 36, height: 36, borderRadius: 10,
+                      background: isActive ? 'var(--accent-dim)' : `${link.color}18`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: isActive ? 'var(--accent-2)' : link.color,
+                      flexShrink: 0,
+                    }}>
+                      {link.icon}
+                    </div>
+                    {link.label}
+                  </Link>
+                );
+              })}
             </div>
-            
-            <div style={{ height: 1, background: 'var(--border)', margin: '24px 0' }} />
-            
-            <button onClick={handleLogout} disabled={loggingOut} style={{
-              display: 'flex', alignItems: 'center', gap: 12, padding: '16px', borderRadius: 16, width: '100%',
-              background: 'var(--danger-dim)', border: 'none', color: 'var(--danger)',
-              fontWeight: 600, fontSize: 16, cursor: 'pointer'
-            }}>
-              <LogOut size={20} />
+
+            <div style={{ height: 1, background: 'var(--border)', margin: '20px 0' }} />
+
+            <button
+              onClick={handleLogout}
+              disabled={loggingOut}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 14,
+                padding: '14px 16px', borderRadius: 16, width: '100%',
+                background: 'var(--danger-dim)',
+                border: '1px solid rgba(248,113,113,0.15)',
+                color: 'var(--danger)',
+                fontWeight: 700, fontSize: 15, cursor: 'pointer',
+                fontFamily: "'DM Sans', sans-serif",
+              }}
+            >
+              <div style={{
+                width: 36, height: 36, borderRadius: 10,
+                background: 'rgba(248,113,113,0.15)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0,
+              }}>
+                <LogOut size={20} />
+              </div>
               {loggingOut ? 'Signing out...' : 'Sign Out'}
             </button>
           </div>

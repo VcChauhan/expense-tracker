@@ -1,9 +1,16 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
+import { DM_Sans, Inter } from 'next/font/google';
 import './globals.css';
 import Sidebar from '@/components/Sidebar';
 import BottomNav from '@/components/BottomNav';
 import QuickAddSheet from '@/components/QuickAddSheet';
+
+const dmSans = DM_Sans({
+  weight: ['300', '400', '500', '600', '700', '800', '900'],
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-dm-sans',
+});
 
 const inter = Inter({
   weight: ['300', '400', '500', '600', '700', '800', '900'],
@@ -35,17 +42,40 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   viewportFit: 'cover',
-  themeColor: '#0A0A0F',
+  themeColor: '#07070D',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={inter.variable} style={{ fontFamily: "'Inter', system-ui, sans-serif", backgroundColor: 'var(--bg)', color: 'var(--text-primary)', position: 'relative', minHeight: '100vh', overflowX: 'hidden' }}>
-        
-        {/* Global Ambient Glow (Mesh Gradient) */}
-        <div style={{ position: 'fixed', top: '-20%', left: '-10%', width: '60vw', height: '60vw', background: 'var(--accent)', filter: 'blur(140px)', opacity: 0.12, borderRadius: '50%', pointerEvents: 'none', zIndex: 0 }} />
-        <div style={{ position: 'fixed', bottom: '-20%', right: '-10%', width: '70vw', height: '70vw', background: '#A594FF', filter: 'blur(160px)', opacity: 0.08, borderRadius: '50%', pointerEvents: 'none', zIndex: 0 }} />
+      <body className={`${dmSans.variable} ${inter.variable}`} style={{ fontFamily: "'DM Sans', 'Inter', system-ui, sans-serif", backgroundColor: 'var(--bg)', color: 'var(--text-primary)', position: 'relative', minHeight: '100dvh', overflowX: 'hidden' }}>
+
+        {/* Global Ambient Mesh — animated blobs */}
+        <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, overflow: 'hidden' }}>
+          <div style={{
+            position: 'absolute', top: '-15%', left: '-5%',
+            width: '55vw', height: '55vw',
+            background: 'radial-gradient(circle, var(--accent) 0%, transparent 65%)',
+            filter: 'blur(100px)', opacity: 0.09, borderRadius: '50%',
+            animation: 'blob-float 18s ease-in-out infinite',
+          }} />
+          <div style={{
+            position: 'absolute', bottom: '-20%', right: '-10%',
+            width: '65vw', height: '65vw',
+            background: 'radial-gradient(circle, #A462F5 0%, transparent 65%)',
+            filter: 'blur(120px)', opacity: 0.07, borderRadius: '50%',
+            animation: 'blob-float 24s ease-in-out infinite reverse',
+            animationDelay: '-8s',
+          }} />
+          <div style={{
+            position: 'absolute', top: '40%', left: '30%',
+            width: '40vw', height: '40vw',
+            background: 'radial-gradient(circle, #4ADE80 0%, transparent 65%)',
+            filter: 'blur(130px)', opacity: 0.04, borderRadius: '50%',
+            animation: 'blob-float 30s ease-in-out infinite',
+            animationDelay: '-14s',
+          }} />
+        </div>
 
         <div className="app-layout" style={{ position: 'relative', zIndex: 1 }}>
           <Sidebar />
