@@ -252,7 +252,15 @@ export default function ReportsPage() {
           <div style={{ padding: '0 16px' }}>
             <PaymentMethodBreakdownCard expenses={expenses} />
           </div>
-          
+
+          <div style={{ padding: '0 16px' }}>
+            <CategoryDonutChart
+              categories={settings?.categories ?? []}
+              categoryTotals={monthlyAnalytics?.categoryTotals ?? []}
+              totalSpent={monthlySpent}
+            />
+          </div>
+
           <div style={{ padding: '0 16px 24px' }}>
             <AiInsights month={selectedMonth} year={selectedYear} scope="monthly" context="reports" />
           </div>
