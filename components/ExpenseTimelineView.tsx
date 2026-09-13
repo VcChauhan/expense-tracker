@@ -37,10 +37,11 @@ export function ExpenseTimelineView({ expenses, viewMode, categories, onEdit, on
   const [activeDate, setActiveDate] = useState({ date: '—', month: '—' });
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // Geometry
-  const ROW_H = 118;
+  // Geometry — row height adapts to entry count so short months don't
+  // end up with large dead gaps between cards.
+  const ROW_H = expenses.length <= 8 ? 92 : expenses.length <= 20 ? 104 : 118;
   const MONTH_GAP = 100; // Extra vertical space for month divider
-  const TOP_OFFSET = 170;
+  const TOP_OFFSET = 140;
   const LEFT_X = 100;
   const RIGHT_X = 290;
   const CENTER_X = (LEFT_X + RIGHT_X) / 2;
@@ -134,16 +135,29 @@ export function ExpenseTimelineView({ expenses, viewMode, categories, onEdit, on
     }
   }, [enrichedExpenses, viewMode]);
 
-  // Intersection Observer for scroll animations
+  // Intersection Observer for scroll animations.
+  // The first handful of rows are revealed immediately on mount (rather than
+  // waiting for a scroll gesture) so the timeline never renders as an empty
+  // canvas on first paint — only rows further down the page use the
+  // scroll-reveal effect. The threshold/rootMargin are also relaxed so a row
+  // appears as soon as it's nearly on screen instead of needing to be 40%
+  // visible first.
   useEffect(() => {
     const observer = new IntersectionObserver((entries) => {
       entries.forEach(e => {
         if (e.isIntersecting) e.target.classList.add('show');
       });
-    }, { threshold: 0.4 });
+    }, { threshold: 0.05, rootMargin: '0px 0px -5% 0px' });
 
     const rows = document.querySelectorAll('.c-row-animate');
-    rows.forEach(r => observer.observe(r));
+    const ABOVE_FOLD_COUNT = 6;
+    rows.forEach((r, i) => {
+      if (i < ABOVE_FOLD_COUNT) {
+        r.classList.add('show');
+      } else {
+        observer.observe(r);
+      }
+    });
 
     return () => observer.disconnect();
   }, [enrichedExpenses]);
