@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Settings } from '@/lib/types';
 import { useRouter, usePathname } from 'next/navigation';
 import { CategoryIcon } from './CategoryIcon';
-import { Sparkles, X, Mic, MicOff, ChevronRight } from 'lucide-react';
+import { Sparkles, X, Mic, MicOff, ChevronRight, Zap } from 'lucide-react';
 import { TagSelector } from './TagSelector';
 import { QuickTemplates } from './QuickTemplates';
 import { PaymentMethodSelector } from './PaymentMethodSelector';
@@ -281,11 +281,31 @@ export default function QuickAddSheet() {
         <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border-strong)', margin: '12px auto 0 auto' }} />
 
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px 0' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0, color: 'var(--text-primary)', letterSpacing: '-0.4px' }}>
-              Quick Add
-            </h2>
+        <div style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 20px 0',
+          position: 'relative',
+        }}>
+          {/* Subtle gradient wash behind the header, echoing the recap card's identity */}
+          <div style={{
+            position: 'absolute', top: -4, left: -4, right: -4, height: 90,
+            background: `linear-gradient(135deg, ${activeCategory?.color ?? 'var(--accent)'}1a 0%, transparent 75%)`,
+            pointerEvents: 'none', borderRadius: '28px 28px 0 0',
+          }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, position: 'relative' }}>
+            <div style={{
+              width: 34, height: 34, borderRadius: 11, flexShrink: 0,
+              background: `linear-gradient(135deg, ${activeCategory?.color ?? 'var(--accent)'} 0%, var(--accent-2) 100%)`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: `0 4px 14px ${activeCategory?.color ?? 'var(--accent)'}55`,
+            }}>
+              <Zap size={16} color="#fff" fill="#fff" />
+            </div>
+            <div>
+              <h2 style={{ fontSize: 19, fontWeight: 800, margin: 0, color: 'var(--text-primary)', letterSpacing: '-0.4px' }}>
+                Flash Log
+              </h2>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500, marginTop: -1 }}>Log an expense in seconds</div>
+            </div>
             {voiceSupported && (
               <button
                 type="button"
@@ -294,7 +314,7 @@ export default function QuickAddSheet() {
                   background: isListening ? 'var(--danger)' : 'var(--accent-dim)',
                   border: `1px solid ${isListening ? 'rgba(248,113,113,0.4)' : 'var(--border-glow)'}`,
                   color: isListening ? '#fff' : 'var(--accent-2)',
-                  width: 34, height: 34, borderRadius: '50%',
+                  width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
                   cursor: 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   boxShadow: isListening ? '0 0 0 0 rgba(248,113,113,0.4)' : 'none',
@@ -314,8 +334,8 @@ export default function QuickAddSheet() {
               background: 'var(--bg-elevated)',
               border: '1px solid var(--border)',
               color: 'var(--text-secondary)',
-              width: 34, height: 34, borderRadius: '50%',
-              cursor: 'pointer', display: 'flex',
+              width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
+              cursor: 'pointer', display: 'flex', position: 'relative',
               alignItems: 'center', justifyContent: 'center',
             }}
           >
@@ -399,16 +419,16 @@ export default function QuickAddSheet() {
                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                 marginBottom: 20,
                 background: 'var(--bg-elevated)',
-                padding: '20px 16px 14px',
-                borderRadius: 20,
-                border: `1.5px solid ${hasAmount ? 'var(--border-glow)' : 'var(--border)'}`,
-                transition: 'border-color 0.2s ease',
-                boxShadow: hasAmount ? 'var(--shadow-accent)' : 'none',
+                padding: '22px 16px 16px',
+                borderRadius: 22,
+                border: `1.5px solid ${hasAmount ? (activeCategory?.color ?? 'var(--border-glow)') : 'var(--border)'}`,
+                transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+                boxShadow: hasAmount ? `0 8px 24px -8px ${activeCategory?.color ?? 'var(--accent)'}66` : 'none',
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <span style={{ fontSize: 28, fontWeight: 500, color: hasAmount ? 'var(--accent-2)' : 'var(--text-muted)', transition: 'color 0.2s' }}>₹</span>
+                  <span style={{ fontSize: 28, fontWeight: 500, color: hasAmount ? (activeCategory?.color ?? 'var(--accent-2)') : 'var(--text-muted)', transition: 'color 0.2s' }}>₹</span>
                   <div style={{
-                    fontSize: 52, fontWeight: 900, letterSpacing: '-2px',
+                    fontSize: 54, fontWeight: 900, letterSpacing: '-2px',
                     color: hasAmount ? 'var(--text-primary)' : 'var(--text-muted)',
                     transition: 'color 0.2s',
                     minWidth: 60, textAlign: 'center',
@@ -444,17 +464,28 @@ export default function QuickAddSheet() {
                         key={cat.id} type="button"
                         onClick={() => setForm(f => ({ ...f, categoryId: cat.id }))}
                         style={{
-                          padding: '8px 14px', borderRadius: 99, fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap',
+                          padding: isSelected ? '6px 14px 6px 6px' : '8px 14px', borderRadius: 99, fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap',
                           background: isSelected ? cat.color : 'var(--bg-elevated)',
                           border: `1.5px solid ${isSelected ? cat.color : 'var(--border)'}`,
                           color: isSelected ? '#fff' : 'var(--text-secondary)',
-                          display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', flexShrink: 0,
+                          display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', flexShrink: 0,
                           transition: 'all 0.15s ease',
+                          transform: isSelected ? 'scale(1.03)' : 'scale(1)',
                           boxShadow: isSelected ? `0 4px 14px ${cat.color}55` : 'none',
                           fontFamily: "'DM Sans', sans-serif",
                         }}
                       >
-                        <CategoryIcon name={cat.name} size={13} color={isSelected ? '#fff' : 'var(--text-secondary)'} />
+                        {isSelected ? (
+                          <span style={{
+                            width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+                            background: 'rgba(255,255,255,0.25)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}>
+                            <CategoryIcon name={cat.name} size={12} color="#fff" />
+                          </span>
+                        ) : (
+                          <CategoryIcon name={cat.name} size={13} color="var(--text-secondary)" />
+                        )}
                         {cat.name}
                       </button>
                     );
@@ -562,16 +593,18 @@ export default function QuickAddSheet() {
                 onClick={() => handleSubmit()}
                 style={{
                   width: '100%',
-                  background: hasAmount ? 'var(--accent-grad)' : 'var(--bg-elevated)',
+                  background: hasAmount
+                    ? `linear-gradient(135deg, ${activeCategory?.color ?? 'var(--accent)'} 0%, var(--accent-2) 100%)`
+                    : 'var(--bg-elevated)',
                   color: hasAmount ? '#fff' : 'var(--text-muted)',
                   border: 'none',
                   borderRadius: 99,
-                  padding: '16px',
+                  padding: '17px',
                   fontSize: 16,
                   fontWeight: 800,
                   cursor: hasAmount ? 'pointer' : 'not-allowed',
                   display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 10,
-                  boxShadow: hasAmount ? 'var(--shadow-accent)' : 'none',
+                  boxShadow: hasAmount ? `0 10px 26px -8px ${activeCategory?.color ?? 'var(--accent)'}88` : 'none',
                   transition: 'all 0.2s ease',
                   letterSpacing: '-0.2px',
                   fontFamily: "'DM Sans', sans-serif",
@@ -581,7 +614,7 @@ export default function QuickAddSheet() {
                 {loading ? <span className="spinner" /> : (
                   <>
                     Save Expense
-                    {activeCategory && <span style={{ opacity: 0.8, fontSize: 13 }}>→ {activeCategory.name}</span>}
+                    {activeCategory && <span style={{ opacity: 0.85, fontSize: 13, display: 'flex', alignItems: 'center', gap: 4 }}><ChevronRight size={14} /> {activeCategory.name}</span>}
                   </>
                 )}
               </button>
