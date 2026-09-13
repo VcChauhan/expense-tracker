@@ -13,6 +13,7 @@ import { SubscriptionAudit } from '@/components/SubscriptionAudit';
 import { PredictiveCashflowCard } from '@/components/PredictiveCashflowCard';
 import { PaymentMethodBreakdownCard } from '@/components/PaymentMethodBreakdownCard';
 import { NetWorthTracker } from '@/components/NetWorthTracker';
+import { CategoryDonutChart } from '@/components/CategoryDonutChart';
 
 type ViewMode = 'monthly' | 'annual';
 
