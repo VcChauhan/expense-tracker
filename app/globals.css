@@ -1334,10 +1334,10 @@ tbody td { padding: 14px 16px; color: var(--text-primary); border-bottom: 1px so
   position: fixed; top: 35%; left: 0; right: 0; z-index: 0; pointer-events: none;
 }
 .a-backdrop-inner {
-  display: flex; flex-direction: column; align-items: center; opacity: 0.25; transition: opacity .25s;
+  display: flex; flex-direction: column; align-items: center; opacity: 0.18; transition: opacity .25s;
 }
 .a-day {
-  font-size: 110px; font-weight: 900; color: var(--border); line-height: .85;
+  font-size: 84px; font-weight: 900; color: var(--border); line-height: .85;
   transition: transform .3s ease, opacity .3s ease;
 }
 .a-month {
