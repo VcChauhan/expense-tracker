@@ -745,6 +745,9 @@ export default function ExpensesPage() {
             expenses={filtered}
             selectedMonth={selectedMonth}
             selectedYear={selectedYear}
+            categories={settings?.categories || []}
+            onEdit={setEditingExp}
+            onDelete={handleDeleteClick}
           />
         </div>
       ) : viewLayout === 'timeline' ? (
