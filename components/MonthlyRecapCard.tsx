@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import { Share2, Loader2, Check } from 'lucide-react';
 import { formatINR, MONTHS, Category, SavingsGoal } from '@/lib/types';
 
 interface MonthlyRecapCardProps {
@@ -9,6 +10,7 @@ interface MonthlyRecapCardProps {
   budget: number;
   categories: Category[];
   categoryTotals: { _id: string; total: number }[];
+  prevCategoryTotals?: { _id: string; total: number }[];
   historicalAverage: number;
   savingsGoals?: SavingsGoal[];
   month: number; // 0-indexed
@@ -30,11 +32,55 @@ export function MonthlyRecapCard({
   budget,
   categories,
   categoryTotals,
+  prevCategoryTotals = [],
   historicalAverage,
   savingsGoals,
   month,
   year,
 }: MonthlyRecapCardProps) {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [shareState, setShareState] = useState<'idle' | 'sharing' | 'done'>('idle');
+
+  async function handleShare() {
+    if (!cardRef.current || shareState === 'sharing') return;
+    setShareState('sharing');
+    try {
+      const { toPng } = await import('html-to-image');
+      const dataUrl = await toPng(cardRef.current, {
+        pixelRatio: 2,
+        cacheBust: true,
+        filter: (node) => !(node as HTMLElement).classList?.contains('no-export'),
+      });
+      const fileName = `${MONTHS[month]}-${year}-recap.png`;
+
+      if (typeof navigator !== 'undefined' && (navigator as any).canShare) {
+        const blob = await (await fetch(dataUrl)).blob();
+        const file = new File([blob], fileName, { type: 'image/png' });
+        if ((navigator as any).canShare({ files: [file] })) {
+          await (navigator as any).share({
+            files: [file],
+            title: `${MONTHS[month]} ${year} Recap`,
+            text: `My ${MONTHS[month]} spending recap from ExpenseIQ`,
+          });
+          setShareState('done');
+          setTimeout(() => setShareState('idle'), 1800);
+          return;
+        }
+      }
+
+      // Fallback for browsers without file-sharing support: download the image
+      const link = document.createElement('a');
+      link.download = fileName;
+      link.href = dataUrl;
+      link.click();
+      setShareState('done');
+      setTimeout(() => setShareState('idle'), 1800);
+    } catch (err) {
+      console.error('Failed to share recap:', err);
+      setShareState('idle');
+    }
+  }
+
   const metrics = useMemo(() => {
     const rows: MetricRow[] = [];
 
@@ -147,14 +193,47 @@ export function MonthlyRecapCard({
       });
     }
 
+    // 5. Biggest Mover — the category with the largest % swing vs last month
+    if (prevCategoryTotals.length > 0) {
+      const prevMap: Record<string, number> = {};
+      for (const pt of prevCategoryTotals) prevMap[pt._id] = pt.total;
+
+      let moverCat: Category | null = null;
+      let moverPct = 0;
+      for (const cat of categories) {
+        const curr = totalsMap[cat.id] ?? 0;
+        const prev = prevMap[cat.id] ?? 0;
+        // Skip categories with no prior spend — a 0 → ₹X jump isn't a
+        // meaningful "% change", it's a new category appearing.
+        if (prev <= 0) continue;
+        const pct = ((curr - prev) / prev) * 100;
+        if (Math.abs(pct) > Math.abs(moverPct)) {
+          moverPct = pct;
+          moverCat = cat;
+        }
+      }
+
+      if (moverCat && Math.abs(moverPct) >= 1) {
+        const isUp = moverPct >= 0;
+        rows.push({
+          emoji: isUp ? '📈' : '📉',
+          label: 'Biggest Mover',
+          value: moverCat.name,
+          badge: `${isUp ? '+' : ''}${moverPct.toFixed(0)}% vs last month`,
+          badgeColor: isUp ? 'var(--danger)' : 'var(--success)',
+          badgeBg: isUp ? 'var(--danger-dim)' : 'var(--success-dim)',
+        });
+      }
+    }
+
     return rows;
-  }, [spent, income, budget, categories, categoryTotals, historicalAverage]);
+  }, [spent, income, budget, categories, categoryTotals, prevCategoryTotals, historicalAverage]);
 
   const savingsPct = income > 0 ? Math.max(0, Math.min(100, ((income - spent) / income) * 100)) : 0;
   const budgetPct  = budget > 0 ? Math.min(100, (spent / budget) * 100) : 0;
 
   return (
-    <div style={{
+    <div ref={cardRef} style={{
       background: 'var(--bg-card)',
       border: '1px solid var(--border)',
       borderRadius: 22,
@@ -185,9 +264,31 @@ export function MonthlyRecapCard({
               {MONTHS[month]} Recap
             </h3>
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.65)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 3 }}>Saved</div>
-            <div style={{ fontSize: 20, fontWeight: 900, color: '#fff', letterSpacing: '-0.5px' }}>{formatINR(Math.max(0, income - spent))}</div>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.65)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 3 }}>Saved</div>
+              <div style={{ fontSize: 20, fontWeight: 900, color: '#fff', letterSpacing: '-0.5px' }}>{formatINR(Math.max(0, income - spent))}</div>
+            </div>
+            <button
+              className="no-export"
+              onClick={handleShare}
+              aria-label="Share this recap"
+              disabled={shareState === 'sharing'}
+              style={{
+                width: 32, height: 32, borderRadius: 10, flexShrink: 0,
+                background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.3)',
+                color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: shareState === 'sharing' ? 'wait' : 'pointer',
+              }}
+            >
+              {shareState === 'sharing' ? (
+                <Loader2 size={15} style={{ animation: 'spin 0.8s linear infinite' }} />
+              ) : shareState === 'done' ? (
+                <Check size={15} />
+              ) : (
+                <Share2 size={15} />
+              )}
+            </button>
           </div>
         </div>
 
