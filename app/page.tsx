@@ -62,6 +62,7 @@ export default function DashboardPage() {
   const [annualCategoryTotals, setAnnualCategoryTotals] = useState<CategoryTotal[]>([]);
   const [monthTotals, setMonthTotals]     = useState<MonthTotal[]>([]);
   const [dailyTotals, setDailyTotals]     = useState<{_id: string; total: number}[]>([]);
+  const [prevCategoryTotals, setPrevCategoryTotals] = useState<CategoryTotal[]>([]);
   const [recentExpenses, setRecentExpenses] = useState<Expense[]>([]);
   const [historicalAverage, setHistoricalAverage] = useState(0);
   const [showRebalanceModal, setShowRebalanceModal] = useState(false);
@@ -72,17 +73,22 @@ export default function DashboardPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
+      let prevMonth = selectedMonth - 1;
+      let prevYear = selectedYear;
+      if (prevMonth < 0) { prevMonth = 11; prevYear -= 1; }
       const [settingsRes, monthlyRes, annualRes, suggestionsRes] = await Promise.all([
         fetch('/api/settings'),
         fetch(`/api/analytics/monthly?month=${selectedMonth + 1}&year=${selectedYear}`),
         fetch(`/api/analytics/annual?year=${selectedYear}`),
         fetch('/api/suggestions'),
+        fetch(`/api/analytics/monthly?month=${prevMonth + 1}&year=${prevYear}`),
       ]);
-      const [s, m, a, sugs] = await Promise.all([
+      const [s, m, a, sugs, prevM] = await Promise.all([
         settingsRes.json(),
         monthlyRes.json(),
         annualRes.json(),
         suggestionsRes.json(),
+        prevMonthlyRes.json(),
       ]);
       if (s && !s.error) {
         setSettings(s);
@@ -94,6 +100,7 @@ export default function DashboardPage() {
         setPendingSuggestionsCount(sugs.length);
       }
       setCategoryTotals(Array.isArray(m.categoryTotals) ? m.categoryTotals : []);
+      setPrevCategoryTotals(Array.isArray(prevM.categoryTotals) ? prevM.categoryTotals : []);
       setRecentExpenses(Array.isArray(m.recent) ? m.recent : []);
       setDailyTotals(Array.isArray(m.dailyTotals) ? m.dailyTotals : []);
       setHistoricalAverage(m.historicalAverage || 0);
@@ -330,6 +337,11 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
+          {/* ── Section: Overview ── */}
+          <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', margin: '4px 2px 10px' }}>
+            {isAnnual ? `${selectedYear} Overview` : 'This Month'}
+          </div>
+
           {/* ── Monthly Recap Card ── */}
           {!isAnnual && monthlySalary > 0 && (
             <MonthlyRecapCard
@@ -338,6 +350,7 @@ export default function DashboardPage() {
               budget={monthlyBudget}
               categories={settings?.categories ?? []}
               categoryTotals={categoryTotals}
+              prevCategoryTotals={prevCategoryTotals}
               historicalAverage={historicalAverage}
               savingsGoals={settings?.savingsGoals}
               month={selectedMonth}
@@ -412,6 +425,11 @@ export default function DashboardPage() {
             </div>
           </div>
 
+           {/* ── Section: Planning Tools ── */}
+          <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', margin: '20px 2px 10px' }}>
+            Planning Tools
+          </div>
+          
           {/* ── "Can I Afford This?" ── */}
           <AffordabilityChecker
             monthlySalary={monthlySalary}
@@ -610,6 +628,11 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {/* ── Section: Bills & Accounts ── */}
+          <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', margin: '4px 2px 10px' }}>
+            Bills &amp; Accounts
+          </div>
+          
           {/* ── Subscription & Leak Audit ── */}
           <SubscriptionAudit />
 
