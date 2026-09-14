@@ -2,14 +2,22 @@
 
 import { useMemo, useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { PieChart as PieChartIcon } from 'lucide-react';
+import { PieChart as PieChartIcon, ArrowLeft, Store } from 'lucide-react';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { formatINR, Category } from '@/lib/types';
+
+interface RawExpense {
+  categoryId: string;
+  amount: number;
+  note?: string;
+}
 
 interface CategoryDonutChartProps {
   categories: Category[];
   categoryTotals: { _id: string; total: number }[];
   totalSpent: number;
+  /** Optional — when provided, clicking a category drills into its top merchants. */
+  expenses?: RawExpense[];
 }
 
 interface Slice {
@@ -43,8 +51,9 @@ const DonutTooltip = ({ active, payload }: any) => {
   );
 };
 
-export function CategoryDonutChart({ categories, categoryTotals, totalSpent }: CategoryDonutChartProps) {
+export function CategoryDonutChart({ categories, categoryTotals, totalSpent, expenses }: CategoryDonutChartProps) {
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
+  const [drilledId, setDrilledId] = useState<string | null>(null);
 
   const slices: Slice[] = useMemo(() => {
     const totalsMap: Record<string, number> = {};
@@ -66,6 +75,29 @@ export function CategoryDonutChart({ categories, categoryTotals, totalSpent }: C
 
     return rows;
   }, [categories, categoryTotals, totalSpent]);
+
+  const drilledCategory = drilledId ? slices.find(s => s.id === drilledId) ?? null : null;
+
+  const drilledMerchants = useMemo(() => {
+    if (!drilledId || !expenses) return [];
+    const map: Record<string, { total: number; count: number }> = {};
+    for (const exp of expenses) {
+      if (exp.categoryId !== drilledId) continue;
+      let merchant = (exp.note || '').trim();
+      if (!merchant) continue;
+      merchant = merchant.replace(/\s*\(Split:.*?\)/i, '').trim();
+      merchant = merchant.replace(/\s*\(Recurring\)/i, '').trim();
+      if (!merchant) continue;
+      const clean = merchant.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+      if (!map[clean]) map[clean] = { total: 0, count: 0 };
+      map[clean].total += exp.amount;
+      map[clean].count += 1;
+    }
+    return Object.entries(map)
+      .map(([name, d]) => ({ name, ...d }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 6);
+  }, [drilledId, expenses]);
 
   if (slices.length === 0) {
     return null;
@@ -102,7 +134,7 @@ export function CategoryDonutChart({ categories, categoryTotals, totalSpent }: C
                 stroke="none"
                 onMouseEnter={(_, i) => setActiveIdx(i)}
                 onMouseLeave={() => setActiveIdx(null)}
-                onClick={(_, i) => setActiveIdx(activeIdx === i ? null : i)}
+                onClick={(_, i) => expenses ? setDrilledId(slices[i].id) : setActiveIdx(activeIdx === i ? null : i)}
               >
                 {slices.map((s, i) => (
                   <Cell
@@ -147,7 +179,9 @@ export function CategoryDonutChart({ categories, categoryTotals, totalSpent }: C
           {slices.slice(0, 6).map((s, i) => (
             <div
               key={s.id}
-              onClick={() => setActiveIdx(activeIdx === i ? null : i)}
+              onClick={() => expenses ? setDrilledId(s.id) : setActiveIdx(activeIdx === i ? null : i)}
+              onMouseEnter={() => setActiveIdx(i)}
+              onMouseLeave={() => setActiveIdx(null)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
                 opacity: activeIdx === null || activeIdx === i ? 1 : 0.45,
@@ -170,6 +204,66 @@ export function CategoryDonutChart({ categories, categoryTotals, totalSpent }: C
           )}
         </div>
       </div>
+
+      {/* Drill-down panel — top merchants within the selected category */}
+      {expenses && (
+        <div style={{
+          marginTop: drilledCategory ? 16 : 0,
+          maxHeight: drilledCategory ? 400 : 0,
+          overflow: 'hidden',
+          transition: 'max-height 0.25s ease, margin-top 0.25s ease',
+        }}>
+          {drilledCategory && (
+            <div style={{ paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Store size={15} color={drilledCategory.color} />
+                  <h3 style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                    Top spends in {drilledCategory.name}
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setDrilledId(null)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 4,
+                    background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                    borderRadius: 99, padding: '4px 10px', fontSize: 11, fontWeight: 700,
+                    color: 'var(--text-secondary)', cursor: 'pointer',
+                  }}
+                >
+                  <ArrowLeft size={12} /> Back
+                </button>
+              </div>
+
+              {drilledMerchants.length === 0 ? (
+                <div style={{ fontSize: 12.5, color: 'var(--text-muted)', textAlign: 'center', padding: '12px 0' }}>
+                  No named merchants logged in this category yet.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {drilledMerchants.map((m, idx) => {
+                    const maxSpend = drilledMerchants[0].total;
+                    const pctOfTop = maxSpend > 0 ? (m.total / maxSpend) * 100 : 0;
+                    return (
+                      <div key={m.name}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                          <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary)' }}>
+                            {idx + 1}. {m.name} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>· {m.count} txn{m.count > 1 ? 's' : ''}</span>
+                          </span>
+                          <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)' }}>{formatINR(m.total)}</span>
+                        </div>
+                        <div style={{ height: 4, background: 'var(--bg-elevated)', borderRadius: 99, overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${pctOfTop}%`, background: drilledCategory.color, borderRadius: 99 }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

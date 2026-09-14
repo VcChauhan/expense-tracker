@@ -14,6 +14,8 @@ import { PredictiveCashflowCard } from '@/components/PredictiveCashflowCard';
 import { PaymentMethodBreakdownCard } from '@/components/PaymentMethodBreakdownCard';
 import { NetWorthTracker } from '@/components/NetWorthTracker';
 import { CategoryDonutChart } from '@/components/CategoryDonutChart';
+import { CashFlowSankey } from '@/components/CashFlowSankey';
+import { SpendClockChart } from '@/components/SpendClockChart';
 
 type ViewMode = 'monthly' | 'annual';
 
@@ -41,6 +43,7 @@ export default function ReportsPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [analytics, setAnalytics] = useState<AnnualAnalytics | null>(null);
   const [monthlyAnalytics, setMonthlyAnalytics] = useState<any>(null);
+  const [prevMonthlyAnalytics, setPrevMonthlyAnalytics] = useState<any>(null);
   const [expenses, setExpenses] = useState<any[]>([]);
   
   const [loading, setLoading] = useState(true);
@@ -49,16 +52,24 @@ export default function ReportsPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [sRes, aRes, mRes, expRes] = await Promise.all([
+      let prevMonth = selectedMonth - 1;
+      let prevYear = selectedYear;
+      if (prevMonth < 0) { prevMonth = 11; prevYear -= 1; }
+
+      const [sRes, aRes, mRes, expRes, prevMRes] = await Promise.all([
         fetch('/api/settings'),
         fetch(`/api/analytics/annual?year=${selectedYear}`),
         fetch(`/api/analytics/monthly?month=${selectedMonth + 1}&year=${selectedYear}`),
-        fetch('/api/expenses?limit=300')
+        fetch('/api/expenses?limit=300'),
+        fetch(`/api/analytics/monthly?month=${prevMonth + 1}&year=${prevYear}`),
       ]);
-      const [s, a, m, exps] = await Promise.all([sRes.json(), aRes.json(), mRes.json(), expRes.json()]);
+      const [s, a, m, exps, prevM] = await Promise.all([
+        sRes.json(), aRes.json(), mRes.json(), expRes.json(), prevMRes.json(),
+      ]);
       if (s && !s.error) setSettings(s);
       setAnalytics(a);
       setMonthlyAnalytics(m);
+      setPrevMonthlyAnalytics(prevM && !prevM.error ? prevM : null);
       if (Array.isArray(exps)) setExpenses(exps);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
@@ -67,26 +78,6 @@ export default function ReportsPage() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   // Monthly data derivations
-  const dailyChartData = useMemo(() => {
-    if (!monthlyAnalytics?.dailyTotals) return [];
-    const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
-    const data = Array.from({ length: daysInMonth }, (_, i) => {
-      const dateStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(i + 1).padStart(2, '0')}`;
-      const found = monthlyAnalytics.dailyTotals.find((d: any) => d._id === dateStr);
-      return {
-        day: String(i + 1).padStart(2, '0'),
-        spent: found ? found.total : 0,
-        name: `${SHORT_MONTHS[selectedMonth]} ${i + 1}`
-      };
-    });
-    
-    let cumulative = 0;
-    return data.map(d => {
-      cumulative += d.spent;
-      return { ...d, totalSpent: cumulative };
-    });
-  }, [monthlyAnalytics, selectedMonth, selectedYear]);
-
   const dayOfWeekData = useMemo(() => {
     if (!monthlyAnalytics?.dailyTotals) return [];
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -98,8 +89,36 @@ export default function ReportsPage() {
         data[date.getDay()].spent += d.total;
       }
     });
-    return data;
+        return data;
   }, [monthlyAnalytics, selectedMonth, selectedYear]);
+
+  // Month-over-month cumulative comparison — "am I pacing ahead or behind
+  // last month?" aligned by day-of-month rather than calendar date, so day 15
+  // this month always lines up with day 15 last month regardless of length.
+  const comparisonData = useMemo(() => {
+    const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
+    let thisCum = 0;
+    let lastCum = 0;
+    const prevDaily: { _id: string; total: number }[] = prevMonthlyAnalytics?.dailyTotals ?? [];
+    const today = new Date();
+    const isCurrentMonth = today.getFullYear() === selectedYear && today.getMonth() === selectedMonth;
+
+    return Array.from({ length: daysInMonth }, (_, i) => {
+      const dayNum = i + 1;
+      const dateStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+      const thisFound = monthlyAnalytics?.dailyTotals?.find((d: any) => d._id === dateStr);
+      thisCum += thisFound ? thisFound.total : 0;
+
+      const lastFound = prevDaily.find(d => parseInt(d._id.split('-')[2]) === dayNum);
+      lastCum += lastFound ? lastFound.total : 0;
+
+      return {
+        day: String(dayNum).padStart(2, '0'),
+        thisMonth: (!isCurrentMonth || dayNum <= today.getDate()) ? thisCum : null,
+        lastMonth: lastCum,
+      };
+    });
+  }, [monthlyAnalytics, prevMonthlyAnalytics, selectedMonth, selectedYear]);
 
   // Top Merchants derivation
   const topMerchants = useMemo(() => {
@@ -258,6 +277,16 @@ export default function ReportsPage() {
               categories={settings?.categories ?? []}
               categoryTotals={monthlyAnalytics?.categoryTotals ?? []}
               totalSpent={monthlySpent}
+              expenses={expenses}
+            />
+          </div>
+
+          <div style={{ padding: '0 16px' }}>
+            <CashFlowSankey
+              income={monthlySalary}
+              spent={monthlySpent}
+              categories={settings?.categories ?? []}
+              categoryTotals={monthlyAnalytics?.categoryTotals ?? []}
             />
           </div>
 
@@ -271,15 +300,26 @@ export default function ReportsPage() {
               <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Spending Velocity</h2>
             </div>
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, padding: '20px 20px 0px', marginBottom: 16 }}>
-              <h3 style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '0 0 16px 0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Cumulative Monthly Spend</h3>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 16 }}>
+                <h3 style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Cumulative Spend — This Month vs Last</h3>
+              </div>
+              <div style={{ display: 'flex', gap: 14, marginBottom: 8 }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--text-muted)' }}>
+                  <span style={{ width: 10, height: 3, borderRadius: 2, background: 'var(--accent)', display: 'inline-block' }} /> This month
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--text-muted)' }}>
+                  <span style={{ width: 10, height: 3, borderRadius: 2, background: 'var(--text-muted)', display: 'inline-block' }} /> Last month
+                </span>
+              </div>
               <div style={{ height: 200, marginLeft: -20, marginBottom: -10 }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={dailyChartData} margin={{ top: 5, right: 0, left: 0, bottom: 5 }}>
+                  <LineChart data={comparisonData} margin={{ top: 5, right: 0, left: 0, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                     <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} />
                     <YAxis hide domain={['auto', 'auto']} />
                     <Tooltip content={<ChartTooltip />} />
-                    <Line type="monotone" dataKey="totalSpent" name="Total Spent" stroke="var(--accent)" strokeWidth={3} dot={false} activeDot={{ r: 6, fill: 'var(--accent)', stroke: 'var(--bg-card)', strokeWidth: 3 }} />
+                    <Line type="monotone" dataKey="lastMonth" name="Last Month" stroke="var(--text-muted)" strokeWidth={2} strokeDasharray="4 4" dot={false} />
+                    <Line type="monotone" dataKey="thisMonth" name="This Month" stroke="var(--accent)" strokeWidth={3} dot={false} activeDot={{ r: 6, fill: 'var(--accent)', stroke: 'var(--bg-card)', strokeWidth: 3 }} connectNulls={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -465,9 +505,14 @@ export default function ReportsPage() {
                 );
               })}
             </div>
-          </div>
+                    </div>
         </div>
       )}
+
+      {/* ── When You Spend (time-of-day clock) ── */}
+      <div style={{ padding: '0 16px 32px' }}>
+        <SpendClockChart expenses={expenses} />
+      </div>
     </div>
   );
 }
