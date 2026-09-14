@@ -76,7 +76,7 @@ export default function DashboardPage() {
       let prevMonth = selectedMonth - 1;
       let prevYear = selectedYear;
       if (prevMonth < 0) { prevMonth = 11; prevYear -= 1; }
-      const [settingsRes, monthlyRes, annualRes, suggestionsRes] = await Promise.all([
+      const [settingsRes, monthlyRes, annualRes, suggestionsRes, prevMonthlyRes] = await Promise.all([
         fetch('/api/settings'),
         fetch(`/api/analytics/monthly?month=${selectedMonth + 1}&year=${selectedYear}`),
         fetch(`/api/analytics/annual?year=${selectedYear}`),
@@ -359,6 +359,39 @@ export default function DashboardPage() {
           )}
 
           {/* ── Hero FocusWheel Card ── */}
+                    {/* ── Hero FocusWheel Card ── */}
+          {displayBudget === 0 ? (
+            <div style={{
+              background: 'var(--bg-card)',
+              border: '1px dashed var(--border-strong)',
+              borderRadius: 24,
+              padding: '36px 24px',
+              marginBottom: 16,
+              display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center',
+            }}>
+              <div style={{
+                width: 52, height: 52, borderRadius: 16, marginBottom: 14,
+                background: 'var(--accent-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Target size={24} color="var(--accent-2)" />
+              </div>
+              <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                Your spending wheel is empty
+              </h3>
+              <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '6px 0 18px', maxWidth: 280, lineHeight: 1.5 }}>
+                {monthlySalary === 0
+                  ? 'Set your monthly income and at least one category budget to see spending broken down here.'
+                  : 'Set a budget for at least one category to see it show up in your spending wheel.'}
+              </p>
+              <Link href="/settings" style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                background: 'var(--accent-grad)', color: '#fff', fontWeight: 700, fontSize: 13.5,
+                padding: '10px 18px', borderRadius: 99, textDecoration: 'none',
+              }}>
+                Set up budgets <ArrowRight size={14} />
+              </Link>
+            </div>
+          ) : (
           <div style={{
             position: 'relative',
             background: 'var(--bg-card)',
@@ -424,7 +457,7 @@ export default function DashboardPage() {
               ))}
             </div>
           </div>
-
+          )}
            {/* ── Section: Planning Tools ── */}
           <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', margin: '20px 2px 10px' }}>
             Planning Tools
