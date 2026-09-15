@@ -57,6 +57,7 @@ export default function ExpensesPage() {
 
   const [filterTag, setFilterTag]         = useState('');
   const [filterPaymentMethod, setFilterPaymentMethod] = useState('');
+  const [filterCardKey, setFilterCardKey] = useState(''); // last4 (or id) of a specific saved credit card
   const [minAmount, setMinAmount]         = useState('');
   const [maxAmount, setMaxAmount]         = useState('');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -133,8 +134,16 @@ export default function ExpensesPage() {
       list = list.filter(exp => (exp.tags || []).some(t => t.toLowerCase() === filterTag.toLowerCase()));
     }
 
-    if (filterPaymentMethod) {
+    if (filterPaymentMethod === 'credit_card') {
+      // Matches both the bare "credit_card" value and card-specific values
+      // like "credit_card:1234" — the generic chip should catch all of them.
+      list = list.filter(exp => (exp.paymentMethod || 'upi').startsWith('credit_card'));
+    } else if (filterPaymentMethod) {
       list = list.filter(exp => (exp.paymentMethod || 'upi') === filterPaymentMethod);
+    }
+
+    if (filterCardKey) {
+      list = list.filter(exp => exp.paymentMethod === `credit_card:${filterCardKey}`);
     }
 
     if (minAmount && !isNaN(parseFloat(minAmount))) {
@@ -154,7 +163,7 @@ export default function ExpensesPage() {
       return mul * (a.amount - b.amount);
     });
     return list;
-  }, [expenses, sortBy, sortDir, searchQuery, settings, filterTag, filterPaymentMethod, minAmount, maxAmount]);
+  }, [expenses, sortBy, sortDir, searchQuery, settings, filterTag, filterPaymentMethod, filterCardKey, minAmount, maxAmount]);
 
   // Group by day for monthly view
   const groupedByDay = useMemo(() => {
@@ -565,7 +574,7 @@ export default function ExpensesPage() {
               {['', 'upi', 'credit_card', 'debit_card', 'cash', 'netbanking'].map((pm) => (
                 <button
                   key={pm}
-                  onClick={() => setFilterPaymentMethod(filterPaymentMethod === pm ? '' : pm)}
+                  onClick={() => { setFilterPaymentMethod(filterPaymentMethod === pm ? '' : pm); setFilterCardKey(''); }}
                   style={{
                     padding: '6px 12px', borderRadius: 99, fontSize: 12, fontWeight: 700,
                     border: '1px solid var(--border)',
@@ -578,6 +587,32 @@ export default function ExpensesPage() {
                 </button>
               ))}
             </div>
+            {/* Narrow down to one specific saved card */}
+            {filterPaymentMethod === 'credit_card' && (settings?.creditCards?.length ?? 0) > 0 && (
+              <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none', marginTop: 8, paddingBottom: 4 }}>
+                {(settings?.creditCards ?? []).map(card => {
+                  const cardKey = card.last4 || card.id;
+                  const isActive = filterCardKey === cardKey;
+                  return (
+                    <button
+                      key={card.id}
+                      onClick={() => setFilterCardKey(isActive ? '' : cardKey)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0,
+                        padding: '5px 11px', borderRadius: 99, fontSize: 11.5, fontWeight: 700,
+                        border: `1.5px solid ${isActive ? (card.color || 'var(--accent)') : 'var(--border)'}`,
+                        background: isActive ? `color-mix(in srgb, ${card.color || 'var(--accent)'} 16%, transparent)` : 'var(--bg-elevated)',
+                        color: isActive ? (card.color || 'var(--accent)') : 'var(--text-secondary)',
+                        cursor: 'pointer', whiteSpace: 'nowrap',
+                      }}
+                    >
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: card.color || 'var(--accent)', flexShrink: 0 }} />
+                      {card.name} {card.last4 ? `••${card.last4}` : ''}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
@@ -615,10 +650,10 @@ export default function ExpensesPage() {
             </div>
           </div>
 
-          {(filterPaymentMethod || minAmount || maxAmount) && (
+          {(filterPaymentMethod || filterCardKey || minAmount || maxAmount) && (
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <button
-                onClick={() => { setFilterPaymentMethod(''); setMinAmount(''); setMaxAmount(''); }}
+                onClick={() => { setFilterPaymentMethod(''); setFilterCardKey(''); setMinAmount(''); setMaxAmount(''); }}
                 style={{ background: 'none', border: 'none', color: 'var(--danger)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
               >
                 Reset Filters
@@ -629,7 +664,7 @@ export default function ExpensesPage() {
       )}
 
       {/* Active Filter Dismissible Chips */}
-      {(filterCategory || filterTag || filterPaymentMethod || minAmount || maxAmount) && (
+      {(filterCategory || filterTag || filterPaymentMethod || filterCardKey || minAmount || maxAmount) && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '0 16px 12px' }}>
           {filterCategory && (
             <span style={{
@@ -664,11 +699,27 @@ export default function ExpensesPage() {
               color: 'var(--accent-2)', fontSize: 12, fontWeight: 700,
             }}>
               Method: {filterPaymentMethod.replace('_', ' ').toUpperCase()}
-              <button onClick={() => setFilterPaymentMethod('')} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0, display: 'flex' }}>
+              <button onClick={() => { setFilterPaymentMethod(''); setFilterCardKey(''); }} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0, display: 'flex' }}>
                 <X size={12} />
               </button>
             </span>
           )}
+
+          {filterCardKey && (() => {
+            const card = settings?.creditCards?.find(c => (c.last4 || c.id) === filterCardKey);
+            return (
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                padding: '4px 10px', borderRadius: 99, background: 'var(--accent-dim)',
+                color: 'var(--accent-2)', fontSize: 12, fontWeight: 700,
+              }}>
+                Card: {card ? `${card.name} ••${card.last4 || ''}` : filterCardKey}
+                <button onClick={() => setFilterCardKey('')} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0, display: 'flex' }}>
+                  <X size={12} />
+                </button>
+              </span>
+            );
+          })()}
 
           {minAmount && (
             <span style={{
@@ -697,7 +748,7 @@ export default function ExpensesPage() {
           )}
 
           <button
-            onClick={() => { setFilterCategory(''); setFilterTag(''); setFilterPaymentMethod(''); setMinAmount(''); setMaxAmount(''); }}
+            onClick={() => { setFilterCategory(''); setFilterTag(''); setFilterPaymentMethod(''); setFilterCardKey(''); setMinAmount(''); setMaxAmount(''); }}
             style={{
               padding: '4px 8px', borderRadius: 99, background: 'transparent',
               border: 'none', color: 'var(--text-muted)', fontSize: 11, fontWeight: 700, cursor: 'pointer',

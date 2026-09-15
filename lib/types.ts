@@ -82,6 +82,8 @@ export interface Settings {
 }
 
 export type PaymentMethod = 'upi' | 'credit_card' | 'debit_card' | 'netbanking' | 'cash' | 'other';
+/** A payment method value as actually stored — allows "credit_card:XX1234" to reference a specific saved card. */
+export type PaymentMethodValue = PaymentMethod | `credit_card:${string}`;
 
 export interface Expense {
   _id: string;
@@ -90,7 +92,7 @@ export interface Expense {
   amount: number;
   note: string;
   tags: string[];
-  paymentMethod?: PaymentMethod;
+  paymentMethod?: PaymentMethodValue;
   createdAt: string;
 }
 

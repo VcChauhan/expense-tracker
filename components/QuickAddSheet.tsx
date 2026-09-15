@@ -8,9 +8,9 @@ import { Sparkles, X, Mic, MicOff, ChevronRight, Zap } from 'lucide-react';
 import { TagSelector } from './TagSelector';
 import { QuickTemplates } from './QuickTemplates';
 import { PaymentMethodSelector } from './PaymentMethodSelector';
-import { PaymentMethod } from '@/lib/types';
+import { PaymentMethod, PaymentMethodValue } from '@/lib/types';
 import { QuickTemplate } from '@/lib/types';
-import { lightTap, successBuzz, errorShake, warningPulse } from '@/lib/haptics';
+import { successBuzz, errorShake, warningPulse } from '@/lib/haptics';
 
 export default function QuickAddSheet() {
   const router = useRouter();
@@ -23,7 +23,7 @@ export default function QuickAddSheet() {
   const [voiceSuggestion, setVoiceSuggestion] = useState<{ transcript: string; amount: string; categoryId: string; note: string; } | null>(null);
 
   const today = new Date().toISOString().split('T')[0];
-  const [form, setForm] = useState<{ date: string, categoryId: string, amount: string, note: string, tags: string[], paymentMethod: PaymentMethod }>({ date: today, categoryId: '', amount: '', note: '', tags: [], paymentMethod: 'upi' });
+  const [form, setForm] = useState<{ date: string, categoryId: string, amount: string, note: string, tags: string[], paymentMethod: PaymentMethodValue }>({ date: today, categoryId: '', amount: '', note: '', tags: [], paymentMethod: 'upi' });
   const [splitWays, setSplitWays] = useState<number>(1);
   const [categoryTotals, setCategoryTotals] = useState<{_id: string; total: number}[]>([]);
   const [recentTags, setRecentTags] = useState<string[]>([]);
@@ -90,6 +90,16 @@ export default function QuickAddSheet() {
   const latestForm = useRef(form);
   useEffect(() => { latestForm.current = form; }, [form]);
 
+  const amountInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (isOpen && !voiceSuggestion) {
+      // Small delay so focus happens after the sheet's slide-up animation starts,
+      // avoiding an abrupt keyboard pop-in before the sheet is visible.
+      const t = setTimeout(() => amountInputRef.current?.focus(), 150);
+      return () => clearTimeout(t);
+    }
+  }, [isOpen, voiceSuggestion]);
+
   const latestSubmit = useRef(handleSubmit);
   useEffect(() => { latestSubmit.current = handleSubmit; }, [handleSubmit]);
 
@@ -97,13 +107,10 @@ export default function QuickAddSheet() {
     const handleGlobalOpen = () => setIsOpen(true);
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isOpen) return;
-      if (e.key >= '0' && e.key <= '9') {
-        setForm(f => ({ ...f, amount: f.amount + e.key }));
-      } else if (e.key === 'Backspace') {
-        setForm(f => ({ ...f, amount: f.amount.slice(0, -1) }));
-      } else if (e.key === '.' || e.key === ',') {
-        setForm(f => ({ ...f, amount: f.amount.includes('.') ? f.amount : (f.amount ? f.amount + '.' : '0.') }));
-      } else if (e.key === 'Enter') {
+      // Digits/backspace/decimal are now handled natively by the amount
+      // <input> itself — only global shortcuts stay here, so we don't
+      // double-append a keystroke when the input already has focus.
+      if (e.key === 'Enter') {
         latestSubmit.current();
       } else if (e.key === 'Escape') {
         setIsOpen(false);
@@ -219,19 +226,6 @@ export default function QuickAddSheet() {
     };
 
     recognition.start();
-  }
-
-  function handleKey(key: string) {
-    lightTap();
-    if (key === 'backspace') {
-      setForm(f => ({ ...f, amount: f.amount.slice(0, -1) }));
-    } else if (key === '.') {
-      if (!form.amount.includes('.')) {
-        setForm(f => ({ ...f, amount: f.amount ? f.amount + '.' : '0.' }));
-      }
-    } else {
-      setForm(f => ({ ...f, amount: f.amount + key }));
-    }
   }
 
   const hasAmount = form.amount && parseFloat(form.amount) > 0;
@@ -427,15 +421,34 @@ export default function QuickAddSheet() {
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   <span style={{ fontSize: 28, fontWeight: 500, color: hasAmount ? (activeCategory?.color ?? 'var(--accent-2)') : 'var(--text-muted)', transition: 'color 0.2s' }}>₹</span>
-                  <div style={{
-                    fontSize: 54, fontWeight: 900, letterSpacing: '-2px',
-                    color: hasAmount ? 'var(--text-primary)' : 'var(--text-muted)',
-                    transition: 'color 0.2s',
-                    minWidth: 60, textAlign: 'center',
-                    lineHeight: 1,
-                  }}>
-                    {form.amount || '0'}
-                  </div>
+                  <input
+                    ref={amountInputRef}
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0"
+                    value={form.amount}
+                    onChange={e => {
+                      const raw = e.target.value.replace(/[^0-9.]/g, '');
+                      // Only allow one decimal point
+                      const parts = raw.split('.');
+                      const clean = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : raw;
+                      setForm(f => ({ ...f, amount: clean }));
+                    }}
+                    style={{
+                      fontSize: 54, fontWeight: 900, letterSpacing: '-2px',
+                      color: hasAmount ? 'var(--text-primary)' : 'var(--text-muted)',
+                      transition: 'color 0.2s',
+                      width: `${Math.max(2, (form.amount || '0').length + 0.5)}ch`,
+                      maxWidth: '100%',
+                      textAlign: 'center',
+                      lineHeight: 1,
+                      background: 'transparent',
+                      border: 'none',
+                      outline: 'none',
+                      padding: 0,
+                      fontFamily: 'inherit',
+                    }}
+                  />
                 </div>
 
                 {/* Split UI */}
@@ -529,6 +542,7 @@ export default function QuickAddSheet() {
                 <PaymentMethodSelector
                   value={form.paymentMethod}
                   onChange={paymentMethod => setForm(f => ({ ...f, paymentMethod }))}
+                  creditCards={settings?.creditCards || []}
                 />
               </div>
 
@@ -538,34 +552,6 @@ export default function QuickAddSheet() {
                   suggestedTags={recentTags}
                   onChange={tags => setForm(f => ({ ...f, tags }))}
                 />
-              </div>
-
-              {/* Keypad */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 16 }}>
-                {['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'backspace'].map(key => (
-                  <button
-                    key={key} type="button"
-                    onClick={() => handleKey(key)}
-                    style={{
-                      height: 54, borderRadius: 14,
-                      background: key === 'backspace' ? 'var(--danger-dim)' : 'var(--bg-elevated)',
-                      border: `1px solid ${key === 'backspace' ? 'rgba(248,113,113,0.2)' : 'var(--border)'}`,
-                      color: key === 'backspace' ? 'var(--danger)' : 'var(--text-primary)',
-                      fontSize: key === 'backspace' ? 18 : 22,
-                      fontWeight: 700,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      cursor: 'pointer',
-                      transition: 'all 0.1s ease',
-                      fontFamily: "'DM Sans', sans-serif",
-                    }}
-                    onMouseDown={e => { (e.currentTarget).style.transform = 'scale(0.93)'; (e.currentTarget).style.background = 'var(--bg-input)'; }}
-                    onMouseUp={e => { (e.currentTarget).style.transform = 'scale(1)'; (e.currentTarget).style.background = key === 'backspace' ? 'var(--danger-dim)' : 'var(--bg-elevated)'; }}
-                    onTouchStart={e => { (e.currentTarget).style.transform = 'scale(0.93)'; }}
-                    onTouchEnd={e => { (e.currentTarget).style.transform = 'scale(1)'; }}
-                  >
-                    {key === 'backspace' ? '⌫' : key}
-                  </button>
-                ))}
               </div>
 
               {/* Over-budget warning */}
