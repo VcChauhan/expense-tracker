@@ -897,26 +897,93 @@ export default function ExpensesPage() {
       )}
 
       {/* Edit Bottom Sheet */}
-      {editingExp && (
+      {editingExp && (() => {
+        const editActiveCategory = settings?.categories?.find(c => c.id === editingExp.categoryId);
+        const editColor = editActiveCategory?.color ?? 'var(--accent)';
+        return (
         <>
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 999, backdropFilter: 'blur(4px)' }} onClick={() => setEditingExp(null)} />
-          <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', padding: 24, zIndex: 1000, boxShadow: '0 -10px 40px rgba(0,0,0,0.3)' }}>
-            <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 20, color: 'var(--text-primary)' }}>Edit Expense</h3>
+          <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', padding: 24, zIndex: 1000, boxShadow: '0 -10px 40px rgba(0,0,0,0.3)', maxHeight: '92dvh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20, position: 'relative' }}>
+              <div style={{
+                position: 'absolute', top: -24, left: -24, right: -24, height: 80,
+                background: `linear-gradient(135deg, ${editColor}1a 0%, transparent 75%)`,
+                pointerEvents: 'none',
+              }} />
+              <div style={{
+                width: 34, height: 34, borderRadius: 11, flexShrink: 0, position: 'relative',
+                background: `linear-gradient(135deg, ${editColor} 0%, var(--accent-2) 100%)`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: `0 4px 14px ${editColor}55`,
+              }}>
+                <Edit2 size={16} color="#fff" />
+              </div>
+              <h3 style={{ fontSize: 19, fontWeight: 800, margin: 0, color: 'var(--text-primary)', position: 'relative' }}>Edit Expense</h3>
+            </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div>
-                <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>Date</label>
-                <input type="date" style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '12px 16px', borderRadius: 12, fontSize: 16 }} value={editingExp.date} onChange={e => setEditingExp({ ...editingExp, date: e.target.value })} />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>Category</label>
-                <select style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '12px 16px', borderRadius: 12, fontSize: 16, appearance: 'none' }} value={editingExp.categoryId} onChange={e => setEditingExp({ ...editingExp, categoryId: e.target.value })}>
-                  {(settings?.categories ?? []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
+                <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>Amount (₹)</label>
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  background: 'var(--bg)', borderRadius: 14, padding: '4px 16px',
+                  border: `1.5px solid ${editColor}`,
+                  boxShadow: `0 6px 18px -8px ${editColor}66`,
+                  transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+                }}>
+                  <span style={{ fontSize: 16, fontWeight: 700, color: editColor }}>₹</span>
+                  <input
+                    type="number"
+                    style={{ flex: 1, width: '100%', background: 'transparent', border: 'none', outline: 'none', color: 'var(--text-primary)', padding: '10px 0', fontSize: 20, fontWeight: 800 }}
+                    value={editingExp.amount}
+                    onChange={e => setEditingExp({ ...editingExp, amount: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>Amount (₹)</label>
-                <input type="number" style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '12px 16px', borderRadius: 12, fontSize: 16 }} value={editingExp.amount} onChange={e => setEditingExp({ ...editingExp, amount: parseFloat(e.target.value) || 0 })} />
+                <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 8 }}>Category</label>
+                <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 6, scrollbarWidth: 'none', margin: '0 -24px', padding: '0 24px 6px' }}>
+                  {(() => {
+                    const sorted = [...(settings?.categories ?? [])].sort((a, b) => {
+                      if (a.id === editingExp.categoryId) return -1;
+                      if (b.id === editingExp.categoryId) return 1;
+                      return 0;
+                    });
+                    return sorted.map(cat => {
+                      const isSelected = editingExp.categoryId === cat.id;
+                      return (
+                        <button
+                          key={cat.id} type="button"
+                          onClick={() => setEditingExp({ ...editingExp, categoryId: cat.id })}
+                          style={{
+                            padding: isSelected ? '8px 16px 8px 8px' : '10px 16px', borderRadius: 9999, fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap',
+                            background: isSelected ? cat.color : 'var(--bg-elevated)',
+                            border: `1.5px solid ${isSelected ? cat.color : 'var(--border)'}`,
+                            color: isSelected ? '#fff' : 'var(--text-secondary)',
+                            display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', flexShrink: 0,
+                            transition: 'all 0.2s',
+                            transform: isSelected ? 'scale(1.03)' : 'scale(1)',
+                            boxShadow: isSelected ? `0 4px 14px ${cat.color}55` : 'none',
+                          }}
+                        >
+                          {isSelected ? (
+                            <span style={{ width: 22, height: 22, borderRadius: '50%', flexShrink: 0, background: 'rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <CategoryIcon name={cat.name} size={12} color="#fff" />
+                            </span>
+                          ) : (
+                            <CategoryIcon name={cat.name} size={14} />
+                          )}
+                          {cat.name}
+                        </button>
+                      );
+                    });
+                  })()}
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>Date</label>
+                <input type="date" style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '12px 16px', borderRadius: 12, fontSize: 16 }} value={editingExp.date} onChange={e => setEditingExp({ ...editingExp, date: e.target.value })} />
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>Note</label>
@@ -927,6 +994,7 @@ export default function ExpensesPage() {
                 <PaymentMethodSelector 
                   value={editingExp.paymentMethod || 'upi'} 
                   onChange={paymentMethod => setEditingExp({ ...editingExp, paymentMethod })}
+                  creditCards={settings?.creditCards || []}
                 />
               </div>
               <div>
@@ -938,27 +1006,75 @@ export default function ExpensesPage() {
               </div>
               <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
                 <button style={{ flex: 1, padding: 14, borderRadius: 12, border: 'none', background: 'var(--border)', color: 'var(--text-primary)', fontWeight: 600, fontSize: 16, cursor: 'pointer' }} onClick={() => setEditingExp(null)}>Cancel</button>
-                <button style={{ flex: 1, padding: 14, borderRadius: 12, border: 'none', background: 'var(--accent)', color: '#fff', fontWeight: 600, fontSize: 16, cursor: 'pointer', opacity: saving ? 0.7 : 1 }} onClick={handleUpdate} disabled={saving}>{saving ? 'Saving...' : 'Save Changes'}</button>
+                <button
+                  style={{
+                    flex: 1, padding: 14, borderRadius: 12, border: 'none',
+                    background: `linear-gradient(135deg, ${editColor} 0%, var(--accent-2) 100%)`,
+                    color: '#fff', fontWeight: 700, fontSize: 16, cursor: 'pointer',
+                    opacity: saving ? 0.7 : 1,
+                    boxShadow: `0 8px 20px -8px ${editColor}88`,
+                  }}
+                  onClick={handleUpdate} disabled={saving}
+                >
+                  {saving ? 'Saving...' : 'Save Changes'}
+                </button>
               </div>
             </div>
           </div>
         </>
-      )}
+        );
+      })()}
 
       {/* Review Suggestion Bottom Sheet */}
-      {reviewSuggestion && (
+      {reviewSuggestion && (() => {
+        const reviewActiveCategory = settings?.categories?.find(c => c.id === reviewForm.categoryId);
+        const reviewColor = reviewActiveCategory?.color ?? 'var(--accent)';
+        return (
         <>
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 999, backdropFilter: 'blur(4px)' }} onClick={() => setReviewSuggestion(null)} />
-          <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', padding: 24, zIndex: 1000, boxShadow: '0 -10px 40px rgba(0,0,0,0.3)' }}>
-            <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 20, color: 'var(--text-primary)' }}>Review AI Suggestion</h3>
+          <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', padding: 24, zIndex: 1000, boxShadow: '0 -10px 40px rgba(0,0,0,0.3)', maxHeight: '92dvh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20, position: 'relative' }}>
+              <div style={{
+                position: 'absolute', top: -24, left: -24, right: -24, height: 80,
+                background: `linear-gradient(135deg, ${reviewColor}1a 0%, transparent 75%)`,
+                pointerEvents: 'none',
+              }} />
+              <div style={{
+                width: 34, height: 34, borderRadius: 11, flexShrink: 0, position: 'relative',
+                background: `linear-gradient(135deg, ${reviewColor} 0%, var(--accent-2) 100%)`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: `0 4px 14px ${reviewColor}55`,
+              }}>
+                <Sparkles size={16} color="#fff" />
+              </div>
+              <h3 style={{ fontSize: 19, fontWeight: 800, margin: 0, color: 'var(--text-primary)', position: 'relative' }}>Review AI Suggestion</h3>
+            </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>Amount (₹)</label>
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  background: 'var(--bg)', borderRadius: 14, padding: '4px 16px',
+                  border: `1.5px solid ${reviewColor}`,
+                  boxShadow: `0 6px 18px -8px ${reviewColor}66`,
+                  transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+                }}>
+                  <span style={{ fontSize: 16, fontWeight: 700, color: reviewColor }}>₹</span>
+                  <input
+                    type="number" step="0.01"
+                    style={{ flex: 1, width: '100%', background: 'transparent', border: 'none', outline: 'none', color: 'var(--text-primary)', padding: '10px 0', fontSize: 20, fontWeight: 800 }}
+                    value={reviewForm.amount}
+                    onChange={e => setReviewForm({ ...reviewForm, amount: e.target.value })}
+                  />
+                </div>
+              </div>
               <div>
                 <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>Date</label>
                 <input type="date" style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '12px 16px', borderRadius: 12, fontSize: 16 }} value={reviewForm.date} onChange={e => setReviewForm({ ...reviewForm, date: e.target.value })} />
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 8 }}>Category</label>
-                <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 8, scrollbarWidth: 'none', margin: '0 -4px', padding: '0 4px 8px 4px' }}>
+                <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 8, scrollbarWidth: 'none', margin: '0 -24px', padding: '0 24px 8px' }}>
                   {(() => {
                     const sortedCategories = [...(settings?.categories ?? [])].sort((a, b) => {
                       if (a.id === reviewForm.categoryId) return -1;
@@ -972,31 +1088,36 @@ export default function ExpensesPage() {
                           key={cat.id} type="button"
                           onClick={() => setReviewForm({ ...reviewForm, categoryId: cat.id })}
                           style={{ 
-                            padding: '10px 16px', borderRadius: 9999, fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap',
-                            background: isSelected ? 'var(--accent)' : 'var(--bg-elevated)',
-                            border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
+                            padding: isSelected ? '8px 16px 8px 8px' : '10px 16px', borderRadius: 9999, fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap',
+                            background: isSelected ? cat.color : 'var(--bg-elevated)',
+                            border: `1.5px solid ${isSelected ? cat.color : 'var(--border)'}`,
                             color: isSelected ? '#fff' : 'var(--text-secondary)',
-                            display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', flexShrink: 0,
-                            transition: 'all 0.2s'
+                            display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', flexShrink: 0,
+                            transition: 'all 0.2s',
+                            transform: isSelected ? 'scale(1.03)' : 'scale(1)',
+                            boxShadow: isSelected ? `0 4px 14px ${cat.color}55` : 'none',
                           }}
                         >
-                          <CategoryIcon name={cat.name} size={14} /> {cat.name}
+                          {isSelected ? (
+                            <span style={{ width: 22, height: 22, borderRadius: '50%', flexShrink: 0, background: 'rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <CategoryIcon name={cat.name} size={12} color="#fff" />
+                            </span>
+                          ) : (
+                            <CategoryIcon name={cat.name} size={14} />
+                          )}
+                          {cat.name}
                         </button>
                       );
                     });
                   })()}
                 </div>
               </div>
-              <div>
-                <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>Amount (₹)</label>
-                <input type="number" step="0.01" style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '12px 16px', borderRadius: 12, fontSize: 16 }} value={reviewForm.amount} onChange={e => setReviewForm({ ...reviewForm, amount: e.target.value })} />
-              </div>
               
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Split ways</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   {reviewSplitWays > 1 && reviewForm.amount && (
-                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: reviewColor }}>
                       = ₹{Math.round((parseFloat(reviewForm.amount) / reviewSplitWays) * 100) / 100} / person
                     </span>
                   )}
@@ -1020,12 +1141,24 @@ export default function ExpensesPage() {
               </div>
               <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
                 <button style={{ flex: 1, padding: 14, borderRadius: 12, border: 'none', background: 'var(--border)', color: 'var(--text-primary)', fontWeight: 600, fontSize: 16, cursor: 'pointer' }} onClick={() => setReviewSuggestion(null)}>Cancel</button>
-                <button style={{ flex: 1, padding: 14, borderRadius: 12, border: 'none', background: 'var(--accent)', color: '#fff', fontWeight: 600, fontSize: 16, cursor: 'pointer', opacity: saving ? 0.7 : 1 }} onClick={() => submitReviewForm()} disabled={saving}>{saving ? 'Saving...' : 'Confirm'}</button>
+                <button
+                  style={{
+                    flex: 1, padding: 14, borderRadius: 12, border: 'none',
+                    background: `linear-gradient(135deg, ${reviewColor} 0%, var(--accent-2) 100%)`,
+                    color: '#fff', fontWeight: 700, fontSize: 16, cursor: 'pointer',
+                    opacity: saving ? 0.7 : 1,
+                    boxShadow: `0 8px 20px -8px ${reviewColor}88`,
+                  }}
+                  onClick={() => submitReviewForm()} disabled={saving}
+                >
+                  {saving ? 'Saving...' : 'Confirm'}
+                </button>
               </div>
             </div>
           </div>
         </>
-      )}
+        );
+      })()}
 
       {toast && (
         <div style={{ position: 'fixed', bottom: 100, left: '50%', transform: 'translateX(-50%)', background: toast.type === 'success' ? 'var(--success)' : 'var(--danger)', color: '#fff', padding: '12px 24px', borderRadius: 9999, fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, zIndex: 1000, boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
