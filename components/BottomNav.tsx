@@ -40,11 +40,20 @@ export default function BottomNav() {
 
   return (
     <>
-      <nav className="bottom-nav hide-on-desktop" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      <nav
+        className="bottom-nav hide-on-desktop"
+        style={{
+          paddingBottom: 'env(safe-area-inset-bottom)',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '0 10px',
+          gap: 2,
+        }}
+      >
         {navItems.map((item, idx) => {
           if (item.isFab) {
             return (
-              <div key="fab" style={{ flex: 1, display: 'flex', justifyContent: 'center', position: 'relative', pointerEvents: 'none' }}>
+              <div key="fab" style={{ width: 56, flexShrink: 0, display: 'flex', justifyContent: 'center', position: 'relative', pointerEvents: 'none' }}>
                 <button
                   onClick={triggerQuickAdd}
                   style={{
@@ -76,17 +85,26 @@ export default function BottomNav() {
           }
 
           if (item.isMenu) {
+            const isActive = menuOpen;
             return (
               <button
                 key="menu"
                 onClick={() => setMenuOpen(true)}
-                className="bottom-nav-item"
-                style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: isActive ? 6 : 0,
+                  padding: isActive ? '9px 16px 9px 12px' : '9px 12px',
+                  borderRadius: 999,
+                  background: isActive ? 'var(--accent-dim)' : 'transparent',
+                  color: isActive ? 'var(--accent-2)' : 'var(--text-muted)',
+                  border: 'none',
+                  fontSize: 12.5, fontWeight: 700,
+                  cursor: 'pointer', whiteSpace: 'nowrap',
+                  transition: 'all 0.25s cubic-bezier(0.34, 1.2, 0.64, 1)',
+                  fontFamily: 'inherit',
+                }}
               >
-                <div className="bottom-nav-icon-wrapper">
-                  <span className="bottom-nav-icon">{item.icon}</span>
-                </div>
-                <span className="bottom-nav-label">{item.label}</span>
+                {isActive && item.icon}
+                <span>{item.label}</span>
               </button>
             );
           }
@@ -96,16 +114,20 @@ export default function BottomNav() {
             <Link
               key={item.href}
               href={item.href!}
-              className={`bottom-nav-item ${isActive ? 'active' : ''}`}
+              style={{
+                display: 'flex', alignItems: 'center', gap: isActive ? 6 : 0,
+                padding: isActive ? '9px 16px 9px 12px' : '9px 12px',
+                borderRadius: 999,
+                background: isActive ? 'var(--accent-dim)' : 'transparent',
+                color: isActive ? 'var(--accent-2)' : 'var(--text-muted)',
+                textDecoration: 'none',
+                fontSize: 12.5, fontWeight: 700,
+                whiteSpace: 'nowrap',
+                transition: 'all 0.25s cubic-bezier(0.34, 1.2, 0.64, 1)',
+              }}
             >
-              <div className="bottom-nav-icon-wrapper">
-                <span className="bottom-nav-icon" style={{ color: isActive ? 'var(--accent-2)' : 'var(--text-muted)' }}>
-                  {item.icon}
-                </span>
-              </div>
-              <span className="bottom-nav-label" style={{ color: isActive ? 'var(--accent-2)' : 'var(--text-muted)' }}>
-                {item.label}
-              </span>
+              {isActive && item.icon}
+              <span>{item.label}</span>
             </Link>
           );
         })}
