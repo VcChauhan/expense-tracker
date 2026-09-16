@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import { formatINR, Category, SavingsGoal } from '@/lib/types';
 import { ShoppingBag, CheckCircle2, AlertTriangle, XCircle, Calculator } from 'lucide-react';
+import { CategoryIcon } from './CategoryIcon';
 
 interface AffordabilityCheckerProps {
   monthlySalary: number;
@@ -21,8 +22,11 @@ export function AffordabilityChecker({
 }: AffordabilityCheckerProps) {
   const [amountStr, setAmountStr] = useState('');
   const [selectedCatId, setSelectedCatId] = useState('');
+  const [focused, setFocused] = useState(false);
 
   const purchaseAmount = parseFloat(amountStr) || 0;
+  const selectedCat = categories.find(c => c.id === selectedCatId);
+  const accentColor = selectedCat?.color ?? 'var(--accent)';
 
   const analysis = useMemo(() => {
     if (purchaseAmount <= 0) return null;
@@ -71,21 +75,35 @@ export function AffordabilityChecker({
       message = `You can comfortably afford this! You'll still have ${formatINR(surplusAfter)} surplus at month end.`;
     }
 
-    return {
-      status,
-      title,
-      message,
-      surplusAfter,
-      remainingBudget,
-      catWillExceed,
-      targetCatName,
-    };
+    // How much of income-after-spend this single purchase would consume —
+    // drives the little context bar under the result.
+    const referenceBase = Math.max(monthlySalary - monthlySpent, purchaseAmount, 1);
+    const impactPct = Math.min(100, (purchaseAmount / referenceBase) * 100);
+
+    return { status, title, message, surplusAfter, remainingBudget, catWillExceed, targetCatName, impactPct };
   }, [purchaseAmount, monthlySalary, monthlySpent, monthlyBudget, selectedCatId, categories, activeTotalsMap]);
 
+  const statusColor = analysis?.status === 'safe' ? 'var(--success)' : analysis?.status === 'warning' ? 'var(--warning)' : 'var(--danger)';
+
   return (
-    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 20, padding: 24, marginBottom: 24 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-        <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'color-mix(in srgb, var(--accent) 15%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent)' }}>
+    <div style={{
+      background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 20, padding: 24, marginBottom: 24,
+      animation: 'fade-in-up 0.4s var(--ease) both', position: 'relative', overflow: 'hidden',
+    }}>
+      <div style={{
+        position: 'absolute', top: -50, right: -50, width: 140, height: 140,
+        background: `radial-gradient(circle, ${accentColor}20 0%, transparent 70%)`,
+        pointerEvents: 'none', transition: 'background 0.3s ease',
+      }} />
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18, position: 'relative' }}>
+        <div style={{
+          width: 38, height: 38, borderRadius: 12, flexShrink: 0,
+          background: `linear-gradient(135deg, ${accentColor} 0%, var(--accent-2) 100%)`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff',
+          boxShadow: `0 6px 16px -4px ${accentColor}66`,
+          transition: 'background 0.3s ease, box-shadow 0.3s ease',
+        }}>
           <Calculator size={18} />
         </div>
         <div>
@@ -94,73 +112,108 @@ export function AffordabilityChecker({
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
-        <div style={{ flex: 1, minWidth: 140, position: 'relative' }}>
-          <span style={{ position: 'absolute', left: 12, top: 12, color: 'var(--text-muted)', fontWeight: 600 }}>₹</span>
+      <div style={{ marginBottom: 14, position: 'relative' }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          background: 'var(--bg)', borderRadius: 14, padding: '2px 14px',
+          border: `1.5px solid ${focused ? accentColor : 'var(--border)'}`,
+          boxShadow: focused ? `0 6px 18px -8px ${accentColor}66` : 'none',
+          transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+        }}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: focused ? accentColor : 'var(--text-muted)', transition: 'color 0.2s' }}>₹</span>
           <input
             type="number"
             placeholder="Amount (e.g. 15000)"
             value={amountStr}
             onChange={e => setAmountStr(e.target.value)}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
             style={{
-              width: '100%',
-              padding: '10px 12px 10px 28px',
-              borderRadius: 12,
-              border: '1px solid var(--border)',
-              background: 'var(--bg)',
-              color: 'var(--text-primary)',
-              fontSize: 14,
-              outline: 'none',
-              boxSizing: 'border-box'
+              flex: 1, width: '100%', padding: '12px 0', border: 'none', outline: 'none',
+              background: 'transparent', color: 'var(--text-primary)', fontSize: 17, fontWeight: 700,
             }}
           />
         </div>
+      </div>
 
-        <select
-          value={selectedCatId}
-          onChange={e => setSelectedCatId(e.target.value)}
-          style={{
-            flex: 1,
-            minWidth: 140,
-            padding: '10px 12px',
-            borderRadius: 12,
-            border: '1px solid var(--border)',
-            background: 'var(--bg)',
-            color: 'var(--text-primary)',
-            fontSize: 14,
-            outline: 'none',
-            appearance: 'none',
-            boxSizing: 'border-box'
-          }}
-        >
-          <option value="">Select Category (Optional)</option>
-          {categories.map(c => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </select>
+      <div style={{ marginBottom: 16, position: 'relative' }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+          Category (optional)
+        </div>
+        <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 2 }}>
+          <button
+            type="button"
+            onClick={() => setSelectedCatId('')}
+            style={{
+              flexShrink: 0, padding: '8px 14px', borderRadius: 99, fontSize: 12.5, fontWeight: 700,
+              background: selectedCatId === '' ? 'var(--accent-dim)' : 'var(--bg-elevated)',
+              border: `1.5px solid ${selectedCatId === '' ? 'var(--border-glow)' : 'var(--border)'}`,
+              color: selectedCatId === '' ? 'var(--accent-2)' : 'var(--text-secondary)',
+              cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s ease',
+            }}
+          >
+            Any
+          </button>
+          {categories.map(cat => {
+            const isSelected = selectedCatId === cat.id;
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => setSelectedCatId(cat.id)}
+                style={{
+                  flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6,
+                  padding: isSelected ? '8px 14px 8px 8px' : '8px 14px', borderRadius: 99, fontSize: 12.5, fontWeight: 700,
+                  background: isSelected ? cat.color : 'var(--bg-elevated)',
+                  border: `1.5px solid ${isSelected ? cat.color : 'var(--border)'}`,
+                  color: isSelected ? '#fff' : 'var(--text-secondary)',
+                  cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s ease',
+                  transform: isSelected ? 'scale(1.03)' : 'scale(1)',
+                }}
+              >
+                {isSelected && (
+                  <span style={{ width: 18, height: 18, borderRadius: '50%', background: 'rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <CategoryIcon name={cat.name} size={10} color="#fff" />
+                  </span>
+                )}
+                {cat.name}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {analysis && (
         <div style={{
           padding: 16,
           borderRadius: 14,
-          background: analysis.status === 'safe' 
-            ? 'color-mix(in srgb, var(--success) 10%, transparent)' 
-            : analysis.status === 'warning'
-            ? 'color-mix(in srgb, var(--warning) 10%, transparent)'
-            : 'color-mix(in srgb, var(--danger) 10%, transparent)',
-          border: `1px solid ${analysis.status === 'safe' ? 'var(--success)' : analysis.status === 'warning' ? 'var(--warning)' : 'var(--danger)'}`,
-          display: 'flex',
-          gap: 12,
-          alignItems: 'flex-start',
-          animation: 'fadeIn 0.3s ease-in-out'
+          background: `color-mix(in srgb, ${statusColor} 10%, transparent)`,
+          border: `1px solid ${statusColor}`,
+          animation: 'fade-in-up 0.3s var(--ease) both',
         }}>
-          <div style={{ marginTop: 2, color: analysis.status === 'safe' ? 'var(--success)' : analysis.status === 'warning' ? 'var(--warning)' : 'var(--danger)' }}>
-            {analysis.status === 'safe' ? <CheckCircle2 size={20} /> : analysis.status === 'warning' ? <AlertTriangle size={20} /> : <XCircle size={20} />}
+          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: 10, flexShrink: 0,
+              background: `color-mix(in srgb, ${statusColor} 20%, transparent)`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', color: statusColor,
+            }}>
+              {analysis.status === 'safe' ? <CheckCircle2 size={18} /> : analysis.status === 'warning' ? <AlertTriangle size={18} /> : <XCircle size={18} />}
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 2 }}>{analysis.title}</div>
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.4 }}>{analysis.message}</div>
+            </div>
           </div>
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 2 }}>{analysis.title}</div>
-            <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.4 }}>{analysis.message}</div>
+          <div style={{ marginTop: 12 }}>
+            <div style={{ height: 6, background: 'var(--bg-card)', borderRadius: 99, overflow: 'hidden' }}>
+              <div style={{
+                height: '100%', width: `${analysis.impactPct}%`, background: statusColor, borderRadius: 99,
+                transition: 'width 0.7s var(--ease)',
+              }} />
+            </div>
+            <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: 5 }}>
+              {analysis.impactPct.toFixed(0)}% of what you have left this month
+            </div>
           </div>
         </div>
       )}
