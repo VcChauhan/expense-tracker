@@ -224,6 +224,48 @@ body {
   background-clip: text;
 }
 
+/* ===================== Custom Range Slider ===================== */
+/* Reusable across any slider in the app — pairs with an inline
+   background gradient set per-instance to show fill progress. */
+.styled-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  border-radius: 99px;
+  outline: none;
+  cursor: pointer;
+}
+.styled-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent-grad);
+  border: 3px solid var(--bg-card);
+  box-shadow: 0 3px 10px -2px color-mix(in srgb, var(--accent) 60%, transparent);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+.styled-range::-webkit-slider-thumb:active { transform: scale(1.15); }
+.styled-range::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent-grad);
+  border: 3px solid var(--bg-card);
+  box-shadow: 0 3px 10px -2px color-mix(in srgb, var(--accent) 60%, transparent);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+.styled-range::-moz-range-thumb:active { transform: scale(1.15); }
+
+@keyframes invite-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 30%, transparent); }
+  50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 0%, transparent); }
+}
+
 /* ===================== Keyframe Animations ===================== */
 @keyframes fade-in-up {
   from { opacity: 0; transform: translateY(14px); }
