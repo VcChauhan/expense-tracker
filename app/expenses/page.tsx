@@ -1070,7 +1070,7 @@ export default function ExpensesPage() {
           >
             <div
               style={{
-                width: '100%', maxWidth: '500px', maxHeight: '85vh', maxHeight: '85dvh',
+                width: '100%', maxWidth: '500px', maxHeight: '85vh',
                 display: 'flex', flexDirection: 'column',
                 background: 'var(--bg-card)', color: 'var(--text-primary)',
                 borderRadius: '28px 28px 0 0',
@@ -1080,6 +1080,7 @@ export default function ExpensesPage() {
               }}
             >
               <div style={{
+                flex: 1, minHeight: 0,
                 overflowY: 'auto', WebkitOverflowScrolling: 'touch',
                 padding: '24px 20px calc(40px + env(safe-area-inset-bottom, 16px))',
                 display: 'flex', flexDirection: 'column',

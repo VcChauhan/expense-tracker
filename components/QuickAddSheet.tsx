@@ -258,7 +258,6 @@ export default function QuickAddSheet() {
           width: '100%',
           maxWidth: '500px',
           maxHeight: '85vh',
-          maxHeight: '85dvh',
           display: 'flex',
           flexDirection: 'column',
           background: 'var(--bg-card)',
@@ -271,6 +270,8 @@ export default function QuickAddSheet() {
         }}
       >
         <div style={{
+          flex: 1,
+          minHeight: 0,
           overflowY: 'auto',
           WebkitOverflowScrolling: 'touch',
           paddingBottom: 'calc(40px + env(safe-area-inset-bottom, 16px))',
