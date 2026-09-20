@@ -37,6 +37,14 @@ export async function POST(req: Request) {
     const suggestedLabel = data.suggestedLabel || (data.smsBody ? 'UPI Payment' : 'On-Device Expense');
     const suggestedTags = data.suggestedTags || [];
     const suggestedPaymentMethod = data.suggestedPaymentMethod || 'upi';
+    const smsBody = data.smsBody || '';
+    const bodyLower = smsBody.toLowerCase();
+
+    // Safety Filter: Reject promotional & offer SMS from creating pending suggestions
+    const promoKeywords = ['discount', 'instant discount', 'flexipay', 'min. trxn', 'min trxn', 'max. discount', 'offer valid', 'valid till', 'book now', 'apply for', 'processing fee', 'convert your'];
+    if (suggestedLabel.startsWith('⚠️ Ignore:') || promoKeywords.some(kw => bodyLower.includes(kw))) {
+      return NextResponse.json({ status: 'ignored', message: 'Promotional / Non-expense SMS ignored' });
+    }
 
     const suggestion = await Suggestion.create({
       smsBody: data.smsBody ? scrubSms(data.smsBody) : 'On-Device Private SMS',
