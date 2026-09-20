@@ -231,10 +231,43 @@ export default function QuickAddSheet() {
   const hasAmount = form.amount && parseFloat(form.amount) > 0;
   const activeCategory = settings?.categories?.find(c => c.id === form.categoryId);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const logMetrics = (eventTag: string) => {
+      const backdropEl = document.getElementById('quick-add-backdrop');
+      const sheetEl = document.getElementById('quick-add-sheet');
+      const bRect = backdropEl?.getBoundingClientRect();
+      const sRect = sheetEl?.getBoundingClientRect();
+      const metrics = {
+        tag: eventTag,
+        winH: window.innerHeight,
+        winW: window.innerWidth,
+        scrollY: window.scrollY,
+        vvH: window.visualViewport?.height,
+        vvTop: window.visualViewport?.offsetTop,
+        backdrop: bRect ? { top: bRect.top, bottom: bRect.bottom, height: bRect.height } : null,
+        sheet: sRect ? { top: sRect.top, bottom: sRect.bottom, height: sRect.height } : null,
+        active: document.activeElement?.tagName,
+      };
+      console.log('[RCA_METRICS]', JSON.stringify(metrics));
+    };
+
+    logMetrics('MOUNT');
+    const handleResize = () => logMetrics('RESIZE');
+    const handleVVResize = () => logMetrics('VV_RESIZE');
+    window.addEventListener('resize', handleResize);
+    window.visualViewport?.addEventListener('resize', handleVVResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.visualViewport?.removeEventListener('resize', handleVVResize);
+    };
+  }, [isOpen]);
+
   if (isLoginPage || !isOpen) return null;
 
   return (
     <div
+      id="quick-add-backdrop"
       style={{
         position: 'fixed',
         top: 0, left: 0, right: 0, bottom: 0,
@@ -254,6 +287,7 @@ export default function QuickAddSheet() {
     >
       {/* Sheet */}
       <div
+        id="quick-add-sheet"
         style={{
           width: '100%',
           maxWidth: '500px',
