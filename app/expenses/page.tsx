@@ -1181,6 +1181,14 @@ export default function ExpensesPage() {
                 <input type="text" style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '12px 16px', borderRadius: 12, fontSize: 16 }} value={reviewForm.note || ''} onChange={e => setReviewForm({ ...reviewForm, note: e.target.value })} />
               </div>
               <div>
+                <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>Payment Method</label>
+                <PaymentMethodSelector 
+                  value={reviewForm.paymentMethod || 'upi'} 
+                  onChange={paymentMethod => setReviewForm({ ...reviewForm, paymentMethod })}
+                  creditCards={settings?.creditCards || []}
+                />
+              </div>
+              <div>
                 <TagSelector 
                   selectedTags={reviewForm.tags} 
                   onChange={tags => setReviewForm({ ...reviewForm, tags })}

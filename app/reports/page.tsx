@@ -269,7 +269,12 @@ export default function ReportsPage() {
           </div>
 
           <div style={{ padding: '0 16px' }}>
-            <PaymentMethodBreakdownCard expenses={expenses} />
+            <PaymentMethodBreakdownCard
+              expenses={expenses}
+              selectedMonth={selectedMonth}
+              selectedYear={selectedYear}
+              viewMode={viewMode}
+            />
           </div>
 
           <div style={{ padding: '0 16px' }}>
