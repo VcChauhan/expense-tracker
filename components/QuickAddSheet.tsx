@@ -257,7 +257,7 @@ export default function QuickAddSheet() {
         style={{
           width: '100%',
           maxWidth: '500px',
-          maxHeight: '85vh',
+          maxHeight: 'calc(100% - 20px)',
           display: 'flex',
           flexDirection: 'column',
           background: 'var(--bg-card)',

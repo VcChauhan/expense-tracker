@@ -1070,7 +1070,7 @@ export default function ExpensesPage() {
           >
             <div
               style={{
-                width: '100%', maxWidth: '500px', maxHeight: '85vh',
+                width: '100%', maxWidth: '500px', maxHeight: 'calc(100% - 20px)',
                 display: 'flex', flexDirection: 'column',
                 background: 'var(--bg-card)', color: 'var(--text-primary)',
                 borderRadius: '28px 28px 0 0',
