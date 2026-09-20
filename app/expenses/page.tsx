@@ -1070,18 +1070,20 @@ export default function ExpensesPage() {
           >
             <div
               style={{
-                width: '100%', maxWidth: '500px', maxHeight: '88vh',
-                boxSizing: 'border-box', overflowY: 'auto',
+                width: '100%', maxWidth: '500px', maxHeight: '85vh', maxHeight: '85dvh',
+                display: 'flex', flexDirection: 'column',
                 background: 'var(--bg-card)', color: 'var(--text-primary)',
                 borderRadius: '28px 28px 0 0',
                 border: '1px solid var(--border-strong)', borderBottom: 'none',
                 boxShadow: '0 -10px 40px rgba(0,0,0,0.5)',
-                padding: '24px 20px',
-                animation: 'slide-up-fast 0.28s cubic-bezier(0.16, 1, 0.3, 1) both',
-                paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 16px))',
-                flexShrink: 0,
+                overflow: 'hidden',
               }}
             >
+              <div style={{
+                overflowY: 'auto', WebkitOverflowScrolling: 'touch',
+                padding: '24px 20px calc(40px + env(safe-area-inset-bottom, 16px))',
+                display: 'flex', flexDirection: 'column',
+              }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20, position: 'relative' }}>
               <div style={{
                 position: 'absolute', top: -24, left: -24, right: -24, height: 80,
@@ -1214,6 +1216,7 @@ export default function ExpensesPage() {
             </div>
           </div>
         </div>
+      </div>
         );
       })()}
 
