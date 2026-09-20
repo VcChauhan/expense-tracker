@@ -1077,8 +1077,9 @@ export default function ExpensesPage() {
                 border: '1px solid var(--border-strong)', borderBottom: 'none',
                 boxShadow: '0 -10px 40px rgba(0,0,0,0.5)',
                 padding: '24px 20px',
-                animation: 'slide-up-fast 0.28s cubic-bezier(0.16, 1, 0.3, 1)',
-                paddingBottom: 'calc(16px + env(safe-area-inset-bottom))',
+                animation: 'slide-up-fast 0.28s cubic-bezier(0.16, 1, 0.3, 1) both',
+                paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 16px))',
+                flexShrink: 0,
               }}
             >
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20, position: 'relative' }}>

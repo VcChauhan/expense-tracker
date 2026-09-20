@@ -266,8 +266,9 @@ export default function QuickAddSheet() {
           border: '1px solid var(--border-strong)',
           borderBottom: 'none',
           boxShadow: '0 -8px 60px rgba(0,0,0,0.5)',
-          animation: 'slide-up-fast 0.28s cubic-bezier(0.16, 1, 0.3, 1)',
-          paddingBottom: 'calc(16px + env(safe-area-inset-bottom))',
+          animation: 'slide-up-fast 0.28s cubic-bezier(0.16, 1, 0.3, 1) both',
+          paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 16px))',
+          flexShrink: 0,
         }}
       >
         {/* Drag Handle */}
