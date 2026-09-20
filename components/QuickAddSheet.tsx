@@ -234,41 +234,40 @@ export default function QuickAddSheet() {
   if (isLoginPage || !isOpen) return null;
 
   return (
-    <>
-      {/* Backdrop */}
-      <div
-        onClick={() => setIsOpen(false)}
-        style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0,0,0,0.6)',
-          backdropFilter: 'blur(6px)',
-          WebkitBackdropFilter: 'blur(6px)',
-          zIndex: 9998,
-          animation: 'fadeIn 0.2s ease-out',
-        }}
-      />
-
+    <div
+      style={{
+        position: 'fixed',
+        top: 0, left: 0, right: 0, bottom: 0,
+        zIndex: 99999,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'flex-end',
+        alignItems: 'center',
+        background: 'rgba(0,0,0,0.65)',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
+        animation: 'fadeIn 0.2s ease-out',
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) setIsOpen(false);
+      }}
+    >
       {/* Sheet */}
       <div
         style={{
-          position: 'fixed',
-          bottom: 0,
-          left: '50%',
-          transform: 'translateX(-50%)',
           width: '100%',
           maxWidth: '500px',
-          maxHeight: '92dvh',
+          maxHeight: '88vh',
           boxSizing: 'border-box',
           overflowY: 'auto',
           background: 'var(--bg-card)',
           color: 'var(--text-primary)',
           borderRadius: '28px 28px 0 0',
-          zIndex: 9999,
           border: '1px solid var(--border-strong)',
           borderBottom: 'none',
-          boxShadow: '0 -8px 60px rgba(0,0,0,0.4)',
-          animation: 'slide-up-fast 0.32s cubic-bezier(0.16, 1, 0.3, 1)',
-          paddingBottom: 'env(safe-area-inset-bottom)',
+          boxShadow: '0 -8px 60px rgba(0,0,0,0.5)',
+          animation: 'slide-up-fast 0.28s cubic-bezier(0.16, 1, 0.3, 1)',
+          paddingBottom: 'calc(16px + env(safe-area-inset-bottom))',
         }}
       >
         {/* Drag Handle */}
@@ -608,6 +607,6 @@ export default function QuickAddSheet() {
           )}
         </div>
       </div>
-    </>
+    </div>
   );
 }
