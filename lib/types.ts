@@ -59,6 +59,7 @@ export type PortfolioType = 'mutual_funds' | 'stocks' | 'combined';
 
 export interface InvestmentSnapshot {
   _id?: string;
+  holdingName?: string;
   date: string;
   totalInvested: number;
   currentValue: number;

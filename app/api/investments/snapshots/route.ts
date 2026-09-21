@@ -20,6 +20,7 @@ export async function POST(request: Request) {
     await dbConnect();
     const body = await request.json();
     const {
+      holdingName = '',
       date,
       totalInvested,
       currentValue,
@@ -43,6 +44,7 @@ export async function POST(request: Request) {
         : 0;
 
     const snapshot = await InvestmentSnapshot.create({
+      holdingName: holdingName.trim(),
       date: date || new Date().toISOString().split('T')[0],
       totalInvested: inv,
       currentValue: cur,

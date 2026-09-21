@@ -9,6 +9,7 @@ export interface IInvestmentFund {
 }
 
 export interface IInvestmentSnapshot extends Document {
+  holdingName?: string;
   date: string;
   totalInvested: number;
   currentValue: number;
@@ -34,6 +35,7 @@ const InvestmentFundSchema = new Schema<IInvestmentFund>(
 
 const InvestmentSnapshotSchema = new Schema<IInvestmentSnapshot>(
   {
+    holdingName: { type: String, default: '' },
     date: { type: String, required: true },
     totalInvested: { type: Number, required: true, default: 0 },
     currentValue: { type: Number, required: true, default: 0 },

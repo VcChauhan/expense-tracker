@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import {
   TrendingUp, Camera, Trash2, ArrowLeft, Check,
   RefreshCw, AlertCircle, ArrowUpRight, ArrowDownRight,
-  X, Cpu, BarChart3, Layers
+  X, Cpu, Layers, Tag, ChevronRight
 } from 'lucide-react';
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid
@@ -16,6 +16,7 @@ import { parseGrowwOcrText } from '@/lib/parseGrowwOcr';
 import { lightTap, successBuzz, mediumTap } from '@/lib/haptics';
 
 type ReviewData = {
+  holdingName: string;
   date: string;
   totalInvested: number;
   currentValue: number;
@@ -23,9 +24,9 @@ type ReviewData = {
   funds: InvestmentFund[];
 };
 
-type OcrStatus = 'idle' | 'loading-worker' | 'ocr' | 'parsing' | 'done' | 'error';
+type OcrStatus = 'idle' | 'preprocessing' | 'loading-worker' | 'ocr' | 'parsing' | 'done' | 'error';
 
-// ── Portfolio type config ───────────────────────────────────────────────
+// ── Portfolio types config ───────────────────────────────────────────────
 const PORTFOLIO_TYPES: { value: PortfolioType; label: string; icon: string; color: string; netWorthCategory: string }[] = [
   { value: 'mutual_funds', label: 'Mutual Funds', icon: '📊', color: '#8B5CF6', netWorthCategory: 'Mutual Funds' },
   { value: 'stocks',       label: 'Stocks',        icon: '📈', color: '#10B981', netWorthCategory: 'Stocks & Equity' },
@@ -33,117 +34,50 @@ const PORTFOLIO_TYPES: { value: PortfolioType; label: string; icon: string; colo
 ];
 
 function getTypeCfg(type: PortfolioType) {
-  return PORTFOLIO_TYPES.find((t) => t.value === type) || PORTFOLIO_TYPES[2];
+  return PORTFOLIO_TYPES.find((t) => t.value === type) || PORTFOLIO_TYPES[0];
 }
 
-// ── P&L pill sub-component ───────────────────────────────────────────────
-function PnlPill({ gain, gainPct }: { gain: number; gainPct: number }) {
-  const pos = gain >= 0;
-  return (
-    <div style={{
-      display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 4,
-      padding: '3px 9px', borderRadius: 999, fontWeight: 700, fontSize: 12.5,
-      background: pos ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
-      color: pos ? 'var(--success)' : 'var(--danger)',
-      border: `1px solid ${pos ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)'}`,
-    }}>
-      {pos ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
-      {pos ? '+' : ''}{formatINR(gain)} ({pos ? '+' : ''}{gainPct}%)
-    </div>
-  );
+// ── Client-side image preprocessor for crisp OCR ─────────────────────────
+// Groww uses teal (#00D09C) on white for fund names and returns.
+// In the red channel, white is 255 and teal is 0, giving extreme contrast!
+async function preprocessImageForOcr(file: File): Promise<Blob> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const scale = Math.max(1, 1400 / img.width);
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return resolve(file);
+
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const d = imgData.data;
+
+        // Red channel thresholding
+        for (let i = 0; i < d.length; i += 4) {
+          const r = d[i];
+          const v = r < 215 ? 0 : 255;
+          d[i] = v;
+          d[i + 1] = v;
+          d[i + 2] = v;
+        }
+        ctx.putImageData(imgData, 0, 0);
+
+        canvas.toBlob((blob) => {
+          resolve(blob || file);
+        }, 'image/png');
+      } catch {
+        resolve(file);
+      }
+    };
+    img.onerror = () => resolve(file);
+    img.src = URL.createObjectURL(file);
+  });
 }
 
-// ── Snapshot card for MF / Stocks ────────────────────────────────────────
-function SnapshotSection({
-  title, icon, color, snapshots, onDelete,
-}: {
-  title: string; icon: string; color: string;
-  snapshots: any[]; onDelete: (id: string) => void;
-}) {
-  const latest = snapshots[0];
-  if (snapshots.length === 0) return null;
-
-  return (
-    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 18, padding: '16px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{
-            width: 32, height: 32, borderRadius: 10,
-            background: `${color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16,
-          }}>{icon}</div>
-          <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)' }}>{title}</div>
-        </div>
-        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{snapshots.length} snapshot{snapshots.length !== 1 ? 's' : ''}</span>
-      </div>
-
-      {/* Latest hero numbers */}
-      {latest && (
-        <div style={{ padding: '12px', borderRadius: 14, background: 'var(--bg-elevated)', marginBottom: 10, borderLeft: `3.5px solid ${color}` }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-            <div>
-              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2 }}>Invested</div>
-              <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-primary)' }}>{formatINR(latest.totalInvested)}</div>
-            </div>
-            <div>
-              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2 }}>Current</div>
-              <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-primary)' }}>{formatINR(latest.currentValue)}</div>
-            </div>
-            <div>
-              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2 }}>Returns</div>
-              <div style={{ fontSize: 12, fontWeight: 800, color: latest.totalGain >= 0 ? 'var(--success)' : 'var(--danger)' }}>
-                {latest.totalGain >= 0 ? '+' : ''}{latest.gainPercent}%
-                <div style={{ fontSize: 10.5, opacity: 0.8 }}>{formatINR(latest.totalGain)}</div>
-              </div>
-            </div>
-          </div>
-          <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: 8 }}>Last synced: {latest.date}</div>
-        </div>
-      )}
-
-      {/* History rows */}
-      {snapshots.length > 1 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {snapshots.map((snap, idx) => {
-            const pos = snap.totalGain >= 0;
-            return (
-              <div key={snap._id} style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '10px 12px', borderRadius: 12,
-                background: idx === 0 ? 'transparent' : 'var(--bg-elevated)',
-                opacity: idx === 0 ? 0 : 1, height: idx === 0 ? 0 : 'auto', overflow: 'hidden',
-              }}>
-                {idx > 0 && (<>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{formatINR(snap.currentValue)}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{snap.date} • Invested {formatINR(snap.totalInvested)}</div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{ textAlign: 'right', fontSize: 12, fontWeight: 700, color: pos ? 'var(--success)' : 'var(--danger)' }}>
-                      {pos ? '+' : ''}{snap.gainPercent}%
-                    </div>
-                    <button onClick={() => onDelete(snap._id)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: 4, cursor: 'pointer' }}>
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </>)}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Delete latest button */}
-      <button onClick={() => onDelete(latest._id)} style={{
-        marginTop: 8, background: 'none', border: 'none', color: 'var(--text-muted)',
-        fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
-      }}>
-        <Trash2 size={12} /> Delete latest snapshot
-      </button>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 export default function InvestmentsPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -159,14 +93,17 @@ export default function InvestmentsPage() {
   const [ocrError, setOcrError] = useState<string | null>(null);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [reviewData, setReviewData] = useState<ReviewData>({
+    holdingName: '',
     date: new Date().toISOString().split('T')[0],
-    totalInvested: 0, currentValue: 0,
-    portfolioType: 'mutual_funds', funds: [],
+    totalInvested: 0,
+    currentValue: 0,
+    portfolioType: 'mutual_funds',
+    funds: [],
   });
   const [syncNetWorth, setSyncNetWorth] = useState(true);
   const [savingSnapshot, setSavingSnapshot] = useState(false);
 
-  const isOcrRunning = ['loading-worker', 'ocr', 'parsing'].includes(ocrStatus);
+  const isOcrRunning = ['preprocessing', 'loading-worker', 'ocr', 'parsing'].includes(ocrStatus);
 
   // ── Load data ─────────────────────────────────────────────────────────
   const loadData = async () => {
@@ -187,7 +124,7 @@ export default function InvestmentsPage() {
 
   useEffect(() => { loadData(); }, []);
 
-  // ── Derived data ──────────────────────────────────────────────────────
+  // ── Derived stats ─────────────────────────────────────────────────────
   const investmentCatId = useMemo(() =>
     settings?.categories?.find((c) =>
       c.name.toLowerCase().includes('invest') || c.name.toLowerCase().includes('sip')
@@ -216,45 +153,60 @@ export default function InvestmentsPage() {
     });
   }, [investmentExpenses]);
 
-  // Split snapshots by portfolioType
-  const mfSnapshots     = snapshots.filter((s) => s.portfolioType === 'mutual_funds');
-  const stockSnapshots  = snapshots.filter((s) => s.portfolioType === 'stocks');
-  const combinedSnaps   = snapshots.filter((s) => s.portfolioType === 'combined' || !s.portfolioType);
+  // Group snapshots: distinct latest holdings
+  // If user uploaded SBI ELSS multiple times, pick the latest one for each holdingName
+  const distinctHoldings = useMemo(() => {
+    const map = new Map<string, any>();
+    snapshots.forEach((s) => {
+      const key = s.holdingName?.trim() || `unnamed_${s._id}`;
+      if (!map.has(key)) {
+        map.set(key, s);
+      }
+    });
+    return Array.from(map.values());
+  }, [snapshots]);
 
-  const latestMF      = mfSnapshots[0]     || null;
-  const latestStock   = stockSnapshots[0]  || null;
-  const latestCombined = combinedSnaps[0]  || null;
+  // Total Portfolio Metrics
+  const totalCurrentValue = useMemo(() => {
+    if (distinctHoldings.length > 0) {
+      return distinctHoldings.reduce((sum, h) => sum + (h.currentValue || 0), 0);
+    }
+    return accumulatedFromExpenses;
+  }, [distinctHoldings, accumulatedFromExpenses]);
 
-  // Overall combined metrics
-  const totalCurrentValue =
-    (latestMF?.currentValue || 0) +
-    (latestStock?.currentValue || 0) +
-    (latestCombined?.currentValue || 0) ||
-    accumulatedFromExpenses;
-
-  const totalInvested =
-    (latestMF?.totalInvested || 0) +
-    (latestStock?.totalInvested || 0) +
-    (latestCombined?.totalInvested || 0) ||
-    accumulatedFromExpenses;
+  const totalInvested = useMemo(() => {
+    if (distinctHoldings.length > 0) {
+      return distinctHoldings.reduce((sum, h) => sum + (h.totalInvested || 0), 0);
+    }
+    return accumulatedFromExpenses;
+  }, [distinctHoldings, accumulatedFromExpenses]);
 
   const totalGain = totalCurrentValue - totalInvested;
   const totalGainPct = totalInvested > 0 ? Number(((totalGain / totalInvested) * 100).toFixed(2)) : 0;
   const isPositive = totalGain >= 0;
 
-  // ── On-Device OCR ─────────────────────────────────────────────────────
+  // Split by category
+  const mfHoldings = distinctHoldings.filter((h) => h.portfolioType === 'mutual_funds');
+  const stockHoldings = distinctHoldings.filter((h) => h.portfolioType === 'stocks');
+
+  // ── On-Device OCR with Preprocessing ──────────────────────────────────
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     mediumTap();
     setOcrError(null);
-    setOcrStatus('loading-worker');
+    setOcrStatus('preprocessing');
     setOcrProgress(0);
 
     try {
-      const { createWorker } = await import('tesseract.js');
-      setOcrStatus('ocr');
+      // 1. High contrast red-channel separation
+      const processedBlob = await preprocessImageForOcr(file);
 
+      // 2. Load Tesseract.js WASM
+      setOcrStatus('loading-worker');
+      const { createWorker } = await import('tesseract.js');
+
+      setOcrStatus('ocr');
       const worker = await createWorker('eng', 1, {
         logger: (m: any) => {
           if (m.status === 'recognizing text') {
@@ -263,13 +215,15 @@ export default function InvestmentsPage() {
         },
       });
 
-      const { data: { text } } = await worker.recognize(file);
+      const { data: { text } } = await worker.recognize(processedBlob);
       await worker.terminate();
 
+      // 3. Smart Regex Parsing
       setOcrStatus('parsing');
       const parsed = parseGrowwOcrText(text);
 
       setReviewData({
+        holdingName: parsed.holdingName || '',
         date: new Date().toISOString().split('T')[0],
         totalInvested: parsed.totalInvested || accumulatedFromExpenses,
         currentValue: parsed.currentValue || 0,
@@ -278,7 +232,7 @@ export default function InvestmentsPage() {
       });
 
       if (!parsed.currentValue) {
-        setOcrError('Could not auto-read portfolio values. Please enter them manually:');
+        setOcrError('Could not auto-read all numbers. Please verify and fill missing values:');
       }
 
       setOcrStatus('done');
@@ -286,8 +240,9 @@ export default function InvestmentsPage() {
       successBuzz();
     } catch (err: any) {
       console.error('Tesseract OCR failed:', err);
-      setOcrError('OCR failed. Enter portfolio values manually:');
+      setOcrError('OCR encountered an issue. Enter portfolio values manually:');
       setReviewData({
+        holdingName: '',
         date: new Date().toISOString().split('T')[0],
         totalInvested: accumulatedFromExpenses,
         currentValue: 0,
@@ -315,6 +270,7 @@ export default function InvestmentsPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          holdingName: reviewData.holdingName,
           date: reviewData.date,
           totalInvested: inv,
           currentValue: cur,
@@ -341,7 +297,7 @@ export default function InvestmentsPage() {
   };
 
   const handleDeleteSnapshot = async (id: string) => {
-    if (!confirm('Delete this snapshot?')) return;
+    if (!confirm('Delete this holding snapshot?')) return;
     lightTap();
     try {
       await fetch(`/api/investments/snapshots?id=${id}`, { method: 'DELETE' });
@@ -350,9 +306,13 @@ export default function InvestmentsPage() {
   };
 
   const ocrStatusLabel: Record<OcrStatus, string> = {
-    idle: '', 'loading-worker': 'Loading OCR engine…',
+    idle: '',
+    preprocessing: 'Enhancing image contrast…',
+    'loading-worker': 'Loading OCR engine…',
     ocr: `Reading screenshot… ${ocrProgress}%`,
-    parsing: 'Parsing portfolio values…', done: 'Done!', error: 'OCR error',
+    parsing: 'Extracting holding & numbers…',
+    done: 'Done!',
+    error: 'OCR error',
   };
 
   if (loading) return (
@@ -373,7 +333,7 @@ export default function InvestmentsPage() {
           </button>
           <div>
             <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Investments & Groww</h1>
-            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>MF · Stocks · On-device OCR</p>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>Auto-detects MF & Stocks · On-device OCR</p>
           </div>
         </div>
         <button onClick={() => fileInputRef.current?.click()} disabled={isOcrRunning} style={{
@@ -388,7 +348,7 @@ export default function InvestmentsPage() {
         }}>
           {isOcrRunning
             ? <><RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} /><span style={{ fontSize: 11 }}>{ocrStatusLabel[ocrStatus]}</span></>
-            : <><Camera size={15} /><span>Upload Screenshot</span></>}
+            : <><Camera size={15} /><span>Upload Groww</span></>}
         </button>
       </div>
 
@@ -397,7 +357,7 @@ export default function InvestmentsPage() {
         {/* ── On-device badge ───────────────────────────────────────── */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', borderRadius: 10, background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.18)' }}>
           <Cpu size={13} color="#10B981" />
-          <span style={{ fontSize: 11.5, fontWeight: 600, color: '#10B981' }}>OCR runs entirely on-device — no API key, no data sent anywhere</span>
+          <span style={{ fontSize: 11.5, fontWeight: 600, color: '#10B981' }}>On-device OCR · Zero API key · Data stays 100% private</span>
         </div>
 
         {/* ── Overall Portfolio Hero ────────────────────────────────── */}
@@ -408,56 +368,48 @@ export default function InvestmentsPage() {
         }}>
           <div style={{ position: 'absolute', top: -40, right: -40, width: 140, height: 140, borderRadius: '50%', background: isPositive ? 'radial-gradient(circle, rgba(16,185,129,0.22) 0%, transparent 70%)' : 'radial-gradient(circle, rgba(239,68,68,0.22) 0%, transparent 70%)', pointerEvents: 'none' }} />
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(139,92,246,0.15)', color: '#8B5CF6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Layers size={18} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(139,92,246,0.15)', color: '#8B5CF6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Layers size={18} />
+              </div>
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Portfolio Value</span>
             </div>
-            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Portfolio</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-2)', background: 'var(--accent-dim)', padding: '3px 8px', borderRadius: 8 }}>
+              {distinctHoldings.length} holding{distinctHoldings.length !== 1 ? 's' : ''} tracked
+            </span>
           </div>
 
           <div style={{ fontSize: 32, fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.8px' }}>
             {formatINR(totalCurrentValue)}
           </div>
-          <PnlPill gain={totalGain} gainPct={totalGainPct} />
+
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 6,
+            padding: '3px 9px', borderRadius: 999, fontWeight: 700, fontSize: 12.5,
+            background: isPositive ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
+            color: isPositive ? 'var(--success)' : 'var(--danger)',
+            border: `1px solid ${isPositive ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)'}`,
+          }}>
+            {isPositive ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
+            {isPositive ? '+' : ''}{formatINR(totalGain)} ({isPositive ? '+' : ''}{totalGainPct}%) Total Returns
+          </div>
 
           <div style={{ height: 1, background: 'var(--border)', margin: '14px 0' }} />
 
-          {/* Per-type mini cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: mfSnapshots.length > 0 && stockSnapshots.length > 0 ? '1fr 1fr' : '1fr', gap: 10 }}>
-            {mfSnapshots.length > 0 && (
-              <div style={{ background: 'rgba(139,92,246,0.08)', borderRadius: 12, padding: '10px 12px', border: '1px solid rgba(139,92,246,0.18)' }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#8B5CF6', marginBottom: 4 }}>📊 Mutual Funds</div>
-                <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>{formatINR(latestMF?.currentValue || 0)}</div>
-                <div style={{ fontSize: 10.5, color: latestMF?.totalGain >= 0 ? 'var(--success)' : 'var(--danger)', marginTop: 2 }}>
-                  {latestMF?.totalGain >= 0 ? '+' : ''}{latestMF?.gainPercent}% returns
-                </div>
-              </div>
-            )}
-            {stockSnapshots.length > 0 && (
-              <div style={{ background: 'rgba(16,185,129,0.08)', borderRadius: 12, padding: '10px 12px', border: '1px solid rgba(16,185,129,0.18)' }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#10B981', marginBottom: 4 }}>📈 Stocks</div>
-                <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>{formatINR(latestStock?.currentValue || 0)}</div>
-                <div style={{ fontSize: 10.5, color: latestStock?.totalGain >= 0 ? 'var(--success)' : 'var(--danger)', marginTop: 2 }}>
-                  {latestStock?.totalGain >= 0 ? '+' : ''}{latestStock?.gainPercent}% returns
-                </div>
-              </div>
-            )}
-            {mfSnapshots.length === 0 && stockSnapshots.length === 0 && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-                <div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>Invested</div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{formatINR(totalInvested)}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>From Log</div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#A78BFA' }}>{formatINR(accumulatedFromExpenses)}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>SIPs Tracked</div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{investmentExpenses.length}</div>
-                </div>
-              </div>
-            )}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>Invested</div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>{formatINR(totalInvested)}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>MF Holdings</div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: '#8B5CF6' }}>{mfHoldings.length}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>Stock Holdings</div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: '#10B981' }}>{stockHoldings.length}</div>
+            </div>
           </div>
         </div>
 
@@ -472,10 +424,10 @@ export default function InvestmentsPage() {
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 2 }}>
-              {isOcrRunning ? ocrStatusLabel[ocrStatus] : 'Upload MF or Stocks Screenshot'}
+              {isOcrRunning ? ocrStatusLabel[ocrStatus] : 'Upload Groww Fund / Stock Screenshot'}
             </div>
             <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-              {isOcrRunning ? 'Processing on your device…' : 'Auto-detects Mutual Funds vs Stocks · Fully private'}
+              {isOcrRunning ? 'High-contrast OCR processing on device…' : 'Reads Fund Name, Invested, Current & Returns automatically'}
             </div>
             {ocrStatus === 'ocr' && (
               <div style={{ marginTop: 6, height: 4, borderRadius: 2, background: 'var(--border)', overflow: 'hidden' }}>
@@ -485,23 +437,85 @@ export default function InvestmentsPage() {
           </div>
         </div>
 
-        {/* ── Mutual Funds Snapshot Section ────────────────────────── */}
-        <SnapshotSection title="Mutual Funds" icon="📊" color="#8B5CF6" snapshots={mfSnapshots} onDelete={handleDeleteSnapshot} />
+        {/* ── Tracked Individual Holdings Section ───────────────────── */}
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 18, padding: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(139,92,246,0.15)', color: '#8B5CF6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Tag size={15} />
+              </div>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)' }}>Tracked Funds & Stocks</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Identified from your Groww screenshots</div>
+              </div>
+            </div>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{distinctHoldings.length} total</span>
+          </div>
 
-        {/* ── Stocks Snapshot Section ───────────────────────────────── */}
-        <SnapshotSection title="Stocks" icon="📈" color="#10B981" snapshots={stockSnapshots} onDelete={handleDeleteSnapshot} />
+          {distinctHoldings.length === 0 ? (
+            <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+              No holdings uploaded yet. Tap &quot;Upload Groww&quot; to scan any fund or stock screen.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {distinctHoldings.map((h) => {
+                const pos = h.totalGain >= 0;
+                const isStock = h.portfolioType === 'stocks';
+                return (
+                  <div key={h._id} style={{
+                    padding: '14px', borderRadius: 14,
+                    background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                    borderLeft: `4px solid ${isStock ? '#10B981' : '#8B5CF6'}`,
+                  }}>
+                    {/* Header: Name + Badge */}
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 10 }}>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1.3 }}>
+                          {h.holdingName || (isStock ? 'Stock Holding' : 'Mutual Fund Scheme')}
+                        </div>
+                        <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: 2 }}>
+                          {isStock ? '📈 Stock' : '📊 Mutual Fund'} • Synced {h.date}
+                        </div>
+                      </div>
+                      <button onClick={() => handleDeleteSnapshot(h._id)} style={{
+                        background: 'none', border: 'none', color: 'var(--text-muted)',
+                        padding: 4, cursor: 'pointer', flexShrink: 0,
+                      }}>
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
 
-        {/* ── Combined Snapshots (older/untagged) ───────────────────── */}
-        {combinedSnaps.length > 0 && (
-          <SnapshotSection title="Combined / Legacy" icon="🗂️" color="#3B82F6" snapshots={combinedSnaps} onDelete={handleDeleteSnapshot} />
-        )}
+                    {/* Metrics grid */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, paddingTop: 6, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                      <div>
+                        <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Invested</div>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-primary)', marginTop: 1 }}>{formatINR(h.totalInvested)}</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Current</div>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-primary)', marginTop: 1 }}>{formatINR(h.currentValue)}</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Returns</div>
+                        <div style={{ fontSize: 12.5, fontWeight: 800, color: pos ? 'var(--success)' : 'var(--danger)', marginTop: 1 }}>
+                          {pos ? '+' : ''}{formatINR(h.totalGain)}
+                          <span style={{ fontSize: 10.5, opacity: 0.85, marginLeft: 2 }}>({pos ? '+' : ''}{h.gainPercent}%)</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
         {/* ── Monthly SIP Chart ─────────────────────────────────────── */}
         <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 18, padding: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
             <div>
-              <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)' }}>Monthly SIP Investments</div>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Auto-aggregated from your Investment category</div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)' }}>Monthly SIP Debits</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>From your Investment expense category</div>
             </div>
             <Link href="/expenses" style={{ fontSize: 12, color: 'var(--accent-2)', textDecoration: 'none', fontWeight: 600 }}>View Log →</Link>
           </div>
@@ -563,7 +577,7 @@ export default function InvestmentsPage() {
               <div>
                 <h3 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Review Portfolio Snapshot</h3>
                 <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '3px 0 0' }}>
-                  {ocrError ? 'Enter values manually' : 'Auto-detected type — adjust if needed'}
+                  {ocrError ? 'Enter values manually' : 'Values auto-extracted from Groww screenshot'}
                 </p>
               </div>
               <button onClick={() => { setShowReviewModal(false); setOcrStatus('idle'); }} style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: '50%', width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', cursor: 'pointer' }}>
@@ -578,15 +592,33 @@ export default function InvestmentsPage() {
             )}
             {!ocrError && (
               <div style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 12, padding: '8px 14px', marginBottom: 14, fontSize: 12, color: '#10B981', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Cpu size={13} /><span>Values auto-extracted by on-device OCR · adjust if needed</span>
+                <Cpu size={13} /><span>High-contrast OCR auto-extracted holding name &amp; numbers</span>
               </div>
             )}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
+              {/* ── Scheme / Holding Name Field ── */}
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>
+                  Fund / Stock Name (auto-detected)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. SBI ELSS Tax Saver Fund Direct Growth"
+                  value={reviewData.holdingName}
+                  onChange={(e) => setReviewData({ ...reviewData, holdingName: e.target.value })}
+                  style={{
+                    width: '100%', padding: '10px 14px', borderRadius: 12,
+                    background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                    color: 'var(--text-primary)', fontSize: 13.5, fontWeight: 700,
+                  }}
+                />
+              </div>
+
               {/* ── Portfolio Type Picker ── */}
               <div>
-                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 8 }}>Portfolio Type (auto-detected)</label>
+                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 8 }}>Portfolio Type</label>
                 <div style={{ display: 'flex', gap: 8 }}>
                   {PORTFOLIO_TYPES.map((t) => (
                     <button key={t.value} onClick={() => setReviewData({ ...reviewData, portfolioType: t.value })}
@@ -633,7 +665,7 @@ export default function InvestmentsPage() {
                 return (
                   <div style={{ padding: '12px 14px', borderRadius: 12, background: pos ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', border: `1px solid ${pos ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)'}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{typeCfg.icon} {typeCfg.label} P&amp;L</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{typeCfg.icon} {reviewData.holdingName || typeCfg.label} P&amp;L</div>
                       <div style={{ fontSize: 15, fontWeight: 800, color: pos ? 'var(--success)' : 'var(--danger)', marginTop: 2 }}>
                         {pos ? '+' : ''}{formatINR(g)} ({pos ? '+' : ''}{pct}%)
                       </div>
@@ -660,7 +692,7 @@ export default function InvestmentsPage() {
                 style={{ background: reviewData.currentValue > 0 ? 'var(--accent-grad)' : 'var(--bg-elevated)', color: reviewData.currentValue > 0 ? '#fff' : 'var(--text-muted)', border: 'none', padding: '14px', borderRadius: 14, fontWeight: 800, fontSize: 15, cursor: reviewData.currentValue > 0 ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: reviewData.currentValue > 0 ? '0 6px 20px rgba(124,92,252,0.4)' : 'none', marginTop: 6 }}>
                 {savingSnapshot
                   ? <><RefreshCw size={18} style={{ animation: 'spin 1s linear infinite' }} /><span>Saving…</span></>
-                  : <><Check size={18} /><span>Save {typeCfg.icon} {typeCfg.label} Snapshot</span></>}
+                  : <><Check size={18} /><span>Save Snapshot</span></>}
               </button>
             </div>
           </div>
