@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import {
   TrendingUp, Camera, Trash2, ArrowLeft, Check,
   RefreshCw, AlertCircle, ArrowUpRight, ArrowDownRight,
-  X, Cpu, Layers, Tag, Globe, Sparkles
+  X, Cpu, Layers, Tag, Globe, Sparkles, Pencil
 } from 'lucide-react';
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid
@@ -24,6 +24,16 @@ type ReviewData = {
   oneDayGain: number;
   oneDayGainPercent: number;
   funds: InvestmentFund[];
+};
+
+type EditHoldingData = {
+  id: string;
+  originalName: string;
+  holdingName: string;
+  fundName?: string;
+  totalInvested: number;
+  currentValue: number;
+  portfolioType: PortfolioType;
 };
 
 type OcrStatus = 'idle' | 'preprocessing' | 'loading-worker' | 'ocr' | 'parsing' | 'done' | 'error';
@@ -94,6 +104,10 @@ export default function InvestmentsPage() {
   // Deletion modal state
   const [holdingToDelete, setHoldingToDelete] = useState<{ id: string; name: string; fundName?: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Edit modal state
+  const [editingHolding, setEditingHolding] = useState<EditHoldingData | null>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   // OCR state
   const [ocrStatus, setOcrStatus] = useState<OcrStatus>('idle');
@@ -284,6 +298,44 @@ export default function InvestmentsPage() {
       alert('Error deleting item');
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  // ── Edit logic ────────────────────────────────────────────────────────
+  const handleSaveEdit = async () => {
+    if (!editingHolding) return;
+    setIsSavingEdit(true);
+    lightTap();
+    try {
+      const res = await fetch('/api/investments/snapshots', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingHolding.id,
+          originalName: editingHolding.originalName,
+          holdingName: editingHolding.holdingName,
+          fundName: editingHolding.fundName,
+          totalInvested: editingHolding.totalInvested,
+          currentValue: editingHolding.currentValue,
+          portfolioType: editingHolding.portfolioType,
+        }),
+      });
+
+      if (res.ok) {
+        successBuzz();
+        setEditingHolding(null);
+        setSyncToast('Holding updated successfully!');
+        setTimeout(() => setSyncToast(null), 3500);
+        await loadData();
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Failed to update holding');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Error updating holding');
+    } finally {
+      setIsSavingEdit(false);
     }
   };
 
@@ -672,15 +724,38 @@ export default function InvestmentsPage() {
                           {isStock ? '📈 Stock' : '📊 Mutual Fund'} • Synced {h.date}
                         </div>
                       </div>
-                      <button
-                        onClick={() => setHoldingToDelete({ id: h._id, name: h.holdingName || 'Holding', fundName: h.fundName })}
-                        style={{
-                          background: 'none', border: 'none', color: 'var(--text-muted)',
-                          padding: 6, cursor: 'pointer', flexShrink: 0, borderRadius: 8,
-                        }}
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                        <button
+                          onClick={() => setEditingHolding({
+                            id: h._id,
+                            originalName: h.holdingName || '',
+                            holdingName: h.holdingName || '',
+                            fundName: h.fundName,
+                            totalInvested: h.totalInvested || 0,
+                            currentValue: h.currentValue || 0,
+                            portfolioType: h.portfolioType || 'mutual_funds',
+                          })}
+                          style={{
+                            background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border)',
+                            color: 'var(--text-secondary)', padding: '6px 8px', cursor: 'pointer',
+                            borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}
+                          title="Edit holding"
+                        >
+                          <Pencil size={15} />
+                        </button>
+                        <button
+                          onClick={() => setHoldingToDelete({ id: h._id, name: h.holdingName || 'Holding', fundName: h.fundName })}
+                          style={{
+                            background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
+                            color: 'var(--danger)', padding: '6px 8px', cursor: 'pointer',
+                            borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}
+                          title="Delete holding"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
                     </div>
 
                     {/* Metrics grid */}
@@ -952,6 +1027,201 @@ export default function InvestmentsPage() {
                 }}
               >
                 {isDeleting ? <RefreshCw size={15} style={{ animation: 'spin 1s linear infinite' }} /> : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Custom Edit Holding Modal ── */}
+      {editingHolding && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1100,
+            background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+          }}
+          onClick={() => !isSavingEdit && setEditingHolding(null)}
+        >
+          <div
+            style={{
+              background: 'var(--bg-card)', border: '1px solid var(--border)',
+              borderRadius: 20, padding: 22, width: '100%', maxWidth: 420,
+              boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+              display: 'flex', flexDirection: 'column', gap: 14,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{
+                  width: 38, height: 38, borderRadius: 10,
+                  background: 'rgba(139,92,246,0.15)', color: '#8B5CF6',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Pencil size={18} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                    Edit Holding
+                  </h3>
+                  <p style={{ fontSize: 11.5, color: 'var(--text-muted)', margin: 0 }}>
+                    Modify name, invested amount or value
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setEditingHolding(null)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Holding Name input */}
+            <div>
+              <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>
+                HOLDING / SCHEME NAME
+              </label>
+              <input
+                type="text"
+                value={editingHolding.holdingName}
+                onChange={(e) => setEditingHolding({ ...editingHolding, holdingName: e.target.value })}
+                placeholder="e.g. Parag Parikh Flexi Cap Fund"
+                style={{
+                  width: '100%', padding: '10px 12px', borderRadius: 10,
+                  background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                  color: 'var(--text-primary)', fontSize: 13.5, fontWeight: 600, outline: 'none',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
+
+            {/* Portfolio Type Toggle */}
+            <div>
+              <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>
+                ASSET TYPE
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                {(['mutual_funds', 'stocks'] as PortfolioType[]).map((t) => {
+                  const active = editingHolding.portfolioType === t;
+                  return (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setEditingHolding({ ...editingHolding, portfolioType: t })}
+                      style={{
+                        padding: '9px 12px', borderRadius: 10,
+                        border: active ? '1.5px solid var(--accent)' : '1px solid var(--border)',
+                        background: active ? 'rgba(139,92,246,0.15)' : 'var(--bg-elevated)',
+                        color: active ? 'var(--accent-2)' : 'var(--text-muted)',
+                        fontWeight: active ? 700 : 500, fontSize: 12.5, cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                      }}
+                    >
+                      <span>{t === 'mutual_funds' ? '📊 Mutual Fund' : '📈 Stock'}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Invested & Current Value inputs */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div>
+                <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>
+                  INVESTED (₹)
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  value={editingHolding.totalInvested || ''}
+                  onChange={(e) => setEditingHolding({ ...editingHolding, totalInvested: parseFloat(e.target.value) || 0 })}
+                  placeholder="0"
+                  style={{
+                    width: '100%', padding: '10px 12px', borderRadius: 10,
+                    background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                    color: 'var(--text-primary)', fontSize: 14, fontWeight: 700, outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>
+                  CURRENT VALUE (₹)
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  value={editingHolding.currentValue || ''}
+                  onChange={(e) => setEditingHolding({ ...editingHolding, currentValue: parseFloat(e.target.value) || 0 })}
+                  placeholder="0"
+                  style={{
+                    width: '100%', padding: '10px 12px', borderRadius: 10,
+                    background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                    color: 'var(--text-primary)', fontSize: 14, fontWeight: 700, outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Calculated Return preview */}
+            {(() => {
+              const diff = editingHolding.currentValue - editingHolding.totalInvested;
+              const pct = editingHolding.totalInvested > 0
+                ? ((diff / editingHolding.totalInvested) * 100).toFixed(2)
+                : '0.00';
+              const pos = diff >= 0;
+              return (
+                <div style={{
+                  padding: '10px 14px', borderRadius: 12,
+                  background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                }}>
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Computed Returns</span>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: pos ? 'var(--success)' : 'var(--danger)' }}>
+                    {pos ? '+' : ''}{formatINR(diff)} ({pos ? '+' : ''}{pct}%)
+                  </span>
+                </div>
+              );
+            })()}
+
+            {/* Action buttons */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: 10, marginTop: 4 }}>
+              <button
+                onClick={() => setEditingHolding(null)}
+                disabled={isSavingEdit}
+                style={{
+                  padding: '11px', borderRadius: 12, border: '1px solid var(--border)',
+                  background: 'var(--bg-elevated)', color: 'var(--text-primary)',
+                  fontWeight: 700, fontSize: 14, cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                disabled={isSavingEdit || !editingHolding.holdingName.trim()}
+                style={{
+                  padding: '11px', borderRadius: 12, border: 'none',
+                  background: 'var(--accent-grad)', color: '#fff',
+                  fontWeight: 800, fontSize: 14, cursor: isSavingEdit ? 'not-allowed' : 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  boxShadow: '0 4px 15px rgba(124,92,252,0.3)',
+                }}
+              >
+                {isSavingEdit ? (
+                  <>
+                    <RefreshCw size={15} style={{ animation: 'spin 1s linear infinite' }} />
+                    <span>Saving…</span>
+                  </>
+                ) : (
+                  <>
+                    <Check size={16} />
+                    <span>Save Changes</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

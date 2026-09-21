@@ -135,6 +135,107 @@ export async function POST(request: Request) {
   }
 }
 
+export async function PATCH(request: Request) {
+  try {
+    await dbConnect();
+    const body = await request.json();
+    const {
+      id,
+      originalName,
+      holdingName,
+      totalInvested,
+      currentValue,
+      portfolioType,
+      fundName,
+    } = body;
+
+    if (!id && !originalName) {
+      return NextResponse.json({ error: 'ID or originalName is required' }, { status: 400 });
+    }
+
+    const inv = Number(totalInvested) || 0;
+    const cur = Number(currentValue) || 0;
+    const gain = cur - inv;
+    const gainPct = inv > 0 ? Number(((gain / inv) * 100).toFixed(2)) : 0;
+    const newName = (holdingName || '').trim();
+
+    // 1. Update standalone documents matching originalName or id
+    const filter = originalName
+      ? { holdingName: { $regex: new RegExp(`^${originalName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } }
+      : { _id: id };
+
+    await InvestmentSnapshot.updateMany(filter, {
+      $set: {
+        holdingName: newName,
+        totalInvested: inv,
+        currentValue: cur,
+        totalGain: gain,
+        gainPercent: gainPct,
+        ...(portfolioType ? { portfolioType } : {}),
+      },
+    });
+
+    // 2. Also update if it lives inside funds[] of any snapshot
+    const targetOldName = (fundName || originalName || '').trim();
+    if (targetOldName) {
+      const snapshotsWithFund = await InvestmentSnapshot.find({ 'funds.name': targetOldName });
+      for (const s of snapshotsWithFund) {
+        let changed = false;
+        (s.funds || []).forEach((f: any) => {
+          if (f.name.toLowerCase() === targetOldName.toLowerCase()) {
+            f.name = newName || f.name;
+            f.invested = inv;
+            f.current = cur;
+            f.gain = gain;
+            f.gainPercent = gainPct;
+            changed = true;
+          }
+        });
+        if (changed) {
+          await s.save();
+        }
+      }
+    }
+
+    // 3. Auto-update Net Worth
+    try {
+      const allLatest = await InvestmentSnapshot.find().sort({ date: -1 });
+      const totalMF = allLatest
+        .filter((s) => s.portfolioType === 'mutual_funds')
+        .reduce((sum, s) => sum + (s.currentValue || 0), 0);
+      const totalStocks = allLatest
+        .filter((s) => s.portfolioType === 'stocks')
+        .reduce((sum, s) => sum + (s.currentValue || 0), 0);
+
+      const settings = await Settings.findOne();
+      if (settings && settings.netWorthEntries) {
+        const entries = [...settings.netWorthEntries];
+        if (totalMF > 0) {
+          const idx = entries.findIndex(
+            (e: any) => e.type === 'asset' && (e.category === 'Mutual Funds' || e.name.toLowerCase().includes('mutual fund'))
+          );
+          if (idx >= 0) entries[idx].amount = totalMF;
+        }
+        if (totalStocks > 0) {
+          const idx = entries.findIndex(
+            (e: any) => e.type === 'asset' && (e.category === 'Stocks & Equity' || e.name.toLowerCase().includes('stock'))
+          );
+          if (idx >= 0) entries[idx].amount = totalStocks;
+        }
+        settings.netWorthEntries = entries;
+        await settings.save();
+      }
+    } catch (nwErr) {
+      console.error('Net Worth sync error during edit:', nwErr);
+    }
+
+    return NextResponse.json({ success: true, message: 'Holding updated successfully' });
+  } catch (error: any) {
+    console.error('PATCH /api/investments/snapshots error:', error);
+    return NextResponse.json({ error: error.message || 'Failed to update holding' }, { status: 500 });
+  }
+}
+
 export async function DELETE(request: Request) {
   try {
     await dbConnect();
