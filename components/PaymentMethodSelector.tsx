@@ -97,27 +97,42 @@ export function PaymentMethodSelector({ value, onChange, creditCards = [] }: Pay
   );
 }
 
-export function PaymentMethodBadge({ method }: { method?: string }) {
+export function PaymentMethodBadge({ method, creditCards = [] }: { method?: string; creditCards?: CreditCard[] }) {
   const str = method || 'upi';
 
   if (str.startsWith('credit_card')) {
-    const cardDigits = str.includes(':') ? str.split(':')[1] : '';
+    const rawSuffix = str.includes(':') ? str.split(':')[1] : '';
+    const digits = rawSuffix.replace(/^xx/i, '');
+
+    const matched = creditCards.find(c =>
+      (c.last4 && digits && c.last4 === digits) ||
+      (c.id && (c.id === rawSuffix || c.id === digits))
+    );
+
+    const displayName = matched
+      ? `${matched.name} (••${matched.last4})`
+      : digits
+      ? `Credit Card (••${digits})`
+      : 'Credit Card';
+
+    const cardColor = matched?.color || '#3B82F6';
+
     return (
       <span style={{
         display: 'inline-flex',
         alignItems: 'center',
-        gap: 4,
+        gap: 5,
         padding: '2px 8px',
         borderRadius: 6,
-        background: 'color-mix(in srgb, #3B82F6 15%, transparent)',
-        color: '#3B82F6',
+        background: `color-mix(in srgb, ${cardColor} 15%, transparent)`,
+        color: cardColor,
         fontSize: 11,
         fontWeight: 700,
         textTransform: 'uppercase',
         letterSpacing: '0.3px'
       }}>
         <CreditCardIcon size={11} />
-        Credit Card {cardDigits ? `(${cardDigits})` : ''}
+        {displayName}
       </span>
     );
   }

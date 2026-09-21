@@ -9,6 +9,10 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const { id } = await params;
     const body = await request.json();
 
+    if (body.paymentMethod && typeof body.paymentMethod === 'string' && body.paymentMethod.startsWith('credit_card:')) {
+      body.paymentMethod = body.paymentMethod.replace(/^credit_card:xx/i, 'credit_card:');
+    }
+
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
     }

@@ -86,13 +86,73 @@ export function CreditCardTracker({ settings, expenses = [], onUpdate }: Props) 
     await saveCards(nextList);
   }
 
-  // Calculate current month's card spend
+  // Calculate current billing cycle card spend
   function getCardSpend(card: CreditCard): number {
+    const isSingleCard = cards.length === 1;
+    const cardLast4 = (card.last4 || '').trim();
+    const cardId = (card.id || '').trim();
+
+    // Determine current billing cycle start & end
+    const today = new Date();
+    const curYear = today.getFullYear();
+    const curMonth = today.getMonth(); // 0-indexed
+    const curDate = today.getDate();
+
+    let cycleStartYear = curYear;
+    let cycleStartMonth = curMonth;
+    let cycleEndYear = curYear;
+    let cycleEndMonth = curMonth;
+
+    if (curDate >= card.billingDay) {
+      cycleStartMonth = curMonth;
+      cycleEndMonth = curMonth + 1;
+      if (cycleEndMonth > 11) {
+        cycleEndMonth = 0;
+        cycleEndYear += 1;
+      }
+    } else {
+      cycleStartMonth = curMonth - 1;
+      if (cycleStartMonth < 0) {
+        cycleStartMonth = 11;
+        cycleStartYear -= 1;
+      }
+      cycleEndMonth = curMonth;
+    }
+
+    const maxStartDay = new Date(cycleStartYear, cycleStartMonth + 1, 0).getDate();
+    const startDay = Math.min(card.billingDay, maxStartDay);
+    const startDateStr = `${cycleStartYear}-${String(cycleStartMonth + 1).padStart(2, '0')}-${String(startDay).padStart(2, '0')}`;
+
+    const maxEndDay = new Date(cycleEndYear, cycleEndMonth + 1, 0).getDate();
+    const endDay = Math.min(card.billingDay, maxEndDay);
+    const endDateStr = `${cycleEndYear}-${String(cycleEndMonth + 1).padStart(2, '0')}-${String(endDay).padStart(2, '0')}`;
+
     const matchingExpenses = expenses.filter(e => {
-      if (e.paymentMethod !== 'credit_card') return false;
-      if (card.last4 && e.note && e.note.includes(card.last4)) return true;
-      return true; // if only 1 card or general card spend
+      // Date filter: within cycle
+      if (e.date) {
+        if (e.date < startDateStr || e.date > endDateStr) return false;
+      }
+
+      const pm = (e.paymentMethod || '').toLowerCase();
+      if (!pm.startsWith('credit_card')) return false;
+
+      // Extract card identifier if present (e.g. credit_card:3249 or credit_card:xx3249)
+      const parts = pm.split(':');
+      const suffix = parts.length > 1 ? parts[1].replace(/^xx/i, '').trim() : '';
+
+      if (suffix) {
+        if (cardLast4 && suffix === cardLast4.toLowerCase()) return true;
+        if (cardId && suffix === cardId.toLowerCase()) return true;
+        return false;
+      }
+
+      // If generic credit_card (no suffix)
+      if (cardLast4 && e.note && e.note.includes(cardLast4)) return true;
+      if (isSingleCard) return true;
+
+      return false;
     });
+
     return matchingExpenses.reduce((sum, e) => sum + e.amount, 0);
   }
 

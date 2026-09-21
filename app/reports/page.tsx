@@ -274,6 +274,7 @@ export default function ReportsPage() {
               selectedMonth={selectedMonth}
               selectedYear={selectedYear}
               viewMode={viewMode}
+              creditCards={settings?.creditCards || []}
             />
           </div>
 

@@ -64,6 +64,7 @@ export default function DashboardPage() {
   const [dailyTotals, setDailyTotals]     = useState<{_id: string; total: number}[]>([]);
   const [prevCategoryTotals, setPrevCategoryTotals] = useState<CategoryTotal[]>([]);
   const [recentExpenses, setRecentExpenses] = useState<Expense[]>([]);
+  const [allExpenses, setAllExpenses]       = useState<Expense[]>([]);
   const [historicalAverage, setHistoricalAverage] = useState(0);
   const [showRebalanceModal, setShowRebalanceModal] = useState(false);
   const [pendingSuggestionsCount, setPendingSuggestionsCount] = useState(0);
@@ -76,19 +77,21 @@ export default function DashboardPage() {
       let prevMonth = selectedMonth - 1;
       let prevYear = selectedYear;
       if (prevMonth < 0) { prevMonth = 11; prevYear -= 1; }
-      const [settingsRes, monthlyRes, annualRes, suggestionsRes, prevMonthlyRes] = await Promise.all([
+      const [settingsRes, monthlyRes, annualRes, suggestionsRes, prevMonthlyRes, expRes] = await Promise.all([
         fetch('/api/settings'),
         fetch(`/api/analytics/monthly?month=${selectedMonth + 1}&year=${selectedYear}`),
         fetch(`/api/analytics/annual?year=${selectedYear}`),
         fetch('/api/suggestions'),
         fetch(`/api/analytics/monthly?month=${prevMonth + 1}&year=${prevYear}`),
+        fetch('/api/expenses?limit=300'),
       ]);
-      const [s, m, a, sugs, prevM] = await Promise.all([
+      const [s, m, a, sugs, prevM, exps] = await Promise.all([
         settingsRes.json(),
         monthlyRes.json(),
         annualRes.json(),
         suggestionsRes.json(),
         prevMonthlyRes.json(),
+        expRes.json(),
       ]);
       if (s && !s.error) {
         setSettings(s);
@@ -98,6 +101,9 @@ export default function DashboardPage() {
       }
       if (Array.isArray(sugs)) {
         setPendingSuggestionsCount(sugs.length);
+      }
+      if (Array.isArray(exps)) {
+        setAllExpenses(exps);
       }
       setCategoryTotals(Array.isArray(m.categoryTotals) ? m.categoryTotals : []);
       setPrevCategoryTotals(Array.isArray(prevM.categoryTotals) ? prevM.categoryTotals : []);
@@ -710,7 +716,7 @@ export default function DashboardPage() {
           {settings && (
             <CreditCardTracker
               settings={settings}
-              expenses={recentExpenses}
+              expenses={allExpenses}
               onUpdate={setSettings}
             />
           )}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Expense, formatINR } from '@/lib/types';
+import { Expense, formatINR, CreditCard as CreditCardType } from '@/lib/types';
 import { PaymentMethodBadge } from './PaymentMethodSelector';
 import { CreditCard } from 'lucide-react';
 
@@ -10,9 +10,37 @@ interface PaymentMethodBreakdownCardProps {
   selectedMonth?: number; // 0-indexed (0=Jan, 8=Sept)
   selectedYear?: number;
   viewMode?: 'monthly' | 'annual';
+  creditCards?: CreditCardType[];
 }
 
-export function PaymentMethodBreakdownCard({ expenses, selectedMonth, selectedYear, viewMode = 'monthly' }: PaymentMethodBreakdownCardProps) {
+function normalizeMethod(raw: string, cards: CreditCardType[] = []): string {
+  if (!raw) return 'upi';
+  if (raw === 'cash') return 'cash';
+  if (raw.startsWith('credit_card')) {
+    const rawSuffix = raw.includes(':') ? raw.split(':')[1].trim() : '';
+    const digits = rawSuffix.replace(/^xx/i, '');
+
+    if (cards.length > 0) {
+      const matched = cards.find(c =>
+        (c.last4 && digits && c.last4 === digits) ||
+        (c.id && (c.id === rawSuffix || c.id === digits))
+      );
+      if (matched) {
+        return `credit_card:${matched.last4 || matched.id}`;
+      }
+      if (cards.length === 1) {
+        return `credit_card:${cards[0].last4 || cards[0].id}`;
+      }
+    }
+    if (digits) {
+      return `credit_card:${digits}`;
+    }
+    return 'credit_card';
+  }
+  return 'upi';
+}
+
+export function PaymentMethodBreakdownCard({ expenses, selectedMonth, selectedYear, viewMode = 'monthly', creditCards = [] }: PaymentMethodBreakdownCardProps) {
   const { breakdown, total } = useMemo(() => {
     const map: Record<string, number> = {};
     let grandTotal = 0;
@@ -31,11 +59,8 @@ export function PaymentMethodBreakdownCard({ expenses, selectedMonth, selectedYe
     });
 
     filteredExpenses.forEach(exp => {
-      let rawMethod = exp.paymentMethod || 'upi';
-      if (!rawMethod.startsWith('credit_card') && rawMethod !== 'cash') {
-        rawMethod = 'upi';
-      }
-      map[rawMethod] = (map[rawMethod] ?? 0) + exp.amount;
+      const methodKey = normalizeMethod(exp.paymentMethod || 'upi', creditCards);
+      map[methodKey] = (map[methodKey] ?? 0) + exp.amount;
       grandTotal += exp.amount;
     });
 
@@ -49,7 +74,7 @@ export function PaymentMethodBreakdownCard({ expenses, selectedMonth, selectedYe
       .sort((a, b) => b.amount - a.amount);
 
     return { breakdown: list, total: grandTotal };
-  }, [expenses, selectedMonth, selectedYear, viewMode]);
+  }, [expenses, selectedMonth, selectedYear, viewMode, creditCards]);
 
   if (breakdown.length === 0) return null;
 
@@ -74,11 +99,13 @@ export function PaymentMethodBreakdownCard({ expenses, selectedMonth, selectedYe
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {breakdown.map(item => {
-          const color = item.method.startsWith('credit_card') ? '#3B82F6' : item.method === 'cash' ? '#EC4899' : '#10B981';
+          const matchedCard = creditCards.find(c => item.method === `credit_card:${c.last4}` || item.method === `credit_card:${c.id}`);
+          const color = matchedCard?.color || (item.method.startsWith('credit_card') ? '#3B82F6' : item.method === 'cash' ? '#EC4899' : '#10B981');
+
           return (
             <div key={item.method}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                <PaymentMethodBadge method={item.method} />
+                <PaymentMethodBadge method={item.method} creditCards={creditCards} />
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
                   {formatINR(item.amount)} <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-muted)' }}>({item.pct.toFixed(0)}%)</span>
                 </div>

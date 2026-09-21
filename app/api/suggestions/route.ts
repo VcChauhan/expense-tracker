@@ -35,8 +35,10 @@ export async function POST(req: Request) {
 
     const suggestedCategory = data.suggestedCategory || 'general';
     const suggestedLabel = data.suggestedLabel || (data.smsBody ? 'UPI Payment' : 'On-Device Expense');
-    const suggestedTags = data.suggestedTags || [];
-    const suggestedPaymentMethod = data.suggestedPaymentMethod || 'upi';
+    let suggestedPaymentMethod = data.suggestedPaymentMethod || 'upi';
+    if (suggestedPaymentMethod.startsWith('credit_card:')) {
+      suggestedPaymentMethod = suggestedPaymentMethod.replace(/^credit_card:xx/i, 'credit_card:');
+    }
     const smsBody = data.smsBody || '';
     const bodyLower = smsBody.toLowerCase();
 

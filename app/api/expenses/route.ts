@@ -40,6 +40,19 @@ export async function GET(request: Request) {
       filter.paymentMethod = paymentMethod;
     }
 
+    // Self-healing migration: Clean up any legacy 'credit_card:xx' records in database
+    try {
+      const legacy = await Expense.find({ paymentMethod: { $regex: /^credit_card:xx/i } }).select('_id paymentMethod').lean();
+      if (legacy.length > 0) {
+        for (const item of legacy) {
+          const cleanMethod = (item.paymentMethod as string).replace(/^credit_card:xx/i, 'credit_card:');
+          await Expense.updateOne({ _id: item._id }, { $set: { paymentMethod: cleanMethod } });
+        }
+      }
+    } catch (e) {
+      console.error('Legacy paymentMethod migration error:', e);
+    }
+
     const expenses = await Expense.find(filter)
       .sort({ date: -1, createdAt: -1 })
       .limit(limit)
@@ -58,6 +71,11 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { date, categoryId, amount, note, tags, paymentMethod } = body;
 
+    let cleanPaymentMethod = paymentMethod || 'upi';
+    if (cleanPaymentMethod.startsWith('credit_card:')) {
+      cleanPaymentMethod = cleanPaymentMethod.replace(/^credit_card:xx/i, 'credit_card:');
+    }
+
     if (!date || !categoryId || amount === undefined) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
@@ -69,7 +87,7 @@ export async function POST(request: Request) {
       amount: parsedAmount, 
       note: note ?? '', 
       tags: tags ?? [],
-      paymentMethod: paymentMethod || 'upi'
+      paymentMethod: cleanPaymentMethod
     });
 
     // Check category budget threshold for push alert asynchronously
