@@ -102,6 +102,8 @@ export default function InvestmentsPage() {
   });
   const [syncNetWorth, setSyncNetWorth] = useState(true);
   const [savingSnapshot, setSavingSnapshot] = useState(false);
+  const [holdingToDelete, setHoldingToDelete] = useState<{ id: string; name: string; fundName?: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const isOcrRunning = ['preprocessing', 'loading-worker', 'ocr', 'parsing'].includes(ocrStatus);
 
@@ -163,7 +165,8 @@ export default function InvestmentsPage() {
           const key = f.name?.trim();
           if (key && !map.has(key)) {
             map.set(key, {
-              _id: `${s._id}_${key}`,
+              _id: s._id,
+              fundName: f.name,
               holdingName: f.name,
               portfolioType: s.portfolioType,
               totalInvested: f.invested || 0,
@@ -177,7 +180,13 @@ export default function InvestmentsPage() {
       } else if (s.holdingName?.trim()) {
         const key = s.holdingName.trim();
         if (!map.has(key)) {
-          map.set(key, s);
+          map.set(key, { ...s, fundName: '' });
+        }
+      } else if (s._id) {
+        // Fallback for untagged snapshots
+        const key = `snapshot_${s._id}`;
+        if (!map.has(key)) {
+          map.set(key, { ...s, holdingName: s.portfolioType === 'stocks' ? 'Stock Portfolio' : 'Mutual Fund Portfolio' });
         }
       }
     });
@@ -318,13 +327,28 @@ export default function InvestmentsPage() {
     finally { setSavingSnapshot(false); }
   };
 
-  const handleDeleteSnapshot = async (id: string) => {
-    if (!confirm('Delete this holding snapshot?')) return;
+  const confirmDelete = async () => {
+    if (!holdingToDelete) return;
+    setIsDeleting(true);
     lightTap();
     try {
-      await fetch(`/api/investments/snapshots?id=${id}`, { method: 'DELETE' });
-      setSnapshots((prev) => prev.filter((s) => s._id !== id));
-    } catch (err) { console.error(err); }
+      const q = holdingToDelete.fundName
+        ? `id=${encodeURIComponent(holdingToDelete.id)}&fundName=${encodeURIComponent(holdingToDelete.fundName)}`
+        : `id=${encodeURIComponent(holdingToDelete.id)}`;
+      const res = await fetch(`/api/investments/snapshots?${q}`, { method: 'DELETE' });
+      if (res.ok) {
+        successBuzz();
+        setHoldingToDelete(null);
+        await loadData();
+      } else {
+        alert('Failed to delete item');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error deleting item');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const ocrStatusLabel: Record<OcrStatus, string> = {
@@ -499,11 +523,11 @@ export default function InvestmentsPage() {
                           {isStock ? '📈 Stock' : '📊 Mutual Fund'} • Synced {h.date}
                         </div>
                       </div>
-                      <button onClick={() => handleDeleteSnapshot(h._id)} style={{
+                      <button onClick={() => setHoldingToDelete({ id: h._id, name: h.holdingName || 'Holding', fundName: h.fundName })} style={{
                         background: 'none', border: 'none', color: 'var(--text-muted)',
-                        padding: 4, cursor: 'pointer', flexShrink: 0,
+                        padding: 6, cursor: 'pointer', flexShrink: 0, borderRadius: 8,
                       }}>
-                        <Trash2 size={14} />
+                        <Trash2 size={16} />
                       </button>
                     </div>
 
@@ -715,6 +739,67 @@ export default function InvestmentsPage() {
                 {savingSnapshot
                   ? <><RefreshCw size={18} style={{ animation: 'spin 1s linear infinite' }} /><span>Saving…</span></>
                   : <><Check size={18} /><span>Save Snapshot</span></>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Custom Delete Confirmation Modal ── */}
+      {holdingToDelete && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1100,
+            background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+          }}
+          onClick={() => !isDeleting && setHoldingToDelete(null)}
+        >
+          <div
+            style={{
+              background: 'var(--bg-card)', border: '1px solid var(--border)',
+              borderRadius: 20, padding: 22, width: '100%', maxWidth: 360,
+              boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{
+              width: 44, height: 44, borderRadius: 12,
+              background: 'rgba(239,68,68,0.12)', color: 'var(--danger)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              marginBottom: 14,
+            }}>
+              <Trash2 size={22} />
+            </div>
+            <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 6px' }}>
+              Delete Holding?
+            </h3>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 20px', lineHeight: 1.4 }}>
+              Are you sure you want to remove <strong style={{ color: 'var(--text-primary)' }}>{holdingToDelete.name}</strong> from your tracked investments?
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <button
+                onClick={() => setHoldingToDelete(null)}
+                disabled={isDeleting}
+                style={{
+                  padding: '11px', borderRadius: 12, border: '1px solid var(--border)',
+                  background: 'var(--bg-elevated)', color: 'var(--text-primary)',
+                  fontWeight: 700, fontSize: 14, cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={isDeleting}
+                style={{
+                  padding: '11px', borderRadius: 12, border: 'none',
+                  background: 'var(--danger)', color: '#fff',
+                  fontWeight: 800, fontSize: 14, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                }}
+              >
+                {isDeleting ? <RefreshCw size={15} style={{ animation: 'spin 1s linear infinite' }} /> : 'Delete'}
               </button>
             </div>
           </div>

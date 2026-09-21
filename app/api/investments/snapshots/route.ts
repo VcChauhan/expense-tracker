@@ -26,6 +26,8 @@ export async function POST(request: Request) {
       currentValue,
       totalGain,
       gainPercent,
+      oneDayGain = 0,
+      oneDayGainPercent = 0,
       source = 'groww',
       portfolioType = 'combined',
       funds = [],
@@ -50,6 +52,8 @@ export async function POST(request: Request) {
       currentValue: cur,
       totalGain: computedGain,
       gainPercent: computedGainPct,
+      oneDayGain: Number(oneDayGain) || 0,
+      oneDayGainPercent: Number(oneDayGainPercent) || 0,
       source,
       portfolioType,
       funds: Array.isArray(funds) ? funds : [],
@@ -138,8 +142,34 @@ export async function DELETE(request: Request) {
     await dbConnect();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
+    const fundName = searchParams.get('fundName');
+
     if (!id) return NextResponse.json({ error: 'ID is required' }, { status: 400 });
-    await InvestmentSnapshot.findByIdAndDelete(id);
+
+    let realId = id;
+    let targetFund = fundName;
+
+    // Handle compound ID: snapshotId_fundName
+    if (id.includes('_')) {
+      const parts = id.split('_');
+      realId = parts[0];
+      targetFund = targetFund || parts.slice(1).join('_');
+    }
+
+    if (targetFund) {
+      const snap = await InvestmentSnapshot.findById(realId);
+      if (snap) {
+        snap.funds = (snap.funds || []).filter((f) => f.name !== targetFund);
+        if (snap.funds.length === 0 && !snap.holdingName) {
+          await InvestmentSnapshot.findByIdAndDelete(realId);
+        } else {
+          await snap.save();
+        }
+        return NextResponse.json({ success: true });
+      }
+    }
+
+    await InvestmentSnapshot.findByIdAndDelete(realId);
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('DELETE /api/investments/snapshots error:', error);

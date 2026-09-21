@@ -15,6 +15,8 @@ export interface IInvestmentSnapshot extends Document {
   currentValue: number;
   totalGain: number;
   gainPercent: number;
+  oneDayGain?: number;
+  oneDayGainPercent?: number;
   source: string;
   portfolioType: string; // 'mutual_funds' | 'stocks' | 'combined'
   funds: IInvestmentFund[];
@@ -41,6 +43,8 @@ const InvestmentSnapshotSchema = new Schema<IInvestmentSnapshot>(
     currentValue: { type: Number, required: true, default: 0 },
     totalGain: { type: Number, required: true, default: 0 },
     gainPercent: { type: Number, required: true, default: 0 },
+    oneDayGain: { type: Number, default: 0 },
+    oneDayGainPercent: { type: Number, default: 0 },
     source: { type: String, default: 'groww' },
     portfolioType: { type: String, default: 'combined' },
     funds: { type: [InvestmentFundSchema], default: [] },

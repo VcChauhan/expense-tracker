@@ -65,6 +65,8 @@ export interface InvestmentSnapshot {
   currentValue: number;
   totalGain: number;
   gainPercent: number;
+  oneDayGain?: number;
+  oneDayGainPercent?: number;
   source: 'groww' | 'manual';
   portfolioType: PortfolioType;
   funds?: InvestmentFund[];

@@ -14,6 +14,8 @@ export interface ParsedPortfolio {
   currentValue: number;
   totalGain: number;
   gainPercent: number;
+  oneDayGain?: number;
+  oneDayGainPercent?: number;
   portfolioType: PortfolioType;
   funds: {
     name: string;
@@ -171,6 +173,8 @@ export function parseGrowwOcrText(ocrText: string): ParsedPortfolio {
   let currentValue = 0;
   let totalGain = 0;
   let gainPercent = 0;
+  let oneDayGain = 0;
+  let oneDayGainPercent = 0;
 
   // ── Strategy 1: Look for Groww's summary header (Current value, Invested value) ──
   for (let i = 0; i < rawLines.length; i++) {
@@ -198,8 +202,23 @@ export function parseGrowwOcrText(ocrText: string): ParsedPortfolio {
       }
     }
 
+    // Matching "1D returns"
+    if (l.includes('1d return') || l.includes('1d')) {
+      for (let j = i; j < Math.min(i + 4, rawLines.length); j++) {
+        const pctMatch = rawLines[j].match(/([+\-]?\d+(?:\.\d+)?)\s*%/);
+        if (pctMatch && !oneDayGainPercent) {
+          oneDayGainPercent = parseFloat(pctMatch[1]);
+        }
+        const signedAmt = rawLines[j].match(/([+\-])[₹$¥£]?\s*([0-9,]+(?:\.[0-9]+)?)/);
+        if (signedAmt && !oneDayGain) {
+          const sign = signedAmt[1] === '-' ? -1 : 1;
+          oneDayGain = cleanNumber(signedAmt[2]) * sign;
+        }
+      }
+    }
+
     // Matching "Total returns"
-    if (l.includes('total return') || l.includes('returns')) {
+    if (l.includes('total return') || (l.includes('returns') && !l.includes('1d'))) {
       for (let j = i; j < Math.min(i + 4, rawLines.length); j++) {
         const pctMatch = rawLines[j].match(/([+\-]?\d+(?:\.\d+)?)\s*%/);
         if (pctMatch && !gainPercent) {
@@ -295,6 +314,8 @@ export function parseGrowwOcrText(ocrText: string): ParsedPortfolio {
     currentValue,
     totalGain,
     gainPercent,
+    oneDayGain,
+    oneDayGainPercent,
     portfolioType,
     funds,
   };
