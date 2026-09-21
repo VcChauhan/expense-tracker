@@ -154,32 +154,54 @@ export default function InvestmentsPage() {
   }, [investmentExpenses]);
 
   // Group snapshots: distinct latest holdings
-  // If user uploaded SBI ELSS multiple times, pick the latest one for each holdingName
+  // Handles both single holding snapshots AND dashboard snapshots with funds[]
   const distinctHoldings = useMemo(() => {
     const map = new Map<string, any>();
     snapshots.forEach((s) => {
-      const key = s.holdingName?.trim() || `unnamed_${s._id}`;
-      if (!map.has(key)) {
-        map.set(key, s);
+      if (Array.isArray(s.funds) && s.funds.length > 0) {
+        s.funds.forEach((f: any) => {
+          const key = f.name?.trim();
+          if (key && !map.has(key)) {
+            map.set(key, {
+              _id: `${s._id}_${key}`,
+              holdingName: f.name,
+              portfolioType: s.portfolioType,
+              totalInvested: f.invested || 0,
+              currentValue: f.current || 0,
+              totalGain: f.gain || (f.current - f.invested),
+              gainPercent: f.gainPercent || 0,
+              date: s.date,
+            });
+          }
+        });
+      } else if (s.holdingName?.trim()) {
+        const key = s.holdingName.trim();
+        if (!map.has(key)) {
+          map.set(key, s);
+        }
       }
     });
     return Array.from(map.values());
   }, [snapshots]);
 
-  // Total Portfolio Metrics
+  // Total Portfolio Metrics: latest dashboard snapshot if available, or sum of holdings
   const totalCurrentValue = useMemo(() => {
+    const latestOverall = snapshots.find((s) => !s.holdingName && s.currentValue > 0);
+    if (latestOverall) return latestOverall.currentValue;
     if (distinctHoldings.length > 0) {
       return distinctHoldings.reduce((sum, h) => sum + (h.currentValue || 0), 0);
     }
     return accumulatedFromExpenses;
-  }, [distinctHoldings, accumulatedFromExpenses]);
+  }, [snapshots, distinctHoldings, accumulatedFromExpenses]);
 
   const totalInvested = useMemo(() => {
+    const latestOverall = snapshots.find((s) => !s.holdingName && s.totalInvested > 0);
+    if (latestOverall) return latestOverall.totalInvested;
     if (distinctHoldings.length > 0) {
       return distinctHoldings.reduce((sum, h) => sum + (h.totalInvested || 0), 0);
     }
     return accumulatedFromExpenses;
-  }, [distinctHoldings, accumulatedFromExpenses]);
+  }, [snapshots, distinctHoldings, accumulatedFromExpenses]);
 
   const totalGain = totalCurrentValue - totalInvested;
   const totalGainPct = totalInvested > 0 ? Number(((totalGain / totalInvested) * 100).toFixed(2)) : 0;
