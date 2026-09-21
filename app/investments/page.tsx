@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import {
   TrendingUp, Camera, Trash2, ArrowLeft, Check,
   RefreshCw, AlertCircle, ArrowUpRight, ArrowDownRight,
-  X, Cpu, Layers, Tag, ChevronRight
+  X, Cpu, Layers, Tag, Globe, Sparkles
 } from 'lucide-react';
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid
@@ -21,6 +21,8 @@ type ReviewData = {
   totalInvested: number;
   currentValue: number;
   portfolioType: PortfolioType;
+  oneDayGain: number;
+  oneDayGainPercent: number;
   funds: InvestmentFund[];
 };
 
@@ -38,8 +40,6 @@ function getTypeCfg(type: PortfolioType) {
 }
 
 // ── Client-side image preprocessor for crisp OCR ─────────────────────────
-// Groww uses teal (#00D09C) on white for fund names and returns.
-// In the red channel, white is 255 and teal is 0, giving extreme contrast!
 async function preprocessImageForOcr(file: File): Promise<Blob> {
   return new Promise((resolve) => {
     const img = new Image();
@@ -87,6 +87,14 @@ export default function InvestmentsPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
 
+  // Live market sync state
+  const [isSyncingLive, setIsSyncingLive] = useState(false);
+  const [syncToast, setSyncToast] = useState<string | null>(null);
+
+  // Deletion modal state
+  const [holdingToDelete, setHoldingToDelete] = useState<{ id: string; name: string; fundName?: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   // OCR state
   const [ocrStatus, setOcrStatus] = useState<OcrStatus>('idle');
   const [ocrProgress, setOcrProgress] = useState(0);
@@ -98,12 +106,12 @@ export default function InvestmentsPage() {
     totalInvested: 0,
     currentValue: 0,
     portfolioType: 'mutual_funds',
+    oneDayGain: 0,
+    oneDayGainPercent: 0,
     funds: [],
   });
   const [syncNetWorth, setSyncNetWorth] = useState(true);
   const [savingSnapshot, setSavingSnapshot] = useState(false);
-  const [holdingToDelete, setHoldingToDelete] = useState<{ id: string; name: string; fundName?: string } | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
 
   const isOcrRunning = ['preprocessing', 'loading-worker', 'ocr', 'parsing'].includes(ocrStatus);
 
@@ -156,7 +164,6 @@ export default function InvestmentsPage() {
   }, [investmentExpenses]);
 
   // Group snapshots: distinct latest holdings
-  // Handles both single holding snapshots AND dashboard snapshots with funds[]
   const distinctHoldings = useMemo(() => {
     const map = new Map<string, any>();
     snapshots.forEach((s) => {
@@ -183,7 +190,6 @@ export default function InvestmentsPage() {
           map.set(key, { ...s, fundName: '' });
         }
       } else if (s._id) {
-        // Fallback for untagged snapshots
         const key = `snapshot_${s._id}`;
         if (!map.has(key)) {
           map.set(key, { ...s, holdingName: s.portfolioType === 'stocks' ? 'Stock Portfolio' : 'Mutual Fund Portfolio' });
@@ -193,7 +199,7 @@ export default function InvestmentsPage() {
     return Array.from(map.values());
   }, [snapshots]);
 
-  // Total Portfolio Metrics: latest dashboard snapshot if available, or sum of holdings
+  // Total Portfolio Metrics
   const totalCurrentValue = useMemo(() => {
     const latestOverall = snapshots.find((s) => !s.holdingName && s.currentValue > 0);
     if (latestOverall) return latestOverall.currentValue;
@@ -216,11 +222,87 @@ export default function InvestmentsPage() {
   const totalGainPct = totalInvested > 0 ? Number(((totalGain / totalInvested) * 100).toFixed(2)) : 0;
   const isPositive = totalGain >= 0;
 
+  // 1D returns from latest snapshot or sum of holdings
+  const latest1D = useMemo(() => {
+    const latest = snapshots[0];
+    if (latest && (latest.oneDayGain || latest.oneDayGainPercent)) {
+      return { gain: latest.oneDayGain || 0, percent: latest.oneDayGainPercent || 0 };
+    }
+    const sumDay = distinctHoldings.reduce((s, h) => s + (h.oneDayGain || 0), 0);
+    if (sumDay !== 0) {
+      const pct = totalCurrentValue > 0 ? Number(((sumDay / totalCurrentValue) * 100).toFixed(2)) : 0;
+      return { gain: sumDay, percent: pct };
+    }
+    return { gain: 0, percent: 0 };
+  }, [snapshots, distinctHoldings, totalCurrentValue]);
+
   // Split by category
   const mfHoldings = distinctHoldings.filter((h) => h.portfolioType === 'mutual_funds');
   const stockHoldings = distinctHoldings.filter((h) => h.portfolioType === 'stocks');
 
-  // ── On-Device OCR with Preprocessing ──────────────────────────────────
+  // ── Live Internet Sync ────────────────────────────────────────────────
+  const handleSyncLive = async () => {
+    setIsSyncingLive(true);
+    lightTap();
+    try {
+      const res = await fetch('/api/investments/sync-live', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        successBuzz();
+        setSyncToast(data.message || 'Live prices updated!');
+        setTimeout(() => setSyncToast(null), 4500);
+        await loadData();
+      } else {
+        alert(data.error || 'Failed to sync live prices');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Error syncing live prices');
+    } finally {
+      setIsSyncingLive(false);
+    }
+  };
+
+  // ── Deletion logic ────────────────────────────────────────────────────
+  const confirmDelete = async () => {
+    if (!holdingToDelete) return;
+    setIsDeleting(true);
+    lightTap();
+    try {
+      const q = `holdingName=${encodeURIComponent(holdingToDelete.name)}&id=${encodeURIComponent(holdingToDelete.id)}` +
+        (holdingToDelete.fundName ? `&fundName=${encodeURIComponent(holdingToDelete.fundName)}` : '');
+      const res = await fetch(`/api/investments/snapshots?${q}`, { method: 'DELETE' });
+      if (res.ok) {
+        successBuzz();
+        setHoldingToDelete(null);
+        await loadData();
+      } else {
+        alert('Failed to delete item');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error deleting item');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleClearAll = async () => {
+    if (!confirm('Clear all tracked investment snapshots and start fresh?')) return;
+    setIsDeleting(true);
+    lightTap();
+    try {
+      await fetch('/api/investments/snapshots?id=all', { method: 'DELETE' });
+      successBuzz();
+      await loadData();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // ── On-Device OCR ─────────────────────────────────────────────────────
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -230,10 +312,8 @@ export default function InvestmentsPage() {
     setOcrProgress(0);
 
     try {
-      // 1. High contrast red-channel separation
       const processedBlob = await preprocessImageForOcr(file);
 
-      // 2. Load Tesseract.js WASM
       setOcrStatus('loading-worker');
       const { createWorker } = await import('tesseract.js');
 
@@ -249,7 +329,6 @@ export default function InvestmentsPage() {
       const { data: { text } } = await worker.recognize(processedBlob);
       await worker.terminate();
 
-      // 3. Smart Regex Parsing
       setOcrStatus('parsing');
       const parsed = parseGrowwOcrText(text);
 
@@ -259,6 +338,8 @@ export default function InvestmentsPage() {
         totalInvested: parsed.totalInvested || accumulatedFromExpenses,
         currentValue: parsed.currentValue || 0,
         portfolioType: parsed.portfolioType,
+        oneDayGain: parsed.oneDayGain || 0,
+        oneDayGainPercent: parsed.oneDayGainPercent || 0,
         funds: parsed.funds || [],
       });
 
@@ -278,6 +359,8 @@ export default function InvestmentsPage() {
         totalInvested: accumulatedFromExpenses,
         currentValue: 0,
         portfolioType: 'mutual_funds',
+        oneDayGain: 0,
+        oneDayGainPercent: 0,
         funds: [],
       });
       setOcrStatus('error');
@@ -307,6 +390,8 @@ export default function InvestmentsPage() {
           currentValue: cur,
           totalGain: gain,
           gainPercent: pct,
+          oneDayGain: reviewData.oneDayGain || 0,
+          oneDayGainPercent: reviewData.oneDayGainPercent || 0,
           source: 'groww',
           portfolioType: reviewData.portfolioType,
           funds: reviewData.funds,
@@ -325,30 +410,6 @@ export default function InvestmentsPage() {
       }
     } catch (e) { console.error(e); alert('Failed to save snapshot'); }
     finally { setSavingSnapshot(false); }
-  };
-
-  const confirmDelete = async () => {
-    if (!holdingToDelete) return;
-    setIsDeleting(true);
-    lightTap();
-    try {
-      const q = holdingToDelete.fundName
-        ? `id=${encodeURIComponent(holdingToDelete.id)}&fundName=${encodeURIComponent(holdingToDelete.fundName)}`
-        : `id=${encodeURIComponent(holdingToDelete.id)}`;
-      const res = await fetch(`/api/investments/snapshots?${q}`, { method: 'DELETE' });
-      if (res.ok) {
-        successBuzz();
-        setHoldingToDelete(null);
-        await loadData();
-      } else {
-        alert('Failed to delete item');
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Error deleting item');
-    } finally {
-      setIsDeleting(false);
-    }
   };
 
   const ocrStatusLabel: Record<OcrStatus, string> = {
@@ -371,6 +432,20 @@ export default function InvestmentsPage() {
     <div style={{ minHeight: '100vh', background: 'var(--bg)', paddingBottom: 90 }}>
       <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
 
+      {/* ── Toast Banner ─────────────────────────────────────────────── */}
+      {syncToast && (
+        <div style={{
+          position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 2000, background: 'rgba(16,185,129,0.95)', backdropFilter: 'blur(10px)',
+          color: '#fff', padding: '10px 20px', borderRadius: 12, fontWeight: 700,
+          fontSize: 13, display: 'flex', alignItems: 'center', gap: 8,
+          boxShadow: '0 8px 30px rgba(0,0,0,0.3)',
+        }}>
+          <Sparkles size={16} />
+          <span>{syncToast}</span>
+        </div>
+      )}
+
       {/* ── Header ───────────────────────────────────────────────────── */}
       <div style={{ padding: '20px 16px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -379,31 +454,74 @@ export default function InvestmentsPage() {
           </button>
           <div>
             <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Investments & Groww</h1>
-            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>Auto-detects MF & Stocks · On-device OCR</p>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>Live Market NAVs · On-device OCR</p>
           </div>
         </div>
-        <button onClick={() => fileInputRef.current?.click()} disabled={isOcrRunning} style={{
-          display: 'flex', alignItems: 'center', gap: 6,
-          background: isOcrRunning ? 'var(--bg-elevated)' : 'var(--accent-grad)',
-          color: isOcrRunning ? 'var(--text-muted)' : '#fff',
-          border: isOcrRunning ? '1px solid var(--border)' : 'none',
-          padding: '8px 14px', borderRadius: 12, fontWeight: 700, fontSize: 13,
-          cursor: isOcrRunning ? 'not-allowed' : 'pointer',
-          boxShadow: isOcrRunning ? 'none' : '0 4px 14px rgba(124,92,252,0.3)',
-          minWidth: 140,
-        }}>
-          {isOcrRunning
-            ? <><RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} /><span style={{ fontSize: 11 }}>{ocrStatusLabel[ocrStatus]}</span></>
-            : <><Camera size={15} /><span>Upload Groww</span></>}
-        </button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* Live Sync Button */}
+          <button
+            onClick={handleSyncLive}
+            disabled={isSyncingLive || distinctHoldings.length === 0}
+            title="Fetch today's live NAV & Stock prices from AMFI & NSE"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              background: 'rgba(16,185,129,0.12)',
+              color: '#10B981', border: '1px solid rgba(16,185,129,0.25)',
+              padding: '8px 12px', borderRadius: 12, fontWeight: 700, fontSize: 12.5,
+              cursor: isSyncingLive ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {isSyncingLive ? (
+              <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} />
+            ) : (
+              <Globe size={14} />
+            )}
+            <span>{isSyncingLive ? 'Syncing…' : 'Live Sync'}</span>
+          </button>
+
+          {/* Upload Button */}
+          <button onClick={() => fileInputRef.current?.click()} disabled={isOcrRunning} style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            background: isOcrRunning ? 'var(--bg-elevated)' : 'var(--accent-grad)',
+            color: isOcrRunning ? 'var(--text-muted)' : '#fff',
+            border: isOcrRunning ? '1px solid var(--border)' : 'none',
+            padding: '8px 14px', borderRadius: 12, fontWeight: 700, fontSize: 13,
+            cursor: isOcrRunning ? 'not-allowed' : 'pointer',
+            boxShadow: isOcrRunning ? 'none' : '0 4px 14px rgba(124,92,252,0.3)',
+          }}>
+            {isOcrRunning
+              ? <><RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} /><span style={{ fontSize: 11 }}>{ocrStatusLabel[ocrStatus]}</span></>
+              : <><Camera size={15} /><span>Upload</span></>}
+          </button>
+        </div>
       </div>
 
       <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-        {/* ── On-device badge ───────────────────────────────────────── */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', borderRadius: 10, background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.18)' }}>
-          <Cpu size={13} color="#10B981" />
-          <span style={{ fontSize: 11.5, fontWeight: 600, color: '#10B981' }}>On-device OCR · Zero API key · Data stays 100% private</span>
+        {/* ── Live Market Auto-Sync Banner ─────────────────────────── */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '9px 14px', borderRadius: 12, background: 'rgba(16,185,129,0.08)',
+          border: '1px solid rgba(16,185,129,0.2)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#10B981', boxShadow: '0 0 8px #10B981' }} />
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#10B981' }}>
+              Live Market Sync Enabled (AMFI &amp; NSE)
+            </span>
+          </div>
+          <button
+            onClick={handleSyncLive}
+            disabled={isSyncingLive}
+            style={{
+              background: 'none', border: 'none', color: '#10B981',
+              fontSize: 11.5, fontWeight: 800, cursor: 'pointer', padding: 0,
+              textDecoration: 'underline',
+            }}
+          >
+            Refresh Now
+          </button>
         </div>
 
         {/* ── Overall Portfolio Hero ────────────────────────────────── */}
@@ -422,7 +540,7 @@ export default function InvestmentsPage() {
               <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Portfolio Value</span>
             </div>
             <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-2)', background: 'var(--accent-dim)', padding: '3px 8px', borderRadius: 8 }}>
-              {distinctHoldings.length} holding{distinctHoldings.length !== 1 ? 's' : ''} tracked
+              {distinctHoldings.length} holding{distinctHoldings.length !== 1 ? 's' : ''}
             </span>
           </div>
 
@@ -430,15 +548,32 @@ export default function InvestmentsPage() {
             {formatINR(totalCurrentValue)}
           </div>
 
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 6,
-            padding: '3px 9px', borderRadius: 999, fontWeight: 700, fontSize: 12.5,
-            background: isPositive ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
-            color: isPositive ? 'var(--success)' : 'var(--danger)',
-            border: `1px solid ${isPositive ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)'}`,
-          }}>
-            {isPositive ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
-            {isPositive ? '+' : ''}{formatINR(totalGain)} ({isPositive ? '+' : ''}{totalGainPct}%) Total Returns
+          {/* Returns Badges (Total & Today's 1D) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              padding: '3px 9px', borderRadius: 999, fontWeight: 700, fontSize: 12,
+              background: isPositive ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
+              color: isPositive ? 'var(--success)' : 'var(--danger)',
+              border: `1px solid ${isPositive ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)'}`,
+            }}>
+              {isPositive ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
+              {isPositive ? '+' : ''}{formatINR(totalGain)} ({isPositive ? '+' : ''}{totalGainPct}%) Total
+            </div>
+
+            {(latest1D.gain !== 0 || latest1D.percent !== 0) && (
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                padding: '3px 9px', borderRadius: 999, fontWeight: 700, fontSize: 12,
+                background: latest1D.gain >= 0 ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
+                color: latest1D.gain >= 0 ? 'var(--success)' : 'var(--danger)',
+                border: `1px solid ${latest1D.gain >= 0 ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)'}`,
+              }}>
+                {latest1D.gain >= 0 ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
+                {latest1D.gain >= 0 ? '+' : ''}{latest1D.gain ? formatINR(latest1D.gain) + ' ' : ''}
+                ({latest1D.gain >= 0 ? '+' : ''}{latest1D.percent}%) 1D Today
+              </div>
+            )}
           </div>
 
           <div style={{ height: 1, background: 'var(--border)', margin: '14px 0' }} />
@@ -470,10 +605,10 @@ export default function InvestmentsPage() {
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 2 }}>
-              {isOcrRunning ? ocrStatusLabel[ocrStatus] : 'Upload Groww Fund / Stock Screenshot'}
+              {isOcrRunning ? ocrStatusLabel[ocrStatus] : 'Upload Groww Screenshot'}
             </div>
             <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-              {isOcrRunning ? 'High-contrast OCR processing on device…' : 'Reads Fund Name, Invested, Current & Returns automatically'}
+              {isOcrRunning ? 'Reading values on device…' : 'Single fund/stock or full dashboard (remember to unmask eye icon)'}
             </div>
             {ocrStatus === 'ocr' && (
               <div style={{ marginTop: 6, height: 4, borderRadius: 2, background: 'var(--border)', overflow: 'hidden' }}>
@@ -491,16 +626,30 @@ export default function InvestmentsPage() {
                 <Tag size={15} />
               </div>
               <div>
-                <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)' }}>Tracked Funds & Stocks</div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Identified from your Groww screenshots</div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)' }}>Tracked Funds &amp; Stocks</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Auto-updates from live AMFI &amp; NSE market data</div>
               </div>
             </div>
-            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{distinctHoldings.length} total</span>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{distinctHoldings.length} total</span>
+              {distinctHoldings.length > 0 && (
+                <button
+                  onClick={handleClearAll}
+                  style={{
+                    background: 'none', border: 'none', color: 'var(--danger)',
+                    fontSize: 11.5, fontWeight: 700, cursor: 'pointer', padding: 0,
+                  }}
+                >
+                  Clear All
+                </button>
+              )}
+            </div>
           </div>
 
           {distinctHoldings.length === 0 ? (
             <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
-              No holdings uploaded yet. Tap &quot;Upload Groww&quot; to scan any fund or stock screen.
+              No holdings uploaded yet. Tap &quot;Upload&quot; to scan your Groww portfolio.
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -508,12 +657,12 @@ export default function InvestmentsPage() {
                 const pos = h.totalGain >= 0;
                 const isStock = h.portfolioType === 'stocks';
                 return (
-                  <div key={h._id} style={{
+                  <div key={h.holdingName || h._id} style={{
                     padding: '14px', borderRadius: 14,
                     background: 'var(--bg-elevated)', border: '1px solid var(--border)',
                     borderLeft: `4px solid ${isStock ? '#10B981' : '#8B5CF6'}`,
                   }}>
-                    {/* Header: Name + Badge */}
+                    {/* Header: Name + Delete */}
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 10 }}>
                       <div>
                         <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1.3 }}>
@@ -523,10 +672,13 @@ export default function InvestmentsPage() {
                           {isStock ? '📈 Stock' : '📊 Mutual Fund'} • Synced {h.date}
                         </div>
                       </div>
-                      <button onClick={() => setHoldingToDelete({ id: h._id, name: h.holdingName || 'Holding', fundName: h.fundName })} style={{
-                        background: 'none', border: 'none', color: 'var(--text-muted)',
-                        padding: 6, cursor: 'pointer', flexShrink: 0, borderRadius: 8,
-                      }}>
+                      <button
+                        onClick={() => setHoldingToDelete({ id: h._id, name: h.holdingName || 'Holding', fundName: h.fundName })}
+                        style={{
+                          background: 'none', border: 'none', color: 'var(--text-muted)',
+                          padding: 6, cursor: 'pointer', flexShrink: 0, borderRadius: 8,
+                        }}
+                      >
                         <Trash2 size={16} />
                       </button>
                     </div>
