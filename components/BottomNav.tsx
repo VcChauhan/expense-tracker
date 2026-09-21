@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { LayoutDashboard, List, Plus, BarChart2, Lightbulb, Settings, TrendingUp, LogOut, Menu, X } from 'lucide-react';
+import { House, Receipt, Plus, BarChart3, Lightbulb, Settings, TrendingUp, LogOut, MoreHorizontal, X } from 'lucide-react';
 
 export default function BottomNav() {
   const pathname = usePathname();
@@ -23,11 +23,11 @@ export default function BottomNav() {
   }
 
   const navItems = [
-    { href: '/', icon: <LayoutDashboard size={20} strokeWidth={2} />, label: 'Home' },
-    { href: '/expenses', icon: <List size={20} strokeWidth={2} />, label: 'Log' },
+    { href: '/', icon: <House size={20} strokeWidth={2} />, label: 'Home' },
+    { href: '/expenses', icon: <Receipt size={20} strokeWidth={2} />, label: 'Log' },
     { isFab: true },
-    { href: '/reports', icon: <BarChart2 size={20} strokeWidth={2} />, label: 'Reports' },
-    { isMenu: true, icon: <Menu size={20} strokeWidth={2} />, label: 'More' }
+    { href: '/reports', icon: <BarChart3 size={20} strokeWidth={2} />, label: 'Reports' },
+    { isMenu: true, icon: <MoreHorizontal size={20} strokeWidth={2} />, label: 'More' }
   ];
 
   const menuLinks = [
@@ -103,8 +103,8 @@ export default function BottomNav() {
                   fontFamily: 'inherit',
                 }}
               >
-                {isActive && item.icon}
-                <span>{item.label}</span>
+                {item.icon}
+                {isActive && <span>{item.label}</span>}
               </button>
             );
           }
@@ -126,8 +126,8 @@ export default function BottomNav() {
                 transition: 'all 0.25s cubic-bezier(0.34, 1.2, 0.64, 1)',
               }}
             >
-              {isActive && item.icon}
-              <span>{item.label}</span>
+              {item.icon}
+              {isActive && <span>{item.label}</span>}
             </Link>
           );
         })}
