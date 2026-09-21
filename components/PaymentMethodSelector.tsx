@@ -126,10 +126,12 @@ export function PaymentMethodBadge({ method, creditCards = [] }: { method?: stri
         borderRadius: 6,
         background: `color-mix(in srgb, ${cardColor} 15%, transparent)`,
         color: cardColor,
+        border: `1px solid color-mix(in srgb, ${cardColor} 30%, transparent)`,
         fontSize: 11,
         fontWeight: 700,
         textTransform: 'uppercase',
-        letterSpacing: '0.3px'
+        letterSpacing: '0.3px',
+        boxShadow: `0 1px 4px color-mix(in srgb, ${cardColor} 15%, transparent)`,
       }}>
         <CreditCardIcon size={11} />
         {displayName}
@@ -147,10 +149,12 @@ export function PaymentMethodBadge({ method, creditCards = [] }: { method?: stri
         borderRadius: 6,
         background: 'color-mix(in srgb, #EC4899 15%, transparent)',
         color: '#EC4899',
+        border: '1px solid color-mix(in srgb, #EC4899 30%, transparent)',
         fontSize: 11,
         fontWeight: 700,
         textTransform: 'uppercase',
-        letterSpacing: '0.3px'
+        letterSpacing: '0.3px',
+        boxShadow: '0 1px 4px color-mix(in srgb, #EC4899 15%, transparent)',
       }}>
         <DollarSign size={11} />
         Cash
@@ -158,7 +162,53 @@ export function PaymentMethodBadge({ method, creditCards = [] }: { method?: stri
     );
   }
 
-  // Default for all other transactions
+  if (str === 'debit_card') {
+    return (
+      <span style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
+        padding: '2px 8px',
+        borderRadius: 6,
+        background: 'color-mix(in srgb, #0284C7 15%, transparent)',
+        color: '#0284C7',
+        border: '1px solid color-mix(in srgb, #0284C7 30%, transparent)',
+        fontSize: 11,
+        fontWeight: 700,
+        textTransform: 'uppercase',
+        letterSpacing: '0.3px',
+        boxShadow: '0 1px 4px color-mix(in srgb, #0284C7 15%, transparent)',
+      }}>
+        <CreditCardIcon size={11} />
+        Debit Card
+      </span>
+    );
+  }
+
+  if (str === 'netbanking') {
+    return (
+      <span style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
+        padding: '2px 8px',
+        borderRadius: 6,
+        background: 'color-mix(in srgb, #F59E0B 15%, transparent)',
+        color: '#F59E0B',
+        border: '1px solid color-mix(in srgb, #F59E0B 30%, transparent)',
+        fontSize: 11,
+        fontWeight: 700,
+        textTransform: 'uppercase',
+        letterSpacing: '0.3px',
+        boxShadow: '0 1px 4px color-mix(in srgb, #F59E0B 15%, transparent)',
+      }}>
+        <Zap size={11} />
+        NetBanking
+      </span>
+    );
+  }
+
+  // Default for all other transactions (UPI)
   return (
     <span style={{
       display: 'inline-flex',
@@ -168,10 +218,12 @@ export function PaymentMethodBadge({ method, creditCards = [] }: { method?: stri
       borderRadius: 6,
       background: 'color-mix(in srgb, #10B981 15%, transparent)',
       color: '#10B981',
+      border: '1px solid color-mix(in srgb, #10B981 30%, transparent)',
       fontSize: 11,
       fontWeight: 700,
       textTransform: 'uppercase',
-      letterSpacing: '0.3px'
+      letterSpacing: '0.3px',
+      boxShadow: '0 1px 4px color-mix(in srgb, #10B981 15%, transparent)',
     }}>
       <Zap size={11} />
       UPI

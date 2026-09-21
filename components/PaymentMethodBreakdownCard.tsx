@@ -103,15 +103,25 @@ export function PaymentMethodBreakdownCard({ expenses, selectedMonth, selectedYe
           const color = matchedCard?.color || (item.method.startsWith('credit_card') ? '#3B82F6' : item.method === 'cash' ? '#EC4899' : '#10B981');
 
           return (
-            <div key={item.method}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <div key={item.method} style={{
+              background: 'var(--bg-elevated)',
+              borderRadius: 14,
+              padding: '12px 14px',
+              border: '1px solid var(--border)',
+              borderLeft: `3.5px solid ${color}`,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+              transition: 'all 0.2s ease',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <PaymentMethodBadge method={item.method} creditCards={creditCards} />
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
-                  {formatINR(item.amount)} <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-muted)' }}>({item.pct.toFixed(0)}%)</span>
+                <div style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--text-primary)' }}>
+                  {formatINR(item.amount)} <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)' }}>({item.pct.toFixed(0)}%)</span>
                 </div>
               </div>
-              <div style={{ height: 6, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${item.pct}%`, background: color, borderRadius: 3, transition: 'width 0.5s ease' }} />
+              <div style={{ height: 5, background: 'var(--bg-card)', borderRadius: 99, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${item.pct}%`, background: color, borderRadius: 99, transition: 'width 0.5s ease' }} />
               </div>
             </div>
           );

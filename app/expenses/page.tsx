@@ -373,28 +373,52 @@ export default function ExpensesPage() {
 
   function ExpenseRow({ exp }: { exp: Expense }) {
     const cat = getCategoryById(exp.categoryId);
+    const catColor = cat?.color || 'var(--accent)';
 
     return (
-      <div key={exp._id} className="expense-row" style={{ display: 'flex', alignItems: 'center', padding: '14px 16px', background: 'transparent' }}>
+      <div 
+        key={exp._id} 
+        className="expense-row" 
+        style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          padding: '13px 16px', 
+          background: 'transparent',
+          borderLeft: `3.5px solid ${catColor}`,
+          transition: 'background 0.15s ease',
+        }}
+      >
         <div style={{
-          width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
-          background: cat?.color ? `${cat.color}15` : 'var(--bg-elevated)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', color: cat?.color || 'var(--text-secondary)', marginRight: 12
+          width: 38, height: 38, borderRadius: 12, flexShrink: 0,
+          background: `${catColor}18`,
+          border: `1px solid ${catColor}30`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', 
+          color: catColor, marginRight: 12,
+          boxShadow: `0 2px 8px ${catColor}18`,
         }}>
-          <CategoryIcon name={cat?.name ?? ''} note={exp.note} size={18} />
+          <CategoryIcon name={cat?.name ?? ''} note={exp.note} size={18} color={catColor} inList={true} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {exp.note || cat?.name || 'Unknown'}
           </div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-            <span>{cat?.name}</span>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              padding: '1.5px 7px', borderRadius: 6,
+              background: `${catColor}15`,
+              color: catColor,
+              border: `1px solid ${catColor}28`,
+              fontSize: 11, fontWeight: 700,
+            }}>
+              {cat?.name}
+            </span>
             <span>•</span>
-            <PaymentMethodBadge method={exp.paymentMethod || 'upi'} />
+            <PaymentMethodBadge method={exp.paymentMethod || 'upi'} creditCards={settings?.creditCards || []} />
           </div>
         </div>
         <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', marginLeft: 12 }}>
-          <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--danger)' }}>
+          <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--danger)', letterSpacing: '-0.2px' }}>
             {formatINR(exp.amount)}
           </span>
           <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
@@ -607,21 +631,33 @@ export default function ExpensesPage() {
               Payment Method
             </label>
             <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 4 }}>
-              {['', 'upi', 'credit_card', 'debit_card', 'cash', 'netbanking'].map((pm) => (
-                <button
-                  key={pm}
-                  onClick={() => { setFilterPaymentMethod(filterPaymentMethod === pm ? '' : pm); setFilterCardKey(''); }}
-                  style={{
-                    padding: '6px 12px', borderRadius: 99, fontSize: 12, fontWeight: 700,
-                    border: '1px solid var(--border)',
-                    background: filterPaymentMethod === pm ? 'var(--accent)' : 'var(--bg-elevated)',
-                    color: filterPaymentMethod === pm ? '#fff' : 'var(--text-secondary)',
-                    cursor: 'pointer', whiteSpace: 'nowrap',
-                  }}
-                >
-                  {pm === '' ? 'All Methods' : pm === 'upi' ? 'UPI' : pm === 'credit_card' ? 'Credit Card' : pm === 'debit_card' ? 'Debit Card' : pm === 'cash' ? 'Cash' : 'NetBanking'}
-                </button>
-              ))}
+              {[
+                { id: '', label: 'All Methods', color: 'var(--accent)' },
+                { id: 'upi', label: 'UPI', color: '#10B981' },
+                { id: 'credit_card', label: 'Credit Card', color: '#8B5CF6' },
+                { id: 'debit_card', label: 'Debit Card', color: '#0284C7' },
+                { id: 'cash', label: 'Cash', color: '#EC4899' },
+                { id: 'netbanking', label: 'NetBanking', color: '#F59E0B' },
+              ].map((pm) => {
+                const isActive = filterPaymentMethod === pm.id;
+                return (
+                  <button
+                    key={pm.id}
+                    onClick={() => { setFilterPaymentMethod(isActive ? '' : pm.id); setFilterCardKey(''); }}
+                    style={{
+                      padding: '6px 12px', borderRadius: 99, fontSize: 12, fontWeight: 700,
+                      border: `1.5px solid ${isActive ? pm.color : 'var(--border)'}`,
+                      background: isActive ? pm.color : 'var(--bg-elevated)',
+                      color: isActive ? '#fff' : 'var(--text-secondary)',
+                      cursor: 'pointer', whiteSpace: 'nowrap',
+                      boxShadow: isActive ? `0 3px 10px color-mix(in srgb, ${pm.color} 40%, transparent)` : 'none',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    {pm.label}
+                  </button>
+                );
+              })}
             </div>
             {/* Narrow down to one specific saved card */}
             {filterPaymentMethod === 'credit_card' && (settings?.creditCards?.length ?? 0) > 0 && (
@@ -702,18 +738,26 @@ export default function ExpensesPage() {
       {/* Active Filter Dismissible Chips */}
       {(filterCategory || filterTag || filterPaymentMethod || filterCardKey || minAmount || maxAmount) && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '0 16px 12px' }}>
-          {filterCategory && (
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: 4,
-              padding: '4px 10px', borderRadius: 99, background: 'var(--accent-dim)',
-              color: 'var(--accent-2)', fontSize: 12, fontWeight: 700,
-            }}>
-              {getCategoryById(filterCategory)?.name || 'Category'}
-              <button onClick={() => setFilterCategory('')} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0, display: 'flex' }}>
-                <X size={12} />
-              </button>
-            </span>
-          )}
+          {filterCategory && (() => {
+            const cat = getCategoryById(filterCategory);
+            const catColor = cat?.color || 'var(--accent)';
+            return (
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '4px 10px', borderRadius: 99,
+                background: `color-mix(in srgb, ${catColor} 16%, transparent)`,
+                color: catColor,
+                border: `1px solid color-mix(in srgb, ${catColor} 35%, transparent)`,
+                fontSize: 12, fontWeight: 700,
+              }}>
+                <CategoryIcon name={cat?.name || ''} size={12} color={catColor} />
+                {cat?.name || 'Category'}
+                <button onClick={() => setFilterCategory('')} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0, display: 'flex' }}>
+                  <X size={12} />
+                </button>
+              </span>
+            );
+          })()}
 
           {filterTag && (
             <span style={{
@@ -728,26 +772,36 @@ export default function ExpensesPage() {
             </span>
           )}
 
-          {filterPaymentMethod && (
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: 4,
-              padding: '4px 10px', borderRadius: 99, background: 'var(--accent-dim)',
-              color: 'var(--accent-2)', fontSize: 12, fontWeight: 700,
-            }}>
-              Method: {filterPaymentMethod.replace('_', ' ').toUpperCase()}
-              <button onClick={() => { setFilterPaymentMethod(''); setFilterCardKey(''); }} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0, display: 'flex' }}>
-                <X size={12} />
-              </button>
-            </span>
-          )}
+          {filterPaymentMethod && (() => {
+            const pmColor = filterPaymentMethod === 'upi' ? '#10B981' : filterPaymentMethod === 'credit_card' ? '#8B5CF6' : filterPaymentMethod === 'cash' ? '#EC4899' : filterPaymentMethod === 'debit_card' ? '#0284C7' : '#F59E0B';
+            return (
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '4px 10px', borderRadius: 99,
+                background: `color-mix(in srgb, ${pmColor} 16%, transparent)`,
+                color: pmColor,
+                border: `1px solid color-mix(in srgb, ${pmColor} 35%, transparent)`,
+                fontSize: 12, fontWeight: 700,
+              }}>
+                Method: {filterPaymentMethod.replace('_', ' ').toUpperCase()}
+                <button onClick={() => { setFilterPaymentMethod(''); setFilterCardKey(''); }} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0, display: 'flex' }}>
+                  <X size={12} />
+                </button>
+              </span>
+            );
+          })()}
 
           {filterCardKey && (() => {
             const card = settings?.creditCards?.find(c => (c.last4 || c.id) === filterCardKey);
+            const cardColor = card?.color || '#3B82F6';
             return (
               <span style={{
-                display: 'inline-flex', alignItems: 'center', gap: 4,
-                padding: '4px 10px', borderRadius: 99, background: 'var(--accent-dim)',
-                color: 'var(--accent-2)', fontSize: 12, fontWeight: 700,
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '4px 10px', borderRadius: 99,
+                background: `color-mix(in srgb, ${cardColor} 16%, transparent)`,
+                color: cardColor,
+                border: `1px solid color-mix(in srgb, ${cardColor} 35%, transparent)`,
+                fontSize: 12, fontWeight: 700,
               }}>
                 Card: {card ? `${card.name} ••${card.last4 || ''}` : filterCardKey}
                 <button onClick={() => setFilterCardKey('')} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0, display: 'flex' }}>
@@ -799,22 +853,73 @@ export default function ExpensesPage() {
       <div style={{ display: 'flex', overflowX: 'auto', gap: 8, padding: '0 16px 16px', scrollbarWidth: 'none' }}>
         <button
           onClick={() => { setFilterCategory(''); setFilterTag(''); }}
-          style={{ whiteSpace: 'nowrap', padding: '6px 16px', borderRadius: 9999, border: '1px solid var(--border)', background: (!filterCategory && !filterTag) ? 'var(--text-primary)' : 'var(--bg-card)', color: (!filterCategory && !filterTag) ? 'var(--bg-card)' : 'var(--text-primary)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
-        >All</button>
-        {allTags.map(tag => (
-          <button
-            key={tag}
-            onClick={() => { setFilterTag(filterTag === tag ? '' : tag); setFilterCategory(''); }}
-            style={{ whiteSpace: 'nowrap', padding: '6px 16px', borderRadius: 9999, border: `1px solid ${filterTag === tag ? 'var(--accent)' : 'var(--border)'}`, background: filterTag === tag ? 'var(--accent)' : 'var(--bg-card)', color: filterTag === tag ? '#fff' : 'var(--text-primary)', fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}
-          >{tag}</button>
-        ))}
-        {settings?.categories?.map(c => (
-          <button
-            key={c.id}
-            onClick={() => { setFilterCategory(c.id); setFilterTag(''); }}
-            style={{ whiteSpace: 'nowrap', padding: '6px 16px', borderRadius: 9999, border: '1px solid var(--border)', background: filterCategory === c.id ? 'var(--text-primary)' : 'var(--bg-card)', color: filterCategory === c.id ? 'var(--bg-card)' : 'var(--text-primary)', fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}
-          >{c.name}</button>
-        ))}
+          style={{
+            whiteSpace: 'nowrap', padding: '6px 16px', borderRadius: 9999,
+            border: `1.5px solid ${(!filterCategory && !filterTag) ? 'var(--accent)' : 'var(--border)'}`,
+            background: (!filterCategory && !filterTag) ? 'var(--accent)' : 'var(--bg-card)',
+            color: (!filterCategory && !filterTag) ? '#fff' : 'var(--text-secondary)',
+            fontSize: 13, fontWeight: 700, cursor: 'pointer',
+            boxShadow: (!filterCategory && !filterTag) ? '0 3px 12px var(--accent-dim)' : 'none',
+            transition: 'all 0.2s',
+          }}
+        >
+          All
+        </button>
+        {allTags.map(tag => {
+          const isTagActive = filterTag === tag;
+          return (
+            <button
+              key={tag}
+              onClick={() => { setFilterTag(isTagActive ? '' : tag); setFilterCategory(''); }}
+              style={{
+                whiteSpace: 'nowrap', padding: '6px 14px', borderRadius: 9999,
+                border: `1.5px solid ${isTagActive ? 'var(--accent)' : 'var(--border)'}`,
+                background: isTagActive ? 'var(--accent)' : 'var(--bg-card)',
+                color: isTagActive ? '#fff' : 'var(--text-secondary)',
+                fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                boxShadow: isTagActive ? '0 3px 12px var(--accent-dim)' : 'none',
+                transition: 'all 0.2s',
+              }}
+            >
+              #{tag}
+            </button>
+          );
+        })}
+        {settings?.categories?.map(c => {
+          const isCatActive = filterCategory === c.id;
+          return (
+            <button
+              key={c.id}
+              onClick={() => { setFilterCategory(isCatActive ? '' : c.id); setFilterTag(''); }}
+              style={{
+                whiteSpace: 'nowrap', padding: isCatActive ? '6px 14px 6px 10px' : '6px 14px',
+                borderRadius: 9999,
+                border: `1.5px solid ${isCatActive ? c.color : 'var(--border)'}`,
+                background: isCatActive ? c.color : 'var(--bg-card)',
+                color: isCatActive ? '#fff' : 'var(--text-secondary)',
+                fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: 6,
+                boxShadow: isCatActive ? `0 4px 14px ${c.color}55` : 'none',
+                transform: isCatActive ? 'scale(1.03)' : 'scale(1)',
+                transition: 'all 0.2s',
+                flexShrink: 0,
+              }}
+            >
+              {isCatActive ? (
+                <span style={{
+                  width: 18, height: 18, borderRadius: '50%',
+                  background: 'rgba(255,255,255,0.25)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <CategoryIcon name={c.name} size={11} color="#fff" />
+                </span>
+              ) : (
+                <CategoryIcon name={c.name} size={13} color={c.color} />
+              )}
+              {c.name}
+            </button>
+          );
+        })}
       </div>
 
       {/* List / Timeline */}
@@ -833,6 +938,7 @@ export default function ExpensesPage() {
             selectedMonth={selectedMonth}
             selectedYear={selectedYear}
             categories={settings?.categories || []}
+            creditCards={settings?.creditCards || []}
             onEdit={handleOpenEdit}
             onDelete={handleDeleteClick}
           />

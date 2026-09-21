@@ -492,6 +492,16 @@ export default function ReportsPage() {
                         <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
                           {m.name}
                         </span>
+                        {cat && (
+                          <span style={{
+                            fontSize: 10.5, fontWeight: 700,
+                            padding: '1px 6px', borderRadius: 5,
+                            background: `${cat.color}18`, color: cat.color,
+                            border: `1px solid ${cat.color}28`,
+                          }}>
+                            {cat.name}
+                          </span>
+                        )}
                         <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                           • {m.count} txn{m.count > 1 ? 's' : ''}
                         </span>

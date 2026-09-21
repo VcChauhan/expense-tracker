@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Expense, Category, formatINR } from '@/lib/types';
+import { Expense, Category, formatINR, CreditCard } from '@/lib/types';
 import { Flame, Edit2, Trash2, X, Receipt } from 'lucide-react';
 import { CategoryIcon } from './CategoryIcon';
 import { PaymentMethodBadge } from './PaymentMethodSelector';
@@ -11,11 +11,12 @@ interface ExpenseCalendarViewProps {
   selectedMonth: number; // 1-12
   selectedYear: number;
   categories?: Category[];
+  creditCards?: CreditCard[];
   onEdit?: (exp: Expense) => void;
   onDelete?: (id: string) => void;
 }
 
-export function ExpenseCalendarView({ expenses, selectedMonth, selectedYear, categories = [], onEdit, onDelete }: ExpenseCalendarViewProps) {
+export function ExpenseCalendarView({ expenses, selectedMonth, selectedYear, categories = [], creditCards = [], onEdit, onDelete }: ExpenseCalendarViewProps) {
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
 
   const { daysInMonth, firstDayOfWeek, daySpendMap, streak } = useMemo(() => {
@@ -202,25 +203,40 @@ export function ExpenseCalendarView({ expenses, selectedMonth, selectedYear, cat
             {visibleExpenses.map(exp => {
               const cat = getCategoryById(exp.categoryId);
               return (
-                <div key={exp._id} style={{ display: 'flex', alignItems: 'center', padding: '10px 12px', background: 'var(--bg-elevated)', borderRadius: 14 }}>
+                <div key={exp._id} style={{
+                  display: 'flex', alignItems: 'center', padding: '10px 12px',
+                  background: 'var(--bg-elevated)', borderRadius: 14,
+                  borderLeft: `3.5px solid ${cat?.color || 'var(--border)'}`,
+                }}>
                   <div style={{
-                    width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
-                    background: cat?.color ? `${cat.color}22` : 'var(--bg-card)',
+                    width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                    background: cat?.color ? `${cat.color}18` : 'var(--bg-card)',
+                    border: `1px solid ${cat?.color ? `${cat.color}30` : 'var(--border)'}`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     color: cat?.color || 'var(--text-secondary)', marginRight: 12,
+                    boxShadow: `0 2px 6px ${cat?.color ? `${cat.color}15` : 'transparent'}`,
                   }}>
-                    <CategoryIcon name={cat?.name ?? ''} note={exp.note} size={16} />
+                    <CategoryIcon name={cat?.name ?? ''} note={exp.note} size={16} color={cat?.color} inList={true} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {exp.note || cat?.name || 'Unknown'}
                     </div>
-                    <div style={{ fontSize: 11.5, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                    <div style={{ fontSize: 11.5, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
                       {selectedDay === null && <span>{exp.date.split('-').slice(1).reverse().join('/')}</span>}
                       {selectedDay === null && <span>•</span>}
-                      <span>{cat?.name}</span>
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center',
+                        padding: '1.5px 6px', borderRadius: 6,
+                        background: cat?.color ? `${cat.color}15` : 'var(--bg-card)',
+                        color: cat?.color || 'var(--text-secondary)',
+                        border: `1px solid ${cat?.color ? `${cat.color}25` : 'var(--border)'}`,
+                        fontSize: 11, fontWeight: 700,
+                      }}>
+                        {cat?.name}
+                      </span>
                       <span>•</span>
-                      <PaymentMethodBadge method={exp.paymentMethod || 'upi'} />
+                      <PaymentMethodBadge method={exp.paymentMethod || 'upi'} creditCards={creditCards} />
                     </div>
                   </div>
                   <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', marginLeft: 10 }}>

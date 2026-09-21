@@ -243,6 +243,7 @@ export function ExpenseTimelineView({ expenses, viewMode, categories, onEdit, on
                   flexDirection: 'column',
                   alignItems: 'stretch',
                   gap: 0,
+                  borderLeft: `3.5px solid ${exp.color}`,
                   padding: expandedId === exp._id ? '10px 12px 12px 12px' : '10px 12px'
                 }}
               >
@@ -259,13 +260,32 @@ export function ExpenseTimelineView({ expenses, viewMode, categories, onEdit, on
                   </div>
                 )}
                 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                  <div className="c-icon" style={{ background: `${exp.color}22`, color: exp.color }}>
-                    <CategoryIcon name={categories.find(c => c.id === exp.categoryId)?.name || ''} note={exp.note} size={16} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div className="c-icon" style={{
+                    background: `${exp.color}18`,
+                    border: `1px solid ${exp.color}30`,
+                    color: exp.color,
+                    borderRadius: 10,
+                    width: 34, height: 34,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                    boxShadow: `0 2px 6px ${exp.color}15`,
+                  }}>
+                    <CategoryIcon name={categories.find(c => c.id === exp.categoryId)?.name || ''} note={exp.note} size={16} color={exp.color} inList={true} />
                   </div>
                   <div className="c-row-mid" style={{ flex: 1, minWidth: 0 }}>
                     <div className="c-row-title">{exp.note || categories.find(c => c.id === exp.categoryId)?.name || 'Expense'}</div>
-                    <div className="c-row-amt">{formatINR(exp.amount)}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 3 }}>
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center',
+                        padding: '1px 6px', borderRadius: 5,
+                        background: `${exp.color}15`, color: exp.color,
+                        border: `1px solid ${exp.color}25`,
+                        fontSize: 10.5, fontWeight: 700,
+                      }}>
+                        {categories.find(c => c.id === exp.categoryId)?.name}
+                      </span>
+                      <div className="c-row-amt">{formatINR(exp.amount)}</div>
+                    </div>
                   </div>
                 </div>
 
