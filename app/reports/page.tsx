@@ -238,13 +238,8 @@ export default function ReportsPage() {
 
       {/* ── Investment Summary Card ── */}
       {(() => {
-        const snap = latestInvestmentSnapshot;
-        if (!snap && !expenses.some((e: any) => {
-          const cat = settings?.categories?.find((c: any) => c.id === e.categoryId);
-          return cat?.name?.toLowerCase().includes('invest');
-        })) return null;
-
-        // Accumulated invested from Investment category expenses
+        const allSnaps: any[] = latestInvestmentSnapshot ? [latestInvestmentSnapshot] : [];
+        // We only have the single latest snap; compute totals from it
         const investCatId = settings?.categories?.find((c: any) =>
           c.name?.toLowerCase().includes('invest')
         )?.id;
@@ -252,57 +247,44 @@ export default function ReportsPage() {
           .filter((e: any) => e.categoryId === investCatId)
           .reduce((s: number, e: any) => s + (e.amount || 0), 0);
 
+        const hasAnyData = latestInvestmentSnapshot || accumulatedInvested > 0;
+        if (!hasAnyData) return null;
+
+        const snap = latestInvestmentSnapshot;
         const currentValue = snap?.currentValue || accumulatedInvested;
-        const investedAmt = snap?.totalInvested && snap.totalInvested > 0
-          ? snap.totalInvested : accumulatedInvested;
+        const investedAmt = snap?.totalInvested && snap.totalInvested > 0 ? snap.totalInvested : accumulatedInvested;
         const gain = snap?.totalGain !== undefined ? snap.totalGain : (currentValue - investedAmt);
         const gainPct = snap?.gainPercent !== undefined ? snap.gainPercent
           : investedAmt > 0 ? Number(((gain / investedAmt) * 100).toFixed(2)) : 0;
         const isPos = gain >= 0;
 
+        // Mini sub-type display (if portfolioType known)
+        const pType = snap?.portfolioType;
+        const isMF   = pType === 'mutual_funds';
+        const isStock = pType === 'stocks';
+
         return (
           <div style={{ padding: '0 16px 20px' }}>
             <Link href="/investments" style={{ textDecoration: 'none' }}>
               <div style={{
-                background: 'var(--bg-card)',
-                border: '1px solid var(--border)',
-                borderRadius: 18,
-                padding: '16px',
-                position: 'relative',
-                overflow: 'hidden',
+                background: 'var(--bg-card)', border: '1px solid var(--border)',
+                borderRadius: 18, padding: '16px',
+                position: 'relative', overflow: 'hidden',
                 boxShadow: '0 4px 18px rgba(0,0,0,0.18)',
-                transition: 'all 0.2s',
               }}>
-                {/* Green glow top-right */}
-                <div style={{
-                  position: 'absolute', top: -30, right: -30,
-                  width: 100, height: 100, borderRadius: '50%',
-                  background: isPos
-                    ? 'radial-gradient(circle, rgba(16,185,129,0.2) 0%, transparent 70%)'
-                    : 'radial-gradient(circle, rgba(239,68,68,0.2) 0%, transparent 70%)',
-                  pointerEvents: 'none',
-                }} />
+                <div style={{ position: 'absolute', top: -30, right: -30, width: 100, height: 100, borderRadius: '50%', background: isPos ? 'radial-gradient(circle, rgba(16,185,129,0.2) 0%, transparent 70%)' : 'radial-gradient(circle, rgba(239,68,68,0.2) 0%, transparent 70%)', pointerEvents: 'none' }} />
 
                 {/* Header */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{
-                      width: 30, height: 30, borderRadius: 9,
-                      background: 'rgba(16,185,129,0.14)',
-                      color: '#10B981',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>
+                    <div style={{ width: 30, height: 30, borderRadius: 9, background: 'rgba(139,92,246,0.14)', color: '#8B5CF6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <TrendingUp size={16} />
                     </div>
                     <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>
                       Investments & Groww
                     </span>
                   </div>
-                  <span style={{
-                    fontSize: 11, fontWeight: 700,
-                    color: 'var(--accent-2)', background: 'var(--accent-dim)',
-                    padding: '3px 8px', borderRadius: 8,
-                  }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-2)', background: 'var(--accent-dim)', padding: '3px 8px', borderRadius: 8 }}>
                     View All →
                   </span>
                 </div>
@@ -311,23 +293,15 @@ export default function ReportsPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
                   <div>
                     <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginBottom: 3 }}>Invested</div>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)' }}>
-                      {formatINR(investedAmt)}
-                    </div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)' }}>{formatINR(investedAmt)}</div>
                   </div>
                   <div>
                     <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginBottom: 3 }}>Current Value</div>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)' }}>
-                      {formatINR(currentValue)}
-                    </div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)' }}>{formatINR(currentValue)}</div>
                   </div>
                   <div>
                     <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginBottom: 3 }}>Total Returns</div>
-                    <div style={{
-                      display: 'flex', alignItems: 'center', gap: 3,
-                      fontSize: 14, fontWeight: 800,
-                      color: isPos ? 'var(--success)' : 'var(--danger)',
-                    }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 14, fontWeight: 800, color: isPos ? 'var(--success)' : 'var(--danger)' }}>
                       {isPos ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
                       <span>{isPos ? '+' : ''}{gainPct}%</span>
                     </div>
@@ -337,14 +311,23 @@ export default function ReportsPage() {
                   </div>
                 </div>
 
-                {snap && (
-                  <div style={{ marginTop: 10, fontSize: 10.5, color: 'var(--text-muted)' }}>
-                    Last synced: {snap.date} • Tap to upload new Groww screenshot
+                {/* MF / Stock type badge */}
+                {pType && pType !== 'combined' && (
+                  <div style={{ marginTop: 10, display: 'flex', gap: 6 }}>
+                    <span style={{
+                      fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 8,
+                      background: isMF ? 'rgba(139,92,246,0.12)' : 'rgba(16,185,129,0.12)',
+                      color: isMF ? '#8B5CF6' : '#10B981',
+                      border: `1px solid ${isMF ? 'rgba(139,92,246,0.25)' : 'rgba(16,185,129,0.25)'}`,
+                    }}>
+                      {isMF ? '📊 Mutual Funds' : '📈 Stocks'} snapshot
+                    </span>
+                    <span style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>• {snap?.date}</span>
                   </div>
                 )}
                 {!snap && (
                   <div style={{ marginTop: 10, fontSize: 10.5, color: 'var(--text-muted)' }}>
-                    Auto-accumulated from Investment expenses • Tap to upload Groww screenshot for exact P&L
+                    From expense log · Upload Groww screenshot for exact P&L
                   </div>
                 )}
               </div>

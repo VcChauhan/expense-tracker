@@ -4,14 +4,14 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  TrendingUp, Camera, Trash2, ArrowLeft,
-  Check, RefreshCw, AlertCircle,
-  ArrowUpRight, ArrowDownRight, X, Cpu
+  TrendingUp, Camera, Trash2, ArrowLeft, Check,
+  RefreshCw, AlertCircle, ArrowUpRight, ArrowDownRight,
+  X, Cpu, BarChart3, Layers
 } from 'lucide-react';
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid
 } from 'recharts';
-import { formatINR, InvestmentFund, Expense, Settings, SHORT_MONTHS } from '@/lib/types';
+import { formatINR, InvestmentFund, Expense, Settings, SHORT_MONTHS, PortfolioType } from '@/lib/types';
 import { parseGrowwOcrText } from '@/lib/parseGrowwOcr';
 import { lightTap, successBuzz, mediumTap } from '@/lib/haptics';
 
@@ -19,11 +19,131 @@ type ReviewData = {
   date: string;
   totalInvested: number;
   currentValue: number;
+  portfolioType: PortfolioType;
   funds: InvestmentFund[];
 };
 
 type OcrStatus = 'idle' | 'loading-worker' | 'ocr' | 'parsing' | 'done' | 'error';
 
+// ── Portfolio type config ───────────────────────────────────────────────
+const PORTFOLIO_TYPES: { value: PortfolioType; label: string; icon: string; color: string; netWorthCategory: string }[] = [
+  { value: 'mutual_funds', label: 'Mutual Funds', icon: '📊', color: '#8B5CF6', netWorthCategory: 'Mutual Funds' },
+  { value: 'stocks',       label: 'Stocks',        icon: '📈', color: '#10B981', netWorthCategory: 'Stocks & Equity' },
+  { value: 'combined',     label: 'Combined',      icon: '🗂️', color: '#3B82F6', netWorthCategory: 'Investments' },
+];
+
+function getTypeCfg(type: PortfolioType) {
+  return PORTFOLIO_TYPES.find((t) => t.value === type) || PORTFOLIO_TYPES[2];
+}
+
+// ── P&L pill sub-component ───────────────────────────────────────────────
+function PnlPill({ gain, gainPct }: { gain: number; gainPct: number }) {
+  const pos = gain >= 0;
+  return (
+    <div style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 4,
+      padding: '3px 9px', borderRadius: 999, fontWeight: 700, fontSize: 12.5,
+      background: pos ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
+      color: pos ? 'var(--success)' : 'var(--danger)',
+      border: `1px solid ${pos ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)'}`,
+    }}>
+      {pos ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
+      {pos ? '+' : ''}{formatINR(gain)} ({pos ? '+' : ''}{gainPct}%)
+    </div>
+  );
+}
+
+// ── Snapshot card for MF / Stocks ────────────────────────────────────────
+function SnapshotSection({
+  title, icon, color, snapshots, onDelete,
+}: {
+  title: string; icon: string; color: string;
+  snapshots: any[]; onDelete: (id: string) => void;
+}) {
+  const latest = snapshots[0];
+  if (snapshots.length === 0) return null;
+
+  return (
+    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 18, padding: '16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{
+            width: 32, height: 32, borderRadius: 10,
+            background: `${color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16,
+          }}>{icon}</div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)' }}>{title}</div>
+        </div>
+        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{snapshots.length} snapshot{snapshots.length !== 1 ? 's' : ''}</span>
+      </div>
+
+      {/* Latest hero numbers */}
+      {latest && (
+        <div style={{ padding: '12px', borderRadius: 14, background: 'var(--bg-elevated)', marginBottom: 10, borderLeft: `3.5px solid ${color}` }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+            <div>
+              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2 }}>Invested</div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-primary)' }}>{formatINR(latest.totalInvested)}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2 }}>Current</div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-primary)' }}>{formatINR(latest.currentValue)}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2 }}>Returns</div>
+              <div style={{ fontSize: 12, fontWeight: 800, color: latest.totalGain >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+                {latest.totalGain >= 0 ? '+' : ''}{latest.gainPercent}%
+                <div style={{ fontSize: 10.5, opacity: 0.8 }}>{formatINR(latest.totalGain)}</div>
+              </div>
+            </div>
+          </div>
+          <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: 8 }}>Last synced: {latest.date}</div>
+        </div>
+      )}
+
+      {/* History rows */}
+      {snapshots.length > 1 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {snapshots.map((snap, idx) => {
+            const pos = snap.totalGain >= 0;
+            return (
+              <div key={snap._id} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '10px 12px', borderRadius: 12,
+                background: idx === 0 ? 'transparent' : 'var(--bg-elevated)',
+                opacity: idx === 0 ? 0 : 1, height: idx === 0 ? 0 : 'auto', overflow: 'hidden',
+              }}>
+                {idx > 0 && (<>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{formatINR(snap.currentValue)}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{snap.date} • Invested {formatINR(snap.totalInvested)}</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ textAlign: 'right', fontSize: 12, fontWeight: 700, color: pos ? 'var(--success)' : 'var(--danger)' }}>
+                      {pos ? '+' : ''}{snap.gainPercent}%
+                    </div>
+                    <button onClick={() => onDelete(snap._id)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: 4, cursor: 'pointer' }}>
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </>)}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Delete latest button */}
+      <button onClick={() => onDelete(latest._id)} style={{
+        marginTop: 8, background: 'none', border: 'none', color: 'var(--text-muted)',
+        fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+      }}>
+        <Trash2 size={12} /> Delete latest snapshot
+      </button>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 export default function InvestmentsPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -33,21 +153,22 @@ export default function InvestmentsPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
 
-  // OCR & review state
+  // OCR state
   const [ocrStatus, setOcrStatus] = useState<OcrStatus>('idle');
   const [ocrProgress, setOcrProgress] = useState(0);
   const [ocrError, setOcrError] = useState<string | null>(null);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [reviewData, setReviewData] = useState<ReviewData>({
     date: new Date().toISOString().split('T')[0],
-    totalInvested: 0,
-    currentValue: 0,
-    funds: [],
+    totalInvested: 0, currentValue: 0,
+    portfolioType: 'mutual_funds', funds: [],
   });
   const [syncNetWorth, setSyncNetWorth] = useState(true);
   const [savingSnapshot, setSavingSnapshot] = useState(false);
 
-  // ── Load data ────────────────────────────────────────────────────────
+  const isOcrRunning = ['loading-worker', 'ocr', 'parsing'].includes(ocrStatus);
+
+  // ── Load data ─────────────────────────────────────────────────────────
   const loadData = async () => {
     setLoading(true);
     try {
@@ -56,29 +177,21 @@ export default function InvestmentsPage() {
         fetch('/api/expenses?limit=500'),
         fetch('/api/settings'),
       ]);
-      const [snaps, exps, sets] = await Promise.all([
-        snapRes.json(), expRes.json(), setRes.json(),
-      ]);
+      const [snaps, exps, sets] = await Promise.all([snapRes.json(), expRes.json(), setRes.json()]);
       if (Array.isArray(snaps)) setSnapshots(snaps);
       if (Array.isArray(exps)) setExpenses(exps);
       if (sets && !sets.error) setSettings(sets);
-    } catch (err) {
-      console.error('Failed to load investment data:', err);
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { console.error(err); }
+    finally { setLoading(false); }
   };
 
   useEffect(() => { loadData(); }, []);
 
-  // ── Derived: Investment category ──────────────────────────────────────
-  const investmentCatId = useMemo(() => {
-    return settings?.categories?.find((c) =>
-      c.name.toLowerCase().includes('invest') ||
-      c.name.toLowerCase().includes('sip') ||
-      c.name.toLowerCase().includes('mutual')
-    )?.id ?? null;
-  }, [settings]);
+  // ── Derived data ──────────────────────────────────────────────────────
+  const investmentCatId = useMemo(() =>
+    settings?.categories?.find((c) =>
+      c.name.toLowerCase().includes('invest') || c.name.toLowerCase().includes('sip')
+    )?.id ?? null, [settings]);
 
   const investmentExpenses = useMemo(() =>
     expenses.filter((e) =>
@@ -88,8 +201,7 @@ export default function InvestmentsPage() {
     ), [expenses, investmentCatId]);
 
   const accumulatedFromExpenses = useMemo(() =>
-    investmentExpenses.reduce((s, e) => s + (e.amount || 0), 0),
-    [investmentExpenses]);
+    investmentExpenses.reduce((s, e) => s + (e.amount || 0), 0), [investmentExpenses]);
 
   const monthlySipData = useMemo(() => {
     const map: Record<string, number> = {};
@@ -104,15 +216,33 @@ export default function InvestmentsPage() {
     });
   }, [investmentExpenses]);
 
-  const latestSnapshot = snapshots[0] || null;
-  const displayInvested = latestSnapshot?.totalInvested > 0 ? latestSnapshot.totalInvested : accumulatedFromExpenses;
-  const displayCurrent = latestSnapshot?.currentValue || displayInvested;
-  const displayGain = latestSnapshot?.totalGain !== undefined ? latestSnapshot.totalGain : (displayCurrent - displayInvested);
-  const displayGainPct = latestSnapshot?.gainPercent !== undefined ? latestSnapshot.gainPercent
-    : displayInvested > 0 ? Number(((displayGain / displayInvested) * 100).toFixed(2)) : 0;
-  const isPositive = displayGain >= 0;
+  // Split snapshots by portfolioType
+  const mfSnapshots     = snapshots.filter((s) => s.portfolioType === 'mutual_funds');
+  const stockSnapshots  = snapshots.filter((s) => s.portfolioType === 'stocks');
+  const combinedSnaps   = snapshots.filter((s) => s.portfolioType === 'combined' || !s.portfolioType);
 
-  // ── On-Device OCR with Tesseract.js ──────────────────────────────────
+  const latestMF      = mfSnapshots[0]     || null;
+  const latestStock   = stockSnapshots[0]  || null;
+  const latestCombined = combinedSnaps[0]  || null;
+
+  // Overall combined metrics
+  const totalCurrentValue =
+    (latestMF?.currentValue || 0) +
+    (latestStock?.currentValue || 0) +
+    (latestCombined?.currentValue || 0) ||
+    accumulatedFromExpenses;
+
+  const totalInvested =
+    (latestMF?.totalInvested || 0) +
+    (latestStock?.totalInvested || 0) +
+    (latestCombined?.totalInvested || 0) ||
+    accumulatedFromExpenses;
+
+  const totalGain = totalCurrentValue - totalInvested;
+  const totalGainPct = totalInvested > 0 ? Number(((totalGain / totalInvested) * 100).toFixed(2)) : 0;
+  const isPositive = totalGain >= 0;
+
+  // ── On-Device OCR ─────────────────────────────────────────────────────
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -122,10 +252,9 @@ export default function InvestmentsPage() {
     setOcrProgress(0);
 
     try {
-      // Dynamic import so Tesseract.js WASM only loads when needed
       const { createWorker } = await import('tesseract.js');
-
       setOcrStatus('ocr');
+
       const worker = await createWorker('eng', 1, {
         logger: (m: any) => {
           if (m.status === 'recognizing text') {
@@ -134,24 +263,22 @@ export default function InvestmentsPage() {
         },
       });
 
-      setOcrStatus('ocr');
       const { data: { text } } = await worker.recognize(file);
       await worker.terminate();
 
       setOcrStatus('parsing');
-
-      // Parse the raw OCR text with our Groww-specific parser
       const parsed = parseGrowwOcrText(text);
 
       setReviewData({
         date: new Date().toISOString().split('T')[0],
         totalInvested: parsed.totalInvested || accumulatedFromExpenses,
         currentValue: parsed.currentValue || 0,
+        portfolioType: parsed.portfolioType,
         funds: parsed.funds || [],
       });
 
       if (!parsed.currentValue) {
-        setOcrError('Could not auto-read portfolio value from screenshot. Enter values manually below:');
+        setOcrError('Could not auto-read portfolio values. Please enter them manually:');
       }
 
       setOcrStatus('done');
@@ -159,11 +286,12 @@ export default function InvestmentsPage() {
       successBuzz();
     } catch (err: any) {
       console.error('Tesseract OCR failed:', err);
-      setOcrError('OCR failed. You can enter portfolio values manually:');
+      setOcrError('OCR failed. Enter portfolio values manually:');
       setReviewData({
         date: new Date().toISOString().split('T')[0],
         totalInvested: accumulatedFromExpenses,
         currentValue: 0,
+        portfolioType: 'mutual_funds',
         funds: [],
       });
       setOcrStatus('error');
@@ -193,6 +321,7 @@ export default function InvestmentsPage() {
           totalGain: gain,
           gainPercent: pct,
           source: 'groww',
+          portfolioType: reviewData.portfolioType,
           funds: reviewData.funds,
           syncNetWorth,
         }),
@@ -207,15 +336,10 @@ export default function InvestmentsPage() {
         const err = await res.json();
         alert(err.error || 'Failed to save snapshot');
       }
-    } catch (e) {
-      console.error(e);
-      alert('Failed to save snapshot');
-    } finally {
-      setSavingSnapshot(false);
-    }
+    } catch (e) { console.error(e); alert('Failed to save snapshot'); }
+    finally { setSavingSnapshot(false); }
   };
 
-  // ── Delete snapshot ───────────────────────────────────────────────────
   const handleDeleteSnapshot = async (id: string) => {
     if (!confirm('Delete this snapshot?')) return;
     lightTap();
@@ -225,188 +349,133 @@ export default function InvestmentsPage() {
     } catch (err) { console.error(err); }
   };
 
-  // OCR status label
   const ocrStatusLabel: Record<OcrStatus, string> = {
-    idle: '',
-    'loading-worker': 'Loading OCR engine…',
+    idle: '', 'loading-worker': 'Loading OCR engine…',
     ocr: `Reading screenshot… ${ocrProgress}%`,
-    parsing: 'Parsing portfolio values…',
-    done: 'Done!',
-    error: 'OCR error',
+    parsing: 'Parsing portfolio values…', done: 'Done!', error: 'OCR error',
   };
 
-  const isOcrRunning = ['loading-worker', 'ocr', 'parsing'].includes(ocrStatus);
-
   if (loading) return (
-    <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
-      Loading investments…
-    </div>
+    <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Loading investments…</div>
   );
+
+  const typeCfg = getTypeCfg(reviewData.portfolioType);
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', paddingBottom: 90 }}>
       <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
 
-      {/* ── Header ─────────────────────────────────────────────────── */}
-      <div style={{
-        padding: '20px 16px 16px',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        borderBottom: '1px solid var(--border)',
-      }}>
+      {/* ── Header ───────────────────────────────────────────────────── */}
+      <div style={{ padding: '20px 16px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button onClick={() => router.push('/reports')} style={{
-            background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-            color: 'var(--text-primary)', width: 36, height: 36,
-            borderRadius: 10, display: 'flex', alignItems: 'center',
-            justifyContent: 'center', cursor: 'pointer',
-          }}>
+          <button onClick={() => router.push('/reports')} style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)', width: 36, height: 36, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
             <ArrowLeft size={18} />
           </button>
           <div>
-            <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.3px' }}>
-              Investments & Groww
-            </h1>
-            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
-              On-device OCR • No API key needed
-            </p>
+            <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Investments & Groww</h1>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>MF · Stocks · On-device OCR</p>
           </div>
         </div>
-
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={isOcrRunning}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            background: isOcrRunning ? 'var(--bg-elevated)' : 'var(--accent-grad)',
-            color: isOcrRunning ? 'var(--text-muted)' : '#fff',
-            border: isOcrRunning ? '1px solid var(--border)' : 'none',
-            padding: '8px 14px', borderRadius: 12,
-            fontWeight: 700, fontSize: 13, cursor: isOcrRunning ? 'not-allowed' : 'pointer',
-            boxShadow: isOcrRunning ? 'none' : '0 4px 14px rgba(124,92,252,0.3)',
-            transition: 'all 0.2s', minWidth: 130,
-          }}
-        >
-          {isOcrRunning ? (
-            <><RefreshCw size={15} style={{ animation: 'spin 1s linear infinite' }} /><span style={{ fontSize: 12 }}>{ocrStatusLabel[ocrStatus]}</span></>
-          ) : (
-            <><Camera size={15} /><span>Upload Groww</span></>
-          )}
+        <button onClick={() => fileInputRef.current?.click()} disabled={isOcrRunning} style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          background: isOcrRunning ? 'var(--bg-elevated)' : 'var(--accent-grad)',
+          color: isOcrRunning ? 'var(--text-muted)' : '#fff',
+          border: isOcrRunning ? '1px solid var(--border)' : 'none',
+          padding: '8px 14px', borderRadius: 12, fontWeight: 700, fontSize: 13,
+          cursor: isOcrRunning ? 'not-allowed' : 'pointer',
+          boxShadow: isOcrRunning ? 'none' : '0 4px 14px rgba(124,92,252,0.3)',
+          minWidth: 140,
+        }}>
+          {isOcrRunning
+            ? <><RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} /><span style={{ fontSize: 11 }}>{ocrStatusLabel[ocrStatus]}</span></>
+            : <><Camera size={15} /><span>Upload Screenshot</span></>}
         </button>
       </div>
 
-      <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-        {/* ── On-device badge ─────────────────────────────────────── */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          padding: '8px 14px', borderRadius: 12,
-          background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)',
-        }}>
-          <Cpu size={14} color="#10B981" />
-          <span style={{ fontSize: 12, fontWeight: 600, color: '#10B981' }}>
-            OCR runs entirely on your device — no API key, no data leaves your phone
-          </span>
+        {/* ── On-device badge ───────────────────────────────────────── */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', borderRadius: 10, background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.18)' }}>
+          <Cpu size={13} color="#10B981" />
+          <span style={{ fontSize: 11.5, fontWeight: 600, color: '#10B981' }}>OCR runs entirely on-device — no API key, no data sent anywhere</span>
         </div>
 
-        {/* ── Portfolio Hero Card ─────────────────────────────────── */}
+        {/* ── Overall Portfolio Hero ────────────────────────────────── */}
         <div style={{
-          background: 'linear-gradient(145deg, var(--bg-card) 0%, rgba(26,26,42,0.85) 100%)',
+          background: 'linear-gradient(145deg, var(--bg-card) 0%, rgba(26,26,42,0.9) 100%)',
           border: '1px solid var(--border)', borderRadius: 20, padding: '20px',
-          position: 'relative', overflow: 'hidden', boxShadow: '0 8px 30px rgba(0,0,0,0.25)',
+          position: 'relative', overflow: 'hidden', boxShadow: '0 8px 28px rgba(0,0,0,0.22)',
         }}>
-          <div style={{
-            position: 'absolute', top: -40, right: -40, width: 140, height: 140, borderRadius: '50%',
-            background: isPositive
-              ? 'radial-gradient(circle, rgba(16,185,129,0.25) 0%, transparent 70%)'
-              : 'radial-gradient(circle, rgba(239,68,68,0.25) 0%, transparent 70%)',
-            pointerEvents: 'none',
-          }} />
+          <div style={{ position: 'absolute', top: -40, right: -40, width: 140, height: 140, borderRadius: '50%', background: isPositive ? 'radial-gradient(circle, rgba(16,185,129,0.22) 0%, transparent 70%)' : 'radial-gradient(circle, rgba(239,68,68,0.22) 0%, transparent 70%)', pointerEvents: 'none' }} />
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{
-                width: 32, height: 32, borderRadius: 10,
-                background: 'rgba(16,185,129,0.15)', color: '#10B981',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                <TrendingUp size={18} />
-              </div>
-              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                Portfolio Value
-              </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(139,92,246,0.15)', color: '#8B5CF6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Layers size={18} />
             </div>
-            {latestSnapshot ? (
-              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', background: 'var(--bg-elevated)', padding: '3px 8px', borderRadius: 8 }}>
-                As of {latestSnapshot.date}
-              </span>
-            ) : (
-              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent-2)', background: 'var(--accent-dim)', padding: '3px 8px', borderRadius: 8 }}>
-                From Expense Log
-              </span>
-            )}
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Portfolio</span>
           </div>
 
-          <div style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 32, fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.8px' }}>
-              {formatINR(displayCurrent)}
-            </div>
-            <div style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 6,
-              padding: '4px 10px', borderRadius: 999,
-              background: isPositive ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
-              color: isPositive ? 'var(--success)' : 'var(--danger)',
-              fontWeight: 700, fontSize: 13,
-              border: `1px solid ${isPositive ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)'}`,
-            }}>
-              {isPositive ? <ArrowUpRight size={15} /> : <ArrowDownRight size={15} />}
-              <span>{isPositive ? '+' : ''}{formatINR(displayGain)} ({isPositive ? '+' : ''}{displayGainPct}%)</span>
-              <span style={{ fontSize: 11, opacity: 0.75 }}>Total Returns</span>
-            </div>
+          <div style={{ fontSize: 32, fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.8px' }}>
+            {formatINR(totalCurrentValue)}
           </div>
+          <PnlPill gain={totalGain} gainPct={totalGainPct} />
 
           <div style={{ height: 1, background: 'var(--border)', margin: '14px 0' }} />
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-            <div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>Invested</div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{formatINR(displayInvested)}</div>
-            </div>
-            <div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>From Expense Log</div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#A78BFA' }}>{formatINR(accumulatedFromExpenses)}</div>
-            </div>
-            <div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>SIPs Tracked</div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{investmentExpenses.length} entries</div>
-            </div>
+          {/* Per-type mini cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: mfSnapshots.length > 0 && stockSnapshots.length > 0 ? '1fr 1fr' : '1fr', gap: 10 }}>
+            {mfSnapshots.length > 0 && (
+              <div style={{ background: 'rgba(139,92,246,0.08)', borderRadius: 12, padding: '10px 12px', border: '1px solid rgba(139,92,246,0.18)' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#8B5CF6', marginBottom: 4 }}>📊 Mutual Funds</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>{formatINR(latestMF?.currentValue || 0)}</div>
+                <div style={{ fontSize: 10.5, color: latestMF?.totalGain >= 0 ? 'var(--success)' : 'var(--danger)', marginTop: 2 }}>
+                  {latestMF?.totalGain >= 0 ? '+' : ''}{latestMF?.gainPercent}% returns
+                </div>
+              </div>
+            )}
+            {stockSnapshots.length > 0 && (
+              <div style={{ background: 'rgba(16,185,129,0.08)', borderRadius: 12, padding: '10px 12px', border: '1px solid rgba(16,185,129,0.18)' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#10B981', marginBottom: 4 }}>📈 Stocks</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>{formatINR(latestStock?.currentValue || 0)}</div>
+                <div style={{ fontSize: 10.5, color: latestStock?.totalGain >= 0 ? 'var(--success)' : 'var(--danger)', marginTop: 2 }}>
+                  {latestStock?.totalGain >= 0 ? '+' : ''}{latestStock?.gainPercent}% returns
+                </div>
+              </div>
+            )}
+            {mfSnapshots.length === 0 && stockSnapshots.length === 0 && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                <div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>Invested</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{formatINR(totalInvested)}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>From Log</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#A78BFA' }}>{formatINR(accumulatedFromExpenses)}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>SIPs Tracked</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{investmentExpenses.length}</div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* ── Upload Banner ───────────────────────────────────────── */}
-        <div
-          onClick={() => !isOcrRunning && fileInputRef.current?.click()}
-          style={{
-            background: 'var(--bg-card)', border: '1.5px dashed var(--accent)',
-            borderRadius: 16, padding: '16px',
-            display: 'flex', alignItems: 'center', gap: 14,
-            cursor: isOcrRunning ? 'not-allowed' : 'pointer', transition: 'all 0.2s',
-          }}
-        >
-          <div style={{
-            width: 44, height: 44, borderRadius: 12,
-            background: 'var(--accent-dim)', color: 'var(--accent)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-          }}>
+        {/* ── Upload Banner ─────────────────────────────────────────── */}
+        <div onClick={() => !isOcrRunning && fileInputRef.current?.click()} style={{
+          background: 'var(--bg-card)', border: '1.5px dashed var(--accent)', borderRadius: 16,
+          padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14,
+          cursor: isOcrRunning ? 'not-allowed' : 'pointer',
+        }}>
+          <div style={{ width: 42, height: 42, borderRadius: 12, background: 'var(--accent-dim)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             {isOcrRunning ? <RefreshCw size={20} style={{ animation: 'spin 1s linear infinite' }} /> : <Camera size={22} />}
           </div>
-          <div>
+          <div style={{ flex: 1 }}>
             <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 2 }}>
-              {isOcrRunning ? ocrStatusLabel[ocrStatus] : 'Upload Groww Portfolio Screenshot'}
+              {isOcrRunning ? ocrStatusLabel[ocrStatus] : 'Upload MF or Stocks Screenshot'}
             </div>
             <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-              {isOcrRunning
-                ? 'Processing on your device…'
-                : 'Tesseract.js reads portfolio values locally — fully private'}
+              {isOcrRunning ? 'Processing on your device…' : 'Auto-detects Mutual Funds vs Stocks · Fully private'}
             </div>
             {ocrStatus === 'ocr' && (
               <div style={{ marginTop: 6, height: 4, borderRadius: 2, background: 'var(--border)', overflow: 'hidden' }}>
@@ -416,21 +485,30 @@ export default function InvestmentsPage() {
           </div>
         </div>
 
-        {/* ── Monthly SIP Chart ───────────────────────────────────── */}
+        {/* ── Mutual Funds Snapshot Section ────────────────────────── */}
+        <SnapshotSection title="Mutual Funds" icon="📊" color="#8B5CF6" snapshots={mfSnapshots} onDelete={handleDeleteSnapshot} />
+
+        {/* ── Stocks Snapshot Section ───────────────────────────────── */}
+        <SnapshotSection title="Stocks" icon="📈" color="#10B981" snapshots={stockSnapshots} onDelete={handleDeleteSnapshot} />
+
+        {/* ── Combined Snapshots (older/untagged) ───────────────────── */}
+        {combinedSnaps.length > 0 && (
+          <SnapshotSection title="Combined / Legacy" icon="🗂️" color="#3B82F6" snapshots={combinedSnaps} onDelete={handleDeleteSnapshot} />
+        )}
+
+        {/* ── Monthly SIP Chart ─────────────────────────────────────── */}
         <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 18, padding: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
             <div>
               <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)' }}>Monthly SIP Investments</div>
               <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Auto-aggregated from your Investment category</div>
             </div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent-2)', background: 'var(--accent-dim)', padding: '4px 10px', borderRadius: 10 }}>
-              {investmentExpenses.length} debits
-            </div>
+            <Link href="/expenses" style={{ fontSize: 12, color: 'var(--accent-2)', textDecoration: 'none', fontWeight: 600 }}>View Log →</Link>
           </div>
           {monthlySipData.length > 0 ? (
-            <div style={{ height: 160, width: '100%' }}>
+            <div style={{ height: 150, width: '100%' }}>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={monthlySipData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <BarChart data={monthlySipData} margin={{ top: 8, right: 8, left: -22, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                   <XAxis dataKey="label" stroke="var(--text-muted)" fontSize={11} tickLine={false} />
                   <YAxis stroke="var(--text-muted)" fontSize={10} tickLine={false} tickFormatter={(v) => `₹${v / 1000}k`} />
@@ -448,28 +526,19 @@ export default function InvestmentsPage() {
               </ResponsiveContainer>
             </div>
           ) : (
-            <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
-              No investment expenses logged yet. Log SIPs under the &quot;Investment&quot; category to see them here.
+            <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+              No investment expenses logged yet.
             </div>
           )}
         </div>
 
-        {/* ── Recent Investment Expenses ──────────────────────────── */}
-        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 18, padding: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-            <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)' }}>Logged Investment Debits</div>
-            <Link href="/expenses" style={{ fontSize: 12, color: 'var(--accent-2)', textDecoration: 'none', fontWeight: 600 }}>View in Log →</Link>
-          </div>
-          {investmentExpenses.length === 0 ? (
-            <div style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', padding: 16 }}>No investment transactions found.</div>
-          ) : (
+        {/* ── Recent Logged SIPs ────────────────────────────────────── */}
+        {investmentExpenses.length > 0 && (
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 18, padding: '16px' }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 12 }}>Recent Investment Debits</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {investmentExpenses.slice(0, 5).map((exp) => (
-                <div key={exp._id} style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '10px 12px', borderRadius: 12,
-                  background: 'var(--bg-elevated)', borderLeft: '3.5px solid #8B5CF6',
-                }}>
+                <div key={exp._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderRadius: 12, background: 'var(--bg-elevated)', borderLeft: '3.5px solid #8B5CF6' }}>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{exp.note || 'Mutual Fund / SIP'}</div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{exp.date}</div>
@@ -478,71 +547,23 @@ export default function InvestmentsPage() {
                 </div>
               ))}
             </div>
-          )}
-        </div>
-
-        {/* ── Snapshot History ────────────────────────────────────── */}
-        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 18, padding: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-            <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)' }}>Groww Snapshot History</div>
-            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{snapshots.length} saved</span>
           </div>
-          {snapshots.length === 0 ? (
-            <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
-              No screenshots uploaded yet. Tap &quot;Upload Groww&quot; to save your first snapshot.
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {snapshots.map((snap) => {
-                const pos = snap.totalGain >= 0;
-                return (
-                  <div key={snap._id} style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '12px 14px', borderRadius: 14,
-                    background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-                  }}>
-                    <div>
-                      <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>{formatINR(snap.currentValue)}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                        Invested: {formatINR(snap.totalInvested)} • {snap.date}
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div style={{ textAlign: 'right', fontWeight: 700, fontSize: 12.5, color: pos ? 'var(--success)' : 'var(--danger)' }}>
-                        {pos ? '+' : ''}{formatINR(snap.totalGain)}
-                        <div style={{ fontSize: 10.5, opacity: 0.8 }}>{pos ? '+' : ''}{snap.gainPercent}%</div>
-                      </div>
-                      <button onClick={() => snap._id && handleDeleteSnapshot(snap._id)} style={{
-                        background: 'none', border: 'none', color: 'var(--text-muted)', padding: 6, borderRadius: 8, cursor: 'pointer',
-                      }}>
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        )}
       </div>
 
-      {/* ── Review Modal ────────────────────────────────────────────────── */}
+      {/* ── Review Modal ──────────────────────────────────────────────────── */}
       {showReviewModal && (
-        <div
-          style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
-          onClick={() => { setShowReviewModal(false); setOcrStatus('idle'); }}
-        >
-          <div
-            style={{ background: 'var(--bg-card)', borderTopLeftRadius: 28, borderTopRightRadius: 28, border: '1px solid var(--border)', borderBottom: 'none', width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto', padding: '20px 20px 40px' }}
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
+          onClick={() => { setShowReviewModal(false); setOcrStatus('idle'); }}>
+          <div style={{ background: 'var(--bg-card)', borderTopLeftRadius: 28, borderTopRightRadius: 28, border: '1px solid var(--border)', borderBottom: 'none', width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto', padding: '20px 20px 40px' }}
+            onClick={(e) => e.stopPropagation()}>
             <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border-strong)', margin: '0 auto 16px' }} />
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <div>
                 <h3 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Review Portfolio Snapshot</h3>
-                <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0' }}>
-                  {ocrError ? 'Enter values manually' : 'Verify the OCR-parsed values before saving'}
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '3px 0 0' }}>
+                  {ocrError ? 'Enter values manually' : 'Auto-detected type — adjust if needed'}
                 </p>
               </div>
               <button onClick={() => { setShowReviewModal(false); setOcrStatus('idle'); }} style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: '50%', width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', cursor: 'pointer' }}>
@@ -552,38 +573,55 @@ export default function InvestmentsPage() {
 
             {ocrError && (
               <div style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 12, padding: '10px 14px', marginBottom: 14, fontSize: 12, color: 'var(--warning)', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                <AlertCircle size={16} style={{ flexShrink: 0, marginTop: 1 }} />
-                <span>{ocrError}</span>
+                <AlertCircle size={15} style={{ flexShrink: 0, marginTop: 1 }} /><span>{ocrError}</span>
               </div>
             )}
-
             {!ocrError && (
               <div style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 12, padding: '8px 14px', marginBottom: 14, fontSize: 12, color: '#10B981', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Cpu size={14} />
-                <span>Values auto-extracted by on-device OCR — adjust if needed</span>
+                <Cpu size={13} /><span>Values auto-extracted by on-device OCR · adjust if needed</span>
               </div>
             )}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+              {/* ── Portfolio Type Picker ── */}
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 8 }}>Portfolio Type (auto-detected)</label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {PORTFOLIO_TYPES.map((t) => (
+                    <button key={t.value} onClick={() => setReviewData({ ...reviewData, portfolioType: t.value })}
+                      style={{
+                        flex: 1, padding: '9px 6px', borderRadius: 12, border: `2px solid ${reviewData.portfolioType === t.value ? t.color : 'var(--border)'}`,
+                        background: reviewData.portfolioType === t.value ? `${t.color}18` : 'var(--bg-elevated)',
+                        color: reviewData.portfolioType === t.value ? t.color : 'var(--text-secondary)',
+                        fontWeight: 700, fontSize: 11.5, cursor: 'pointer', textAlign: 'center',
+                        transition: 'all 0.18s',
+                      }}>
+                      <div style={{ fontSize: 18, marginBottom: 2 }}>{t.icon}</div>
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Date */}
               <div>
                 <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>Date</label>
-                <input type="date" value={reviewData.date}
-                  onChange={(e) => setReviewData({ ...reviewData, date: e.target.value })}
+                <input type="date" value={reviewData.date} onChange={(e) => setReviewData({ ...reviewData, date: e.target.value })}
                   style={{ width: '100%', padding: '10px 14px', borderRadius: 12, background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 14, fontWeight: 600 }} />
               </div>
 
+              {/* Invested + Current */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div>
-                  <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>Invested Amount (₹)</label>
-                  <input type="number" value={reviewData.totalInvested || ''}
-                    onChange={(e) => setReviewData({ ...reviewData, totalInvested: Number(e.target.value) })}
+                  <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>Invested (₹)</label>
+                  <input type="number" value={reviewData.totalInvested || ''} onChange={(e) => setReviewData({ ...reviewData, totalInvested: Number(e.target.value) })}
                     style={{ width: '100%', padding: '10px 14px', borderRadius: 12, background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 15, fontWeight: 700 }} />
                 </div>
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>Current Value (₹)</label>
-                  <input type="number" value={reviewData.currentValue || ''}
-                    onChange={(e) => setReviewData({ ...reviewData, currentValue: Number(e.target.value) })}
-                    style={{ width: '100%', padding: '10px 14px', borderRadius: 12, background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 15, fontWeight: 700 }} />
+                  <input type="number" value={reviewData.currentValue || ''} onChange={(e) => setReviewData({ ...reviewData, currentValue: Number(e.target.value) })}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 12, background: 'var(--bg-elevated)', border: `2px solid ${typeCfg.color}40`, color: 'var(--text-primary)', fontSize: 15, fontWeight: 700 }} />
                 </div>
               </div>
 
@@ -594,28 +632,35 @@ export default function InvestmentsPage() {
                 const pct = reviewData.totalInvested > 0 ? ((g / reviewData.totalInvested) * 100).toFixed(2) : '0';
                 return (
                   <div style={{ padding: '12px 14px', borderRadius: 12, background: pos ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', border: `1px solid ${pos ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)'}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)' }}>Calculated P&amp;L:</span>
-                    <span style={{ fontSize: 15, fontWeight: 800, color: pos ? 'var(--success)' : 'var(--danger)' }}>
-                      {pos ? '+' : ''}{formatINR(g)} ({pos ? '+' : ''}{pct}%)
-                    </span>
+                    <div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{typeCfg.icon} {typeCfg.label} P&amp;L</div>
+                      <div style={{ fontSize: 15, fontWeight: 800, color: pos ? 'var(--success)' : 'var(--danger)', marginTop: 2 }}>
+                        {pos ? '+' : ''}{formatINR(g)} ({pos ? '+' : ''}{pct}%)
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 24 }}>{pos ? '🚀' : '📉'}</div>
                   </div>
                 );
               })()}
 
-              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '8px 0' }}>
-                <input type="checkbox" checked={syncNetWorth} onChange={(e) => setSyncNetWorth(e.target.checked)}
-                  style={{ width: 18, height: 18, accentColor: 'var(--accent)' }} />
-                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
-                  Auto-update Net Worth &quot;Mutual Funds&quot; asset
-                </span>
+              {/* Net Worth sync info */}
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '6px 0' }}>
+                <input type="checkbox" checked={syncNetWorth} onChange={(e) => setSyncNetWorth(e.target.checked)} style={{ width: 18, height: 18, accentColor: 'var(--accent)' }} />
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+                    Auto-update Net Worth
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                    → Updates &quot;{typeCfg.netWorthCategory}&quot; asset
+                  </div>
+                </div>
               </label>
 
-              <button
-                onClick={handleSaveSnapshot}
-                disabled={savingSnapshot || reviewData.currentValue <= 0}
-                style={{ background: reviewData.currentValue > 0 ? 'var(--accent-grad)' : 'var(--bg-elevated)', color: reviewData.currentValue > 0 ? '#fff' : 'var(--text-muted)', border: 'none', padding: '14px', borderRadius: 14, fontWeight: 800, fontSize: 15, cursor: reviewData.currentValue > 0 ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: reviewData.currentValue > 0 ? '0 6px 20px rgba(124,92,252,0.4)' : 'none', marginTop: 8 }}
-              >
-                {savingSnapshot ? <><RefreshCw size={18} style={{ animation: 'spin 1s linear infinite' }} /><span>Saving…</span></> : <><Check size={18} /><span>Save Snapshot</span></>}
+              <button onClick={handleSaveSnapshot} disabled={savingSnapshot || reviewData.currentValue <= 0}
+                style={{ background: reviewData.currentValue > 0 ? 'var(--accent-grad)' : 'var(--bg-elevated)', color: reviewData.currentValue > 0 ? '#fff' : 'var(--text-muted)', border: 'none', padding: '14px', borderRadius: 14, fontWeight: 800, fontSize: 15, cursor: reviewData.currentValue > 0 ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: reviewData.currentValue > 0 ? '0 6px 20px rgba(124,92,252,0.4)' : 'none', marginTop: 6 }}>
+                {savingSnapshot
+                  ? <><RefreshCw size={18} style={{ animation: 'spin 1s linear infinite' }} /><span>Saving…</span></>
+                  : <><Check size={18} /><span>Save {typeCfg.icon} {typeCfg.label} Snapshot</span></>}
               </button>
             </div>
           </div>

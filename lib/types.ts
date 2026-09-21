@@ -55,6 +55,8 @@ export interface InvestmentFund {
   gainPercent: number;
 }
 
+export type PortfolioType = 'mutual_funds' | 'stocks' | 'combined';
+
 export interface InvestmentSnapshot {
   _id?: string;
   date: string;
@@ -63,6 +65,7 @@ export interface InvestmentSnapshot {
   totalGain: number;
   gainPercent: number;
   source: 'groww' | 'manual';
+  portfolioType: PortfolioType;
   funds?: InvestmentFund[];
   screenshotUrl?: string;
   createdAt?: string;

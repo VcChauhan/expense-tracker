@@ -9,12 +9,13 @@ export interface IInvestmentFund {
 }
 
 export interface IInvestmentSnapshot extends Document {
-  date: string; // YYYY-MM-DD
+  date: string;
   totalInvested: number;
   currentValue: number;
   totalGain: number;
   gainPercent: number;
-  source: string; // 'groww' | 'manual'
+  source: string;
+  portfolioType: string; // 'mutual_funds' | 'stocks' | 'combined'
   funds: IInvestmentFund[];
   screenshotUrl?: string;
   createdAt: Date;
@@ -39,6 +40,7 @@ const InvestmentSnapshotSchema = new Schema<IInvestmentSnapshot>(
     totalGain: { type: Number, required: true, default: 0 },
     gainPercent: { type: Number, required: true, default: 0 },
     source: { type: String, default: 'groww' },
+    portfolioType: { type: String, default: 'combined' },
     funds: { type: [InvestmentFundSchema], default: [] },
     screenshotUrl: { type: String, default: '' },
   },
@@ -46,6 +48,7 @@ const InvestmentSnapshotSchema = new Schema<IInvestmentSnapshot>(
 );
 
 InvestmentSnapshotSchema.index({ date: -1 });
+InvestmentSnapshotSchema.index({ portfolioType: 1, date: -1 });
 
 const InvestmentSnapshot: Model<IInvestmentSnapshot> =
   mongoose.models.InvestmentSnapshot ||
