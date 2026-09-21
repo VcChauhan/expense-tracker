@@ -63,8 +63,10 @@ export default function ExpensesPage() {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
   // Edit modal
-  const [editingExp, setEditingExp]     = useState<Expense | null>(null);
-  const [saving, setSaving]             = useState(false);
+  const [editingExp, setEditingExp]         = useState<Expense | null>(null);
+  const [editSplitWays, setEditSplitWays]   = useState<number>(1);
+  const [editBaseAmount, setEditBaseAmount] = useState<string>('');
+  const [saving, setSaving]                 = useState(false);
 
   // Suggestions
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -262,19 +264,53 @@ export default function ExpensesPage() {
     showToast('Expense deleted', 'success');
   }
 
+  function handleOpenEdit(exp: Expense) {
+    const splitMatch = (exp.note || '').match(/\s*\(Split:\s*₹?\s*([\d.]+)\s*\/\s*(\d+)\)/i);
+    if (splitMatch) {
+      const origAmount = splitMatch[1];
+      const ways = parseInt(splitMatch[2], 10) || 1;
+      const cleanNote = (exp.note || '').replace(splitMatch[0], '').trim();
+      setEditBaseAmount(origAmount);
+      setEditSplitWays(ways);
+      setEditingExp({
+        ...exp,
+        note: cleanNote,
+        amount: parseFloat(origAmount) || exp.amount,
+      });
+    } else {
+      setEditBaseAmount(exp.amount ? String(exp.amount) : '');
+      setEditSplitWays(1);
+      setEditingExp({ ...exp });
+    }
+  }
+
   async function handleUpdate() {
     if (!editingExp) return;
     setSaving(true);
     try {
+      const parsedAmount = parseFloat(editBaseAmount) || editingExp.amount || 0;
+      const finalAmount = editSplitWays > 1 ? Math.round((parsedAmount / editSplitWays) * 100) / 100 : parsedAmount;
+      const splitNote = editSplitWays > 1 ? ` (Split: ₹${parsedAmount} / ${editSplitWays})` : '';
+      const rawNote = (editingExp.note || '').trim();
+      const cleanedNote = rawNote.replace(/\s*\(Split:\s*₹?\s*[\d.]+\s*\/\s*\d+\)/gi, '').trim();
+      const finalNote = cleanedNote ? `${cleanedNote}${splitNote}` : splitNote.trim();
+
+      const payload = {
+        ...editingExp,
+        amount: finalAmount,
+        note: finalNote,
+      };
+
       const res = await fetch(`/api/expenses/${editingExp._id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editingExp),
+        body: JSON.stringify(payload),
       });
       const updated = await res.json();
       setExpenses(exps => exps.map(e => e._id === updated._id ? updated : e));
       setEditingExp(null);
       showToast('Expense updated', 'success');
+      fetchExpenses();
     } catch {
       showToast('Failed to update', 'error');
     } finally {
@@ -362,7 +398,7 @@ export default function ExpensesPage() {
             {formatINR(exp.amount)}
           </span>
           <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
-            <button onClick={() => setEditingExp({ ...exp })} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0 }}><Edit2 size={13} /></button>
+            <button onClick={() => handleOpenEdit(exp)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0 }}><Edit2 size={13} /></button>
             <button onClick={() => handleDeleteClick(exp._id!)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0 }}><Trash2 size={13} /></button>
           </div>
         </div>
@@ -797,7 +833,7 @@ export default function ExpensesPage() {
             selectedMonth={selectedMonth}
             selectedYear={selectedYear}
             categories={settings?.categories || []}
-            onEdit={setEditingExp}
+            onEdit={handleOpenEdit}
             onDelete={handleDeleteClick}
           />
         </div>
@@ -807,7 +843,7 @@ export default function ExpensesPage() {
           viewMode={viewMode} 
           categories={settings?.categories || []} 
 
-          onEdit={setEditingExp}
+          onEdit={handleOpenEdit}
           onDelete={handleDeleteClick}
         />
       ) : viewMode === 'monthly' ? (
@@ -961,10 +997,31 @@ export default function ExpensesPage() {
                   <span style={{ fontSize: 16, fontWeight: 700, color: editColor }}>₹</span>
                   <input
                     type="number"
+                    step="0.01"
                     style={{ flex: 1, width: '100%', background: 'transparent', border: 'none', outline: 'none', color: 'var(--text-primary)', padding: '10px 0', fontSize: 20, fontWeight: 800 }}
-                    value={editingExp.amount}
-                    onChange={e => setEditingExp({ ...editingExp, amount: parseFloat(e.target.value) || 0 })}
+                    value={editBaseAmount}
+                    onChange={e => {
+                      setEditBaseAmount(e.target.value);
+                      setEditingExp(prev => prev ? { ...prev, amount: parseFloat(e.target.value) || 0 } : null);
+                    }}
                   />
+                </div>
+
+                {/* Split UI */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
+                  <span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600 }}>Split between</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    {editSplitWays > 1 && editBaseAmount && (
+                      <span style={{ fontSize: 13, fontWeight: 700, color: editColor }}>
+                        = ₹{Math.round(((parseFloat(editBaseAmount) || 0) / editSplitWays) * 100) / 100} / person
+                      </span>
+                    )}
+                    <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg)', borderRadius: 20, border: '1px solid var(--border)', overflow: 'hidden' }}>
+                      <button type="button" onClick={() => setEditSplitWays(Math.max(1, editSplitWays - 1))} style={{ background: 'none', border: 'none', padding: '4px 12px', color: 'var(--text-primary)', cursor: 'pointer', fontSize: 16, fontWeight: 700 }}>−</button>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: editSplitWays > 1 ? editColor : 'var(--text-secondary)', minWidth: 22, textAlign: 'center' }}>{editSplitWays}</span>
+                      <button type="button" onClick={() => setEditSplitWays(editSplitWays + 1)} style={{ background: 'none', border: 'none', padding: '4px 12px', color: 'var(--text-primary)', cursor: 'pointer', fontSize: 16, fontWeight: 700 }}>+</button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
