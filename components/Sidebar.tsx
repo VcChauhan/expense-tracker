@@ -10,6 +10,7 @@ const navItems = [
   { action: 'add',     icon: <PlusCircle size={18} strokeWidth={1.8} />,      label: 'Add Expense' },
   { href: '/expenses', icon: <List size={18} strokeWidth={1.8} />,            label: 'Expense Log' },
   { href: '/reports',  icon: <BarChart2 size={18} strokeWidth={1.8} />,       label: 'Reports'     },
+  { href: '/investments', icon: <TrendingUp size={18} strokeWidth={1.8} />,    label: 'Investments' },
   { href: '/insights', icon: <Lightbulb size={18} strokeWidth={1.8} />,       label: 'Insights'    },
 ];
 

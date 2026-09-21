@@ -31,6 +31,7 @@ export default function BottomNav() {
   ];
 
   const menuLinks = [
+    { href: '/investments', icon: <TrendingUp size={20} />, label: 'Investments', color: '#10B981' },
     { href: '/insights', icon: <Lightbulb size={20} />, label: 'AI Insights', color: '#FBBF24' },
     { href: '/settings', icon: <Settings size={20} />, label: 'Settings', color: 'var(--accent-2)' },
     { href: '/hike', icon: <TrendingUp size={20} />, label: 'Hike Planner', color: 'var(--success)' },

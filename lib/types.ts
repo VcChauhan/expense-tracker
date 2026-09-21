@@ -47,6 +47,27 @@ export interface NetWorthEntry {
   lastUpdated: string;
 }
 
+export interface InvestmentFund {
+  name: string;
+  invested: number;
+  current: number;
+  gain: number;
+  gainPercent: number;
+}
+
+export interface InvestmentSnapshot {
+  _id?: string;
+  date: string;
+  totalInvested: number;
+  currentValue: number;
+  totalGain: number;
+  gainPercent: number;
+  source: 'groww' | 'manual';
+  funds?: InvestmentFund[];
+  screenshotUrl?: string;
+  createdAt?: string;
+}
+
 export interface CreditCard {
   id: string;
   name: string;

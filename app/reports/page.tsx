@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import Link from 'next/link';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, LineChart, Line, BarChart, Bar
 } from 'recharts';
-import { formatINR, SHORT_MONTHS, MONTHS, Settings, AnnualAnalytics } from '@/lib/types';
-import { Wallet, CreditCard, PiggyBank, CalendarDays, ChevronLeft, ChevronRight, TrendingUp, Store } from 'lucide-react';
+import { formatINR, SHORT_MONTHS, MONTHS, Settings, AnnualAnalytics, InvestmentSnapshot } from '@/lib/types';
+import { Wallet, CreditCard, PiggyBank, CalendarDays, ChevronLeft, ChevronRight, TrendingUp, Store, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import AiInsights from '@/components/AiInsights';
 import { SubscriptionAudit } from '@/components/SubscriptionAudit';
@@ -45,6 +46,7 @@ export default function ReportsPage() {
   const [monthlyAnalytics, setMonthlyAnalytics] = useState<any>(null);
   const [prevMonthlyAnalytics, setPrevMonthlyAnalytics] = useState<any>(null);
   const [expenses, setExpenses] = useState<any[]>([]);
+  const [latestInvestmentSnapshot, setLatestInvestmentSnapshot] = useState<InvestmentSnapshot | null>(null);
   
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -56,21 +58,25 @@ export default function ReportsPage() {
       let prevYear = selectedYear;
       if (prevMonth < 0) { prevMonth = 11; prevYear -= 1; }
 
-      const [sRes, aRes, mRes, expRes, prevMRes] = await Promise.all([
+      const [sRes, aRes, mRes, expRes, prevMRes, invRes] = await Promise.all([
         fetch('/api/settings'),
         fetch(`/api/analytics/annual?year=${selectedYear}`),
         fetch(`/api/analytics/monthly?month=${selectedMonth + 1}&year=${selectedYear}`),
         fetch('/api/expenses?limit=300'),
         fetch(`/api/analytics/monthly?month=${prevMonth + 1}&year=${prevYear}`),
+        fetch('/api/investments/snapshots'),
       ]);
-      const [s, a, m, exps, prevM] = await Promise.all([
-        sRes.json(), aRes.json(), mRes.json(), expRes.json(), prevMRes.json(),
+      const [s, a, m, exps, prevM, invSnaps] = await Promise.all([
+        sRes.json(), aRes.json(), mRes.json(), expRes.json(), prevMRes.json(), invRes.json(),
       ]);
       if (s && !s.error) setSettings(s);
       setAnalytics(a);
       setMonthlyAnalytics(m);
       setPrevMonthlyAnalytics(prevM && !prevM.error ? prevM : null);
       if (Array.isArray(exps)) setExpenses(exps);
+      if (Array.isArray(invSnaps) && invSnaps.length > 0) {
+        setLatestInvestmentSnapshot(invSnaps[0]);
+      }
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   }, [selectedMonth, selectedYear]);
@@ -229,6 +235,123 @@ export default function ReportsPage() {
           <NetWorthTracker settings={settings} onUpdate={setSettings} />
         </div>
       )}
+
+      {/* ── Investment Summary Card ── */}
+      {(() => {
+        const snap = latestInvestmentSnapshot;
+        if (!snap && !expenses.some((e: any) => {
+          const cat = settings?.categories?.find((c: any) => c.id === e.categoryId);
+          return cat?.name?.toLowerCase().includes('invest');
+        })) return null;
+
+        // Accumulated invested from Investment category expenses
+        const investCatId = settings?.categories?.find((c: any) =>
+          c.name?.toLowerCase().includes('invest')
+        )?.id;
+        const accumulatedInvested = expenses
+          .filter((e: any) => e.categoryId === investCatId)
+          .reduce((s: number, e: any) => s + (e.amount || 0), 0);
+
+        const currentValue = snap?.currentValue || accumulatedInvested;
+        const investedAmt = snap?.totalInvested && snap.totalInvested > 0
+          ? snap.totalInvested : accumulatedInvested;
+        const gain = snap?.totalGain !== undefined ? snap.totalGain : (currentValue - investedAmt);
+        const gainPct = snap?.gainPercent !== undefined ? snap.gainPercent
+          : investedAmt > 0 ? Number(((gain / investedAmt) * 100).toFixed(2)) : 0;
+        const isPos = gain >= 0;
+
+        return (
+          <div style={{ padding: '0 16px 20px' }}>
+            <Link href="/investments" style={{ textDecoration: 'none' }}>
+              <div style={{
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border)',
+                borderRadius: 18,
+                padding: '16px',
+                position: 'relative',
+                overflow: 'hidden',
+                boxShadow: '0 4px 18px rgba(0,0,0,0.18)',
+                transition: 'all 0.2s',
+              }}>
+                {/* Green glow top-right */}
+                <div style={{
+                  position: 'absolute', top: -30, right: -30,
+                  width: 100, height: 100, borderRadius: '50%',
+                  background: isPos
+                    ? 'radial-gradient(circle, rgba(16,185,129,0.2) 0%, transparent 70%)'
+                    : 'radial-gradient(circle, rgba(239,68,68,0.2) 0%, transparent 70%)',
+                  pointerEvents: 'none',
+                }} />
+
+                {/* Header */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{
+                      width: 30, height: 30, borderRadius: 9,
+                      background: 'rgba(16,185,129,0.14)',
+                      color: '#10B981',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <TrendingUp size={16} />
+                    </div>
+                    <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>
+                      Investments & Groww
+                    </span>
+                  </div>
+                  <span style={{
+                    fontSize: 11, fontWeight: 700,
+                    color: 'var(--accent-2)', background: 'var(--accent-dim)',
+                    padding: '3px 8px', borderRadius: 8,
+                  }}>
+                    View All →
+                  </span>
+                </div>
+
+                {/* 3 Metric Columns */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                  <div>
+                    <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginBottom: 3 }}>Invested</div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)' }}>
+                      {formatINR(investedAmt)}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginBottom: 3 }}>Current Value</div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)' }}>
+                      {formatINR(currentValue)}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginBottom: 3 }}>Total Returns</div>
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: 3,
+                      fontSize: 14, fontWeight: 800,
+                      color: isPos ? 'var(--success)' : 'var(--danger)',
+                    }}>
+                      {isPos ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
+                      <span>{isPos ? '+' : ''}{gainPct}%</span>
+                    </div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: isPos ? 'var(--success)' : 'var(--danger)', opacity: 0.8 }}>
+                      {isPos ? '+' : ''}{formatINR(gain)}
+                    </div>
+                  </div>
+                </div>
+
+                {snap && (
+                  <div style={{ marginTop: 10, fontSize: 10.5, color: 'var(--text-muted)' }}>
+                    Last synced: {snap.date} • Tap to upload new Groww screenshot
+                  </div>
+                )}
+                {!snap && (
+                  <div style={{ marginTop: 10, fontSize: 10.5, color: 'var(--text-muted)' }}>
+                    Auto-accumulated from Investment expenses • Tap to upload Groww screenshot for exact P&L
+                  </div>
+                )}
+              </div>
+            </Link>
+          </div>
+        );
+      })()}
 
       {/* 2x2 Stat Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, padding: '0 16px 24px' }}>
