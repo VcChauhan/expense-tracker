@@ -6,12 +6,13 @@ import { useRouter } from 'next/navigation';
 import {
   TrendingUp, Camera, Trash2, ArrowLeft, Check,
   RefreshCw, AlertCircle, ArrowUpRight, ArrowDownRight,
-  X, Cpu, Layers, Tag, Globe, Sparkles, Pencil
+  X, Cpu, Layers, Tag, Globe, Sparkles, Pencil,
+  Repeat, Plus, Calendar, CheckCircle2
 } from 'lucide-react';
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid
 } from 'recharts';
-import { formatINR, InvestmentFund, Expense, Settings, SHORT_MONTHS, PortfolioType } from '@/lib/types';
+import { formatINR, InvestmentFund, Expense, Settings, SHORT_MONTHS, PortfolioType, RecurringExpense } from '@/lib/types';
 import { parseGrowwOcrText } from '@/lib/parseGrowwOcr';
 import { lightTap, successBuzz, mediumTap } from '@/lib/haptics';
 
@@ -109,6 +110,14 @@ export default function InvestmentsPage() {
   const [editingHolding, setEditingHolding] = useState<EditHoldingData | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
+  // Monthly SIP management state
+  const [showAddSipModal, setShowAddSipModal] = useState(false);
+  const [newSipName, setNewSipName] = useState('');
+  const [newSipAmount, setNewSipAmount] = useState('');
+  const [newSipDay, setNewSipDay] = useState('3');
+  const [isSavingSip, setIsSavingSip] = useState(false);
+  const [loggingSipId, setLoggingSipId] = useState<string | null>(null);
+
   // OCR state
   const [ocrStatus, setOcrStatus] = useState<OcrStatus>('idle');
   const [ocrProgress, setOcrProgress] = useState(0);
@@ -153,6 +162,29 @@ export default function InvestmentsPage() {
     settings?.categories?.find((c) =>
       c.name.toLowerCase().includes('invest') || c.name.toLowerCase().includes('sip')
     )?.id ?? null, [settings]);
+
+  const investmentCategory = useMemo(() =>
+    settings?.categories?.find((c) =>
+      c.id === investmentCatId ||
+      c.name.toLowerCase().includes('invest') ||
+      c.name.toLowerCase().includes('sip')
+    ) ?? null, [settings, investmentCatId]);
+
+  const currentYM = useMemo(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }, []);
+
+  const investmentSips = useMemo(() => {
+    return (settings?.recurringExpenses || []).filter((r) =>
+      (investmentCatId && r.categoryId === investmentCatId) ||
+      r.name.toLowerCase().includes('sip') ||
+      r.name.toLowerCase().includes('groww') ||
+      r.name.toLowerCase().includes('mutual') ||
+      r.name.toLowerCase().includes('fund') ||
+      r.name.toLowerCase().includes('elss')
+    );
+  }, [settings, investmentCatId]);
 
   const investmentExpenses = useMemo(() =>
     expenses.filter((e) =>
@@ -336,6 +368,113 @@ export default function InvestmentsPage() {
       alert('Error updating holding');
     } finally {
       setIsSavingEdit(false);
+    }
+  };
+
+  // ── Monthly SIP Handlers ─────────────────────────────────────────────
+  const handleLogSip = async (item: RecurringExpense) => {
+    if (!item) return;
+    const catId = investmentCatId || item.categoryId || settings?.categories?.[0]?.id;
+    if (!catId) return;
+
+    setLoggingSipId(item.id);
+    lightTap();
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const res = await fetch('/api/expenses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date: today,
+          categoryId: catId,
+          amount: item.amount,
+          note: `${item.name} (Monthly SIP)`,
+          tags: ['investment', 'sip', 'recurring'],
+          paymentMethod: 'upi',
+        }),
+      });
+
+      if (res.ok) {
+        const nextList = (settings?.recurringExpenses || []).map((r) =>
+          r.id === item.id ? { ...r, lastLoggedMonth: currentYM } : r
+        );
+        await fetch('/api/settings', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ recurringExpenses: nextList }),
+        });
+
+        successBuzz();
+        setSyncToast(`Logged ₹${item.amount.toLocaleString('en-IN')} SIP to expenses!`);
+        setTimeout(() => setSyncToast(null), 3500);
+        await loadData();
+      } else {
+        alert('Failed to log SIP expense');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error logging SIP expense');
+    } finally {
+      setLoggingSipId(null);
+    }
+  };
+
+  const handleCreateSip = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSipName.trim() || !newSipAmount || parseFloat(newSipAmount) <= 0) return;
+    setIsSavingSip(true);
+    lightTap();
+    try {
+      const catId = investmentCatId || settings?.categories?.[0]?.id || 'cat_invest';
+      const newSip: RecurringExpense = {
+        id: 'rec_sip_' + Date.now(),
+        name: newSipName.trim(),
+        amount: parseFloat(newSipAmount),
+        categoryId: catId,
+        dayOfMonth: Math.min(31, Math.max(1, parseInt(newSipDay, 10) || 1)),
+        isActive: true,
+      };
+
+      const nextList = [...(settings?.recurringExpenses || []), newSip];
+      const res = await fetch('/api/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recurringExpenses: nextList }),
+      });
+
+      if (res.ok) {
+        successBuzz();
+        setShowAddSipModal(false);
+        setNewSipName('');
+        setNewSipAmount('');
+        setSyncToast('SIP added to monthly plan!');
+        setTimeout(() => setSyncToast(null), 3000);
+        await loadData();
+      } else {
+        alert('Failed to save SIP');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Error saving SIP');
+    } finally {
+      setIsSavingSip(false);
+    }
+  };
+
+  const handleDeleteSip = async (id: string) => {
+    if (!confirm('Remove this SIP from monthly recurring plan?')) return;
+    lightTap();
+    try {
+      const nextList = (settings?.recurringExpenses || []).filter((r) => r.id !== id);
+      await fetch('/api/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recurringExpenses: nextList }),
+      });
+      successBuzz();
+      await loadData();
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -775,6 +914,180 @@ export default function InvestmentsPage() {
                           <span style={{ fontSize: 10.5, opacity: 0.85, marginLeft: 2 }}>({pos ? '+' : ''}{h.gainPercent}%)</span>
                         </div>
                       </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* ── Monthly SIP & Auto-Deduct Section ─────────────────────────── */}
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 18, padding: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{
+                width: 36, height: 36, borderRadius: 10,
+                background: 'rgba(139,92,246,0.15)', color: '#8B5CF6',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Repeat size={18} />
+              </div>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)' }}>
+                  Monthly SIP Plan &amp; Auto-Log
+                </div>
+                <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+                  {investmentCategory?.budget
+                    ? `Fixed budget: ${formatINR(investmentCategory.budget)}/month`
+                    : 'Track recurring SIP deductions in history'}
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setNewSipName(distinctHoldings[0]?.holdingName ? `${distinctHoldings[0].holdingName} SIP` : 'Monthly SIP');
+                setNewSipAmount(investmentCategory?.budget ? String(investmentCategory.budget) : '25000');
+                setShowAddSipModal(true);
+              }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 4,
+                padding: '7px 12px', borderRadius: 10,
+                background: 'var(--accent)', color: '#fff', border: 'none',
+                fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              }}
+            >
+              <Plus size={14} />
+              <span>Add SIP</span>
+            </button>
+          </div>
+
+          {/* Prompt if any SIP is due this month */}
+          {(() => {
+            const dueSips = investmentSips.filter(s => s.isActive && s.lastLoggedMonth !== currentYM);
+            if (dueSips.length === 0) return null;
+            return (
+              <div style={{
+                marginBottom: 12, padding: '12px 14px', borderRadius: 12,
+                background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+              }}>
+                <div>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: '#F59E0B' }}>
+                    ⚡ Money deducted this month?
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>
+                    {dueSips.length} SIP{dueSips.length > 1 ? 's' : ''} ready to log into expense history
+                  </div>
+                </div>
+                {dueSips.length === 1 && (
+                  <button
+                    onClick={() => handleLogSip(dueSips[0])}
+                    disabled={loggingSipId === dueSips[0].id}
+                    style={{
+                      padding: '6px 12px', borderRadius: 8,
+                      background: '#F59E0B', color: '#000', border: 'none',
+                      fontWeight: 800, fontSize: 12, cursor: 'pointer', flexShrink: 0,
+                      display: 'flex', alignItems: 'center', gap: 5,
+                    }}
+                  >
+                    {loggingSipId === dueSips[0].id ? <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={13} />}
+                    <span>Log {formatINR(dueSips[0].amount)}</span>
+                  </button>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* SIP list */}
+          {investmentSips.length === 0 ? (
+            <div style={{
+              padding: '18px 14px', textAlign: 'center', background: 'var(--bg-elevated)',
+              borderRadius: 14, color: 'var(--text-muted)', fontSize: 12.5,
+            }}>
+              <p style={{ margin: '0 0 10px' }}>
+                No recurring SIPs added yet. Set your fixed monthly SIP (e.g. ₹25,000) so you can record it in expense history with 1 tap once money deducts.
+              </p>
+              <button
+                onClick={() => {
+                  setNewSipName(distinctHoldings[0]?.holdingName ? `${distinctHoldings[0].holdingName} SIP` : 'Monthly SIP');
+                  setNewSipAmount(investmentCategory?.budget ? String(investmentCategory.budget) : '25000');
+                  setShowAddSipModal(true);
+                }}
+                style={{
+                  padding: '8px 14px', borderRadius: 10, border: '1px solid var(--accent)',
+                  background: 'rgba(139,92,246,0.12)', color: 'var(--accent-2)',
+                  fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                }}
+              >
+                + Set Up ₹{investmentCategory?.budget ? investmentCategory.budget.toLocaleString('en-IN') : '25,000'} Monthly SIP
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {investmentSips.map((sip) => {
+                const isLoggedThisMonth = sip.lastLoggedMonth === currentYM;
+                const isLogging = loggingSipId === sip.id;
+                return (
+                  <div key={sip.id} style={{
+                    padding: '11px 14px', borderRadius: 12,
+                    background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+                  }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {sip.name}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span>Deducts on Day {sip.dayOfMonth}</span>
+                        <span>•</span>
+                        {isLoggedThisMonth ? (
+                          <span style={{ color: 'var(--success)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}>
+                            <CheckCircle2 size={12} /> Logged this month
+                          </span>
+                        ) : (
+                          <span style={{ color: '#F59E0B', fontWeight: 600 }}>
+                            Due this month
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                      <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>
+                        {formatINR(sip.amount)}
+                      </span>
+                      {!isLoggedThisMonth ? (
+                        <button
+                          onClick={() => handleLogSip(sip)}
+                          disabled={isLogging}
+                          title="Record deduction to history"
+                          style={{
+                            padding: '6px 10px', borderRadius: 8,
+                            background: 'var(--accent-grad)', color: '#fff', border: 'none',
+                            fontSize: 11.5, fontWeight: 700, cursor: isLogging ? 'not-allowed' : 'pointer',
+                            display: 'flex', alignItems: 'center', gap: 4,
+                          }}
+                        >
+                          {isLogging ? (
+                            <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} />
+                          ) : (
+                            <Check size={13} />
+                          )}
+                          <span>Log</span>
+                        </button>
+                      ) : (
+                        <span style={{ fontSize: 11, color: 'var(--success)', padding: '4px 8px', borderRadius: 6, background: 'rgba(16,185,129,0.1)' }}>
+                          Done
+                        </span>
+                      )}
+                      <button
+                        onClick={() => handleDeleteSip(sip.id)}
+                        style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: 4, cursor: 'pointer' }}
+                        title="Remove SIP"
+                      >
+                        <Trash2 size={14} />
+                      </button>
                     </div>
                   </div>
                 );
@@ -1224,6 +1537,180 @@ export default function InvestmentsPage() {
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Add SIP Modal ── */}
+      {showAddSipModal && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1100,
+            background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+          }}
+          onClick={() => !isSavingSip && setShowAddSipModal(false)}
+        >
+          <div
+            style={{
+              background: 'var(--bg-card)', border: '1px solid var(--border)',
+              borderRadius: 20, padding: 22, width: '100%', maxWidth: 380,
+              boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+              display: 'flex', flexDirection: 'column', gap: 14,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: 10,
+                  background: 'rgba(139,92,246,0.15)', color: '#8B5CF6',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Repeat size={18} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                    Add Monthly SIP
+                  </h3>
+                  <p style={{ fontSize: 11.5, color: 'var(--text-muted)', margin: 0 }}>
+                    Auto-tracked in Investment category
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAddSipModal(false)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateSip} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 5 }}>
+                  SIP / SCHEME NAME
+                </label>
+                <input
+                  type="text"
+                  value={newSipName}
+                  onChange={(e) => setNewSipName(e.target.value)}
+                  placeholder="e.g. SBI ELSS SIP or Monthly SIP"
+                  required
+                  style={{
+                    width: '100%', padding: '10px 12px', borderRadius: 10,
+                    background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                    color: 'var(--text-primary)', fontSize: 13.5, fontWeight: 600, outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 10 }}>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 5 }}>
+                    MONTHLY AMOUNT (₹)
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={newSipAmount}
+                    onChange={(e) => setNewSipAmount(e.target.value)}
+                    placeholder="25000"
+                    required
+                    style={{
+                      width: '100%', padding: '10px 12px', borderRadius: 10,
+                      background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                      color: 'var(--text-primary)', fontSize: 14, fontWeight: 700, outline: 'none',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 5 }}>
+                    DEDUCT DAY (1-31)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="31"
+                    value={newSipDay}
+                    onChange={(e) => setNewSipDay(e.target.value)}
+                    placeholder="3"
+                    required
+                    style={{
+                      width: '100%', padding: '10px 12px', borderRadius: 10,
+                      background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                      color: 'var(--text-primary)', fontSize: 14, fontWeight: 700, outline: 'none',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Quick suggestions if user has uploaded holdings */}
+              {distinctHoldings.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginBottom: 4 }}>Or pick from your holdings:</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {distinctHoldings.slice(0, 3).map((h) => (
+                      <button
+                        key={h.holdingName || h._id}
+                        type="button"
+                        onClick={() => {
+                          setNewSipName(`${h.holdingName} SIP`);
+                        }}
+                        style={{
+                          padding: '4px 8px', borderRadius: 8, fontSize: 10.5,
+                          background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                          color: 'var(--text-secondary)', cursor: 'pointer',
+                        }}
+                      >
+                        {h.holdingName?.slice(0, 20)}…
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.3fr', gap: 10, marginTop: 6 }}>
+                <button
+                  type="button"
+                  onClick={() => setShowAddSipModal(false)}
+                  disabled={isSavingSip}
+                  style={{
+                    padding: '11px', borderRadius: 12, border: '1px solid var(--border)',
+                    background: 'var(--bg-elevated)', color: 'var(--text-primary)',
+                    fontWeight: 700, fontSize: 13.5, cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingSip || !newSipName.trim() || !newSipAmount}
+                  style={{
+                    padding: '11px', borderRadius: 12, border: 'none',
+                    background: 'var(--accent-grad)', color: '#fff',
+                    fontWeight: 800, fontSize: 13.5, cursor: isSavingSip ? 'not-allowed' : 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                    boxShadow: '0 4px 15px rgba(124,92,252,0.3)',
+                  }}
+                >
+                  {isSavingSip ? (
+                    <>
+                      <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} />
+                      <span>Saving…</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check size={15} />
+                      <span>Save SIP</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

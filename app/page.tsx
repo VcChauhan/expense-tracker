@@ -70,6 +70,7 @@ export default function DashboardPage() {
   const [pendingSuggestionsCount, setPendingSuggestionsCount] = useState(0);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [loading, setLoading]             = useState(true);
+  const [loggingRecurringId, setLoggingRecurringId] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -121,6 +122,42 @@ export default function DashboardPage() {
   }, [selectedMonth, selectedYear]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const handleLogRecurring = async (item: any) => {
+    setLoggingRecurringId(item.id);
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const res = await fetch('/api/expenses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date: today,
+          categoryId: item.categoryId,
+          amount: item.amount,
+          note: `${item.name} (Recurring)`,
+          tags: ['recurring'],
+          paymentMethod: 'upi',
+        }),
+      });
+
+      if (res.ok) {
+        const currentYM = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
+        const nextList = (settings?.recurringExpenses || []).map((r: any) =>
+          r.id === item.id ? { ...r, lastLoggedMonth: currentYM } : r
+        );
+        await fetch('/api/settings', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ recurringExpenses: nextList }),
+        });
+        await fetchData();
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoggingRecurringId(null);
+    }
+  };
 
   const monthlySalary  = settings?.monthlySalary  ?? 0;
   const annualSalary   = settings?.annualSalary   ?? 0;
@@ -699,11 +736,29 @@ export default function DashboardPage() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {dueRecurring.slice(0, 3).map(item => (
                     <div key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-elevated)', borderRadius: 12, padding: '10px 12px' }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
-                        {item.name} <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>(Due Day {item.dayOfMonth})</span>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
+                          {item.name}
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>
+                          Due Day {item.dayOfMonth}
+                        </div>
                       </div>
-                      <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>
-                        {formatINR(item.amount)}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>
+                          {formatINR(item.amount)}
+                        </div>
+                        <button
+                          onClick={() => handleLogRecurring(item)}
+                          disabled={loggingRecurringId === item.id}
+                          style={{
+                            padding: '5px 11px', borderRadius: 8,
+                            background: 'var(--accent)', color: '#fff', border: 'none',
+                            fontSize: 11.5, fontWeight: 700, cursor: 'pointer',
+                          }}
+                        >
+                          {loggingRecurringId === item.id ? 'Logging…' : 'Log'}
+                        </button>
                       </div>
                     </div>
                   ))}

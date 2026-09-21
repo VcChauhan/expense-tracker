@@ -176,40 +176,60 @@ export function parseGrowwOcrText(ocrText: string): ParsedPortfolio {
   let oneDayGain = 0;
   let oneDayGainPercent = 0;
 
-  // ── Strategy 1: Look for Groww's summary header (Current value, Invested value) ──
+  // 1. Isolate summary section (strip out TRANSACTION HISTORY so past transactions don't pollute totals)
+  let summaryEndIdx = -1;
   for (let i = 0; i < rawLines.length; i++) {
     const l = rawLines[i].toLowerCase();
+    if (
+      l.includes('transaction history') ||
+      l.includes('g t tory') ||
+      l.includes('transactions') ||
+      l.includes('redeem') ||
+      l.includes('invest more') ||
+      /^(?:invest\s+\d|completed)/i.test(l)
+    ) {
+      summaryEndIdx = i;
+      break;
+    }
+  }
+  const summaryLines = summaryEndIdx !== -1 ? rawLines.slice(0, summaryEndIdx) : rawLines;
 
-    // Matching "Current value" or "Current"
+  // ── Strategy 1: Look for explicit Groww summary labels in summaryLines ──
+  for (let i = 0; i < summaryLines.length; i++) {
+    const l = summaryLines[i].toLowerCase();
+
+    // Matching "Current value" or exact "Current"
     if (!currentValue && (l.includes('current value') || l === 'current')) {
-      for (let j = i; j < Math.min(i + 4, rawLines.length); j++) {
-        const m = rawLines[j].match(/[₹$¥£]?\s*([0-9,]+(?:\.[0-9]+)?)/);
+      for (let j = i; j < Math.min(i + 4, summaryLines.length); j++) {
+        if (/folio|nav|units/i.test(summaryLines[j])) continue;
+        const m = summaryLines[j].match(/[₹$¥£]?\s*([0-9,]+(?:\.[0-9]+)?)/);
         if (m) {
           const v = cleanNumber(m[1]);
-          if (v > 100) { currentValue = v; break; }
+          if (v > 100 && v < 10000000) { currentValue = v; break; }
         }
       }
     }
 
-    // Matching "Invested value" or "Invested"
+    // Matching "Invested value" or exact "Invested"
     if (!totalInvested && (l.includes('invested value') || l === 'invested')) {
-      for (let j = i; j < Math.min(i + 4, rawLines.length); j++) {
-        const m = rawLines[j].match(/[₹$¥£]?\s*([0-9,]+(?:\.[0-9]+)?)/);
+      for (let j = i; j < Math.min(i + 4, summaryLines.length); j++) {
+        if (/folio|nav|units/i.test(summaryLines[j])) continue;
+        const m = summaryLines[j].match(/[₹$¥£]?\s*([0-9,]+(?:\.[0-9]+)?)/);
         if (m) {
           const v = cleanNumber(m[1]);
-          if (v > 100) { totalInvested = v; break; }
+          if (v > 100 && v < 10000000) { totalInvested = v; break; }
         }
       }
     }
 
     // Matching "1D returns"
     if (l.includes('1d return') || l.includes('1d')) {
-      for (let j = i; j < Math.min(i + 4, rawLines.length); j++) {
-        const pctMatch = rawLines[j].match(/([+\-]?\d+(?:\.\d+)?)\s*%/);
+      for (let j = i; j < Math.min(i + 4, summaryLines.length); j++) {
+        const pctMatch = summaryLines[j].match(/([+\-]?\d+(?:\.\d+)?)\s*%/);
         if (pctMatch && !oneDayGainPercent) {
           oneDayGainPercent = parseFloat(pctMatch[1]);
         }
-        const signedAmt = rawLines[j].match(/([+\-])[₹$¥£]?\s*([0-9,]+(?:\.[0-9]+)?)/);
+        const signedAmt = summaryLines[j].match(/([+\-])[₹$¥£]?\s*([0-9,]+(?:\.[0-9]+)?)/);
         if (signedAmt && !oneDayGain) {
           const sign = signedAmt[1] === '-' ? -1 : 1;
           oneDayGain = cleanNumber(signedAmt[2]) * sign;
@@ -219,69 +239,95 @@ export function parseGrowwOcrText(ocrText: string): ParsedPortfolio {
 
     // Matching "Total returns"
     if (l.includes('total return') || (l.includes('returns') && !l.includes('1d'))) {
-      for (let j = i; j < Math.min(i + 4, rawLines.length); j++) {
-        const pctMatch = rawLines[j].match(/([+\-]?\d+(?:\.\d+)?)\s*%/);
+      for (let j = i; j < Math.min(i + 4, summaryLines.length); j++) {
+        const pctMatch = summaryLines[j].match(/([+\-]?\d+(?:\.\d+)?)\s*%/);
         if (pctMatch && !gainPercent) {
           gainPercent = parseFloat(pctMatch[1]);
         }
-        const signedAmt = rawLines[j].match(/([+\-])[₹$¥£]?\s*([0-9,]+(?:\.[0-9]+)?)/);
+        const signedAmt = summaryLines[j].match(/([+\-])[₹$¥£]?\s*([0-9,]+(?:\.[0-9]+)?)/);
         if (signedAmt && !totalGain) {
           const sign = signedAmt[1] === '-' ? -1 : 1;
           totalGain = cleanNumber(signedAmt[2]) * sign;
         }
       }
     }
+  }
 
-    // 3-Column horizontal table: "Invested Current Returns"
-    if (l.includes('invested') && (l.includes('current') || l.includes('return'))) {
-      for (let offset = 1; offset <= 3 && i + offset < rawLines.length; offset++) {
-        const numLine = rawLines[i + offset];
-        const tokens = numLine.match(/[+\-]?[₹$¥£]?[0-9,]+(?:\.[0-9]+)?/g) || [];
-        const cleanTokens = tokens
-          .map((t) => ({ raw: t, val: cleanNumber(t) }))
-          .filter((t) => t.val > 0 || t.raw.includes('+') || t.raw.includes('-'));
+  // ── Strategy 2: Multi-number summary row (e.g. "29,999  30,365  +3367") ──
+  if (!currentValue || !totalInvested) {
+    for (const line of summaryLines) {
+      if (/folio/i.test(line)) continue;
 
-        if (cleanTokens.length >= 2) {
-          if (!totalInvested) totalInvested = cleanTokens[0].val;
-          if (!currentValue) currentValue = cleanTokens[1].val;
-          if (cleanTokens.length >= 3 && !totalGain) {
-            const isNegative = cleanTokens[2].raw.includes('-');
-            totalGain = isNegative ? -Math.abs(cleanTokens[2].val) : Math.abs(cleanTokens[2].val);
+      const tokens = line.match(/[+\-]?[₹$¥£]?[0-9,]+(?:\.[0-9]+)?/g) || [];
+      const validTokens = tokens
+        .map((t) => {
+          const isNegative = t.includes('-');
+          const clean = t.replace(/[+\-₹$¥£,\s]/g, '');
+          const val = parseFloat(clean) || 0;
+          return { raw: t, val, isNegative };
+        })
+        .filter((t) => t.val > 0 && t.val < 10000000); // Filter out folio numbers (4.9 crore)
+
+      if (validTokens.length >= 2) {
+        let n1 = validTokens[0].val;
+        let n2 = validTokens[1].val;
+        let n3 = validTokens[2] ? validTokens[2].val : 0;
+
+        // Skip lines that look like NAV & Units (e.g. 452.99 and 66.224)
+        const isNavLine = (n1 < 1000 && n1 % 1 !== 0) && (n2 < 1000 && n2 % 1 !== 0);
+        if (isNavLine) continue;
+
+        // Fix Tesseract reading ₹ as leading '3' or '2' (e.g. ₹29,999 -> 329,999 or 229,999)
+        if (n1 > 100000 && n2 < 100000) {
+          const candidate1 = parseFloat(n1.toString().slice(1));
+          if (candidate1 > 100 && Math.abs(n2 - candidate1) < candidate1) {
+            n1 = candidate1;
           }
-          break;
+        } else if (n2 > 100000 && n1 < 100000) {
+          const candidate2 = parseFloat(n2.toString().slice(1));
+          if (candidate2 > 100 && Math.abs(candidate2 - n1) < n1) {
+            n2 = candidate2;
+          }
         }
+
+        // Fix returns n3 if ₹ read as '3' (e.g. +₹367 -> +3367)
+        if (n3 > 0) {
+          const diff = n2 - n1;
+          if (n3 > 1000 && Math.abs(diff) < 1000) {
+            const stripped3 = n3 % 1000;
+            if (Math.abs(diff - stripped3) <= 10) {
+              n3 = validTokens[2].isNegative ? -stripped3 : stripped3;
+            }
+          }
+        } else {
+          n3 = n2 - n1;
+        }
+
+        totalInvested = n1;
+        currentValue = n2;
+        if (!totalGain) totalGain = n3;
+        break;
       }
     }
   }
 
-  // ── Strategy 2: Fallback — 2 large numbers on a line ─────────────────
+  // ── Strategy 3: Safe Fallback from summary lines only (never scan transaction history) ──
   if (!currentValue || !totalInvested) {
-    for (const line of rawLines) {
-      const matches = line.match(/\b\d{1,3}(?:,\d{3})+(?:\.\d+)?\b/g);
-      if (matches && matches.length >= 2) {
-        const num1 = cleanNumber(matches[0]);
-        const num2 = cleanNumber(matches[1]);
-        if (num1 > 100 && num2 > 100) {
-          if (!totalInvested) totalInvested = num1;
-          if (!currentValue) currentValue = num2;
-          break;
-        }
+    const summaryCandidates: number[] = [];
+    for (const l of summaryLines) {
+      if (/folio|nav|units|balanced/i.test(l)) continue;
+      const m = l.match(/\b\d{1,3}(?:,\d{3})+(?:\.\d+)?\b/g);
+      if (m) {
+        m.forEach((str) => {
+          const num = cleanNumber(str);
+          if (num >= 500 && num < 10000000) summaryCandidates.push(num);
+        });
       }
     }
-  }
-
-  // ── Strategy 3: Currency matches ──────────────────────────────────────
-  if (!currentValue || !totalInvested) {
-    const allNums: number[] = [];
-    const re = /(?:[₹$¥£]|rs\.?)\s*([0-9,]+(?:\.[0-9]+)?)/gi;
-    let m;
-    while ((m = re.exec(ocrText)) !== null) {
-      const v = cleanNumber(m[1]);
-      if (v >= 500) allNums.push(v);
+    if (summaryCandidates.length >= 2) {
+      if (!totalInvested) totalInvested = summaryCandidates[0];
+      if (!currentValue) currentValue = summaryCandidates[1];
     }
-    const unique = [...new Set(allNums)].sort((a, b) => b - a);
-    if (!currentValue && unique.length > 0) currentValue = unique[0];
-    if (!totalInvested && unique.length > 1) totalInvested = unique[1];
   }
 
   // ── Compute derived values ────────────────────────────────────────────
