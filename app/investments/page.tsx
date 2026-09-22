@@ -7,11 +7,14 @@ import {
   TrendingUp, Camera, Trash2, ArrowLeft, Check,
   RefreshCw, AlertCircle, ArrowUpRight, ArrowDownRight,
   X, Cpu, Layers, Tag, Globe, Sparkles, Pencil,
-  Repeat, Plus, Calendar, CheckCircle2, Eye, EyeOff
+  Repeat, Plus, Calendar, CheckCircle2, Eye, EyeOff,
+  SlidersHorizontal, BarChart2, PieChart as PieIcon,
 } from 'lucide-react';
 import {
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
+  PieChart, Pie, Cell,
 } from 'recharts';
+
 import { formatINR, InvestmentFund, Expense, Settings, SHORT_MONTHS, PortfolioType, RecurringExpense } from '@/lib/types';
 import { parseGrowwOcrText } from '@/lib/parseGrowwOcr';
 import { lightTap, successBuzz, mediumTap } from '@/lib/haptics';
@@ -160,6 +163,12 @@ export default function InvestmentsPage() {
       return next;
     });
   };
+
+  // ── Filter, Sort & Chart state ──
+  const [activeFilter, setActiveFilter] = useState<'all' | 'mutual_funds' | 'stocks' | 'gold'>('all');
+  const [sortBy, setSortBy] = useState<'invested' | 'returns' | 'name' | 'gainPct'>('invested');
+  const [showCharts, setShowCharts] = useState(true);
+  const [activeChartTab, setActiveChartTab] = useState<'allocation' | 'returns'>('allocation');
 
   const fetchLiveGold = async () => {
     setIsLoadingLiveGold(true);
@@ -363,6 +372,49 @@ export default function InvestmentsPage() {
   const mfHoldings = distinctHoldings.filter((h) => h.portfolioType === 'mutual_funds');
   const stockHoldings = distinctHoldings.filter((h) => h.portfolioType === 'stocks');
   const goldHoldings = distinctHoldings.filter((h) => h.portfolioType === 'gold');
+
+  // Filtered + sorted holdings for display
+  const displayHoldings = useMemo(() => {
+    let list = [...distinctHoldings];
+    if (activeFilter !== 'all') {
+      list = list.filter((h) => h.portfolioType === activeFilter);
+    }
+    list.sort((a, b) => {
+      if (sortBy === 'invested') return (b.totalInvested || 0) - (a.totalInvested || 0);
+      if (sortBy === 'returns') return (b.totalGain || 0) - (a.totalGain || 0);
+      if (sortBy === 'gainPct') return (b.gainPercent || 0) - (a.gainPercent || 0);
+      if (sortBy === 'name') return (a.holdingName || '').localeCompare(b.holdingName || '');
+      return 0;
+    });
+    return list;
+  }, [distinctHoldings, activeFilter, sortBy]);
+
+  // Pie chart — portfolio allocation by category
+  const allocationChartData = useMemo(() => {
+    const mfVal = mfHoldings.reduce((s, h) => s + (h.currentValue || 0), 0);
+    const stockVal = stockHoldings.reduce((s, h) => s + (h.currentValue || 0), 0);
+    const goldVal = goldHoldings.reduce((s, h) => s + (h.currentValue || 0), 0);
+    const result: { name: string; value: number; color: string }[] = [];
+    if (mfVal > 0) result.push({ name: 'Mutual Funds', value: mfVal, color: '#8B5CF6' });
+    if (stockVal > 0) result.push({ name: 'Stocks', value: stockVal, color: '#10B981' });
+    if (goldVal > 0) result.push({ name: 'Gold', value: goldVal, color: '#F59E0B' });
+    return result;
+  }, [mfHoldings, stockHoldings, goldHoldings]);
+
+  // Returns % bar chart — top 8 holdings
+  const returnsChartData = useMemo(() => {
+    return distinctHoldings
+      .filter((h) => h.totalInvested > 0)
+      .map((h) => ({
+        name: (h.holdingName || 'Fund').split(' ').slice(0, 2).join(' '),
+        fullName: h.holdingName || 'Fund',
+        gainPct: Number((h.gainPercent || 0).toFixed(2)),
+        color: (h.gainPercent || 0) >= 0 ? '#10B981' : '#EF4444',
+      }))
+      .sort((a, b) => b.gainPct - a.gainPct)
+      .slice(0, 8);
+  }, [distinctHoldings]);
+
 
   // ── Live Internet Sync ────────────────────────────────────────────────
   const handleSyncLive = async () => {
@@ -847,428 +899,296 @@ export default function InvestmentsPage() {
     <div style={{ minHeight: '100vh', background: 'var(--bg)', paddingBottom: 90 }}>
       <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
 
-      {/* ── Toast Banner ─────────────────────────────────────────────── */}
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pulseGlow { 0%,100%{opacity:1} 50%{opacity:0.4} }
+        @keyframes slideUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+        .inv-filter-tab { padding:7px 14px; border-radius:20px; font-size:12.5px; font-weight:700; cursor:pointer; border:1.5px solid transparent; transition:all 0.18s ease; white-space:nowrap; display:flex; align-items:center; gap:5px; }
+        .inv-sort-btn { padding:6px 11px; border-radius:10px; font-size:11.5px; font-weight:700; cursor:pointer; border:1.5px solid var(--border); background:var(--bg-elevated); color:var(--text-secondary); transition:all 0.15s ease; white-space:nowrap; }
+        .inv-sort-btn.active { background:rgba(139,92,246,0.15); border-color:rgba(139,92,246,0.4); color:#8B5CF6; }
+        .inv-holding-card { animation:slideUp 0.22s ease both; }
+        .inv-holding-card:hover { transform:translateY(-1px); box-shadow:0 6px 20px rgba(0,0,0,0.2) !important; }
+        .inv-chart-tab { padding:6px 13px; border-radius:10px; font-size:12px; font-weight:700; cursor:pointer; border:1.5px solid var(--border); transition:all 0.15s; }
+      `}</style>
+
+      {/* Toast */}
       {syncToast && (
-        <div style={{
-          position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)',
-          zIndex: 2000, background: 'rgba(16,185,129,0.95)', backdropFilter: 'blur(10px)',
-          color: '#fff', padding: '10px 20px', borderRadius: 12, fontWeight: 700,
-          fontSize: 13, display: 'flex', alignItems: 'center', gap: 8,
-          boxShadow: '0 8px 30px rgba(0,0,0,0.3)',
-        }}>
-          <Sparkles size={16} />
-          <span>{syncToast}</span>
+        <div style={{ position:'fixed', top:20, left:'50%', transform:'translateX(-50%)', zIndex:2000, background:'rgba(16,185,129,0.95)', backdropFilter:'blur(10px)', color:'#fff', padding:'10px 20px', borderRadius:12, fontWeight:700, fontSize:13, display:'flex', alignItems:'center', gap:8, boxShadow:'0 8px 30px rgba(0,0,0,0.3)' }}>
+          <Sparkles size={16} /><span>{syncToast}</span>
         </div>
       )}
 
-      {/* ── Header ───────────────────────────────────────────────────── */}
-      <div style={{ padding: '20px 16px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button onClick={() => router.push('/reports')} style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)', width: 36, height: 36, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-            <ArrowLeft size={18} />
-          </button>
-          <div>
-            <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Investments & Groww</h1>
-            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>Live Market NAVs · On-device OCR</p>
+      {/* ══ STICKY HEADER ══════════════════════════════════════════ */}
+      <div style={{ background:'var(--bg-card)', borderBottom:'1px solid var(--border)', position:'sticky', top:0, zIndex:100 }}>
+        {/* Row 1 */}
+        <div style={{ padding:'14px 16px 8px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <button onClick={() => router.push('/reports')} style={{ background:'var(--bg-elevated)', border:'1px solid var(--border)', color:'var(--text-primary)', width:34, height:34, borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0 }}>
+              <ArrowLeft size={17} />
+            </button>
+            <div>
+              <h1 style={{ fontSize:18, fontWeight:800, color:'var(--text-primary)', margin:0, lineHeight:1.2 }}>My Portfolio</h1>
+              <p style={{ fontSize:11, color:'var(--text-muted)', margin:0 }}>AMFI · NSE · Live Gold</p>
+            </div>
+          </div>
+          <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+            <button onClick={toggleMask} title={isMasked ? 'Show amounts' : 'Hide amounts'} style={{ display:'flex', alignItems:'center', gap:5, background:isMasked?'rgba(139,92,246,0.18)':'var(--bg-elevated)', color:isMasked?'#8B5CF6':'var(--text-secondary)', border:`1.5px solid ${isMasked?'rgba(139,92,246,0.4)':'var(--border)'}`, padding:'7px 10px', borderRadius:10, fontWeight:700, fontSize:12, cursor:'pointer', transition:'all 0.18s ease' }}>
+              {isMasked ? <EyeOff size={14} /> : <Eye size={14} />}
+              <span style={{ fontSize:11 }}>{isMasked ? 'Show' : 'Hide'}</span>
+            </button>
+            <button onClick={handleSyncLive} disabled={isSyncingLive || distinctHoldings.length === 0} style={{ display:'flex', alignItems:'center', gap:5, background:'rgba(16,185,129,0.1)', color:'#10B981', border:'1.5px solid rgba(16,185,129,0.3)', padding:'7px 10px', borderRadius:10, fontWeight:700, fontSize:12, cursor:isSyncingLive?'not-allowed':'pointer' }}>
+              {isSyncingLive ? <RefreshCw size={13} style={{ animation:'spin 1s linear infinite' }} /> : <Globe size={13} />}
+              <span style={{ fontSize:11 }}>{isSyncingLive ? '…' : 'Sync'}</span>
+            </button>
           </div>
         </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {/* Manual Add Holding Button */}
-          <button
-            onClick={() => {
-              setManualType('gold');
-              setManualName('24K Digital Gold');
-              setManualUnits('');
-              setManualBuyPrice('');
-              setManualInvested('');
-              setManualCurrent('');
-              setManualDate(new Date().toISOString().split('T')[0]);
-              setManualTime(new Date().toTimeString().slice(0, 5));
-              setShowManualModal(true);
-              fetchLiveGold();
-            }}
-            title="Manually add a stock, mutual fund or gold holding"
-            style={{
-              display: 'flex', alignItems: 'center', gap: 5,
-              background: 'rgba(245,158,11,0.12)',
-              color: '#F59E0B', border: '1px solid rgba(245,158,11,0.3)',
-              padding: '8px 12px', borderRadius: 12, fontWeight: 700, fontSize: 12.5,
-              cursor: 'pointer',
-            }}
-          >
-            <Plus size={15} />
-            <span>+ Add</span>
+        {/* Row 2: action chips */}
+        <div style={{ padding:'0 16px 12px', display:'flex', alignItems:'center', gap:8, overflowX:'auto' }}>
+          <button onClick={() => { setManualType('gold'); setManualName('24K Digital Gold'); setManualUnits(''); setManualBuyPrice(''); setManualInvested(''); setManualCurrent(''); setManualDate(new Date().toISOString().split('T')[0]); setManualTime(new Date().toTimeString().slice(0,5)); setShowManualModal(true); fetchLiveGold(); }} style={{ display:'flex', alignItems:'center', gap:5, flexShrink:0, background:'rgba(245,158,11,0.12)', color:'#F59E0B', border:'1.5px solid rgba(245,158,11,0.3)', padding:'7px 12px', borderRadius:10, fontWeight:700, fontSize:12, cursor:'pointer' }}>
+            <Plus size={13} /><span>Add</span>
           </button>
-
-          {/* Mask / Privacy Toggle Button (like Groww) */}
-          <button
-            onClick={toggleMask}
-            title={isMasked ? "Show amounts" : "Hide / Mask amounts"}
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-              background: isMasked ? 'rgba(139,92,246,0.18)' : 'var(--bg-elevated)',
-              color: isMasked ? 'var(--accent-2)' : 'var(--text-secondary)',
-              border: `1px solid ${isMasked ? 'var(--accent)' : 'var(--border)'}`,
-              padding: '8px 11px', borderRadius: 12, fontWeight: 700, fontSize: 12.5,
-              cursor: 'pointer', transition: 'all 0.18s ease',
-            }}
-          >
-            {isMasked ? <EyeOff size={15} /> : <Eye size={15} />}
-            <span style={{ display: 'none', minWidth: 32 }}>{isMasked ? 'Show' : 'Hide'}</span>
+          <button onClick={() => fileInputRef.current?.click()} disabled={isOcrRunning} style={{ display:'flex', alignItems:'center', gap:5, flexShrink:0, background:isOcrRunning?'var(--bg-elevated)':'var(--accent-grad)', color:isOcrRunning?'var(--text-muted)':'#fff', border:isOcrRunning?'1px solid var(--border)':'none', padding:'7px 12px', borderRadius:10, fontWeight:700, fontSize:12, cursor:isOcrRunning?'not-allowed':'pointer', boxShadow:isOcrRunning?'none':'0 3px 12px rgba(124,92,252,0.3)' }}>
+            {isOcrRunning ? <><RefreshCw size={13} style={{ animation:'spin 1s linear infinite' }} /><span style={{ fontSize:10 }}>{ocrStatusLabel[ocrStatus]}</span></> : <><Camera size={13} /><span>Upload Groww</span></>}
           </button>
-
-          {/* Live Sync Button */}
-          <button
-            onClick={handleSyncLive}
-            disabled={isSyncingLive || distinctHoldings.length === 0}
-            title="Fetch today's live NAV, Stock & Gold prices"
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              background: 'rgba(16,185,129,0.12)',
-              color: '#10B981', border: '1px solid rgba(16,185,129,0.25)',
-              padding: '8px 12px', borderRadius: 12, fontWeight: 700, fontSize: 12.5,
-              cursor: isSyncingLive ? 'not-allowed' : 'pointer',
-            }}
-          >
-            {isSyncingLive ? (
-              <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} />
-            ) : (
-              <Globe size={14} />
-            )}
-            <span>{isSyncingLive ? 'Syncing…' : 'Live Sync'}</span>
+          <button onClick={() => openSipModal()} style={{ display:'flex', alignItems:'center', gap:5, flexShrink:0, background:'rgba(139,92,246,0.1)', color:'#8B5CF6', border:'1.5px solid rgba(139,92,246,0.3)', padding:'7px 12px', borderRadius:10, fontWeight:700, fontSize:12, cursor:'pointer' }}>
+            <Repeat size={13} /><span>Add SIP</span>
           </button>
-
-          {/* Upload Button */}
-          <button onClick={() => fileInputRef.current?.click()} disabled={isOcrRunning} style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            background: isOcrRunning ? 'var(--bg-elevated)' : 'var(--accent-grad)',
-            color: isOcrRunning ? 'var(--text-muted)' : '#fff',
-            border: isOcrRunning ? '1px solid var(--border)' : 'none',
-            padding: '8px 14px', borderRadius: 12, fontWeight: 700, fontSize: 13,
-            cursor: isOcrRunning ? 'not-allowed' : 'pointer',
-            boxShadow: isOcrRunning ? 'none' : '0 4px 14px rgba(124,92,252,0.3)',
-          }}>
-            {isOcrRunning
-              ? <><RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} /><span style={{ fontSize: 11 }}>{ocrStatusLabel[ocrStatus]}</span></>
-              : <><Camera size={15} /><span>Upload</span></>}
+          <button onClick={() => setShowCharts(p => !p)} style={{ display:'flex', alignItems:'center', gap:5, flexShrink:0, background:showCharts?'rgba(59,130,246,0.1)':'var(--bg-elevated)', color:showCharts?'#3B82F6':'var(--text-secondary)', border:`1.5px solid ${showCharts?'rgba(59,130,246,0.3)':'var(--border)'}`, padding:'7px 12px', borderRadius:10, fontWeight:700, fontSize:12, cursor:'pointer' }}>
+            <PieIcon size={13} /><span>Charts</span>
           </button>
         </div>
       </div>
 
-      <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ padding:'14px 14px 0', display:'flex', flexDirection:'column', gap:14 }}>
 
-        {/* ── Live Market Auto-Sync Banner ─────────────────────────── */}
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '9px 14px', borderRadius: 12, background: 'rgba(16,185,129,0.08)',
-          border: '1px solid rgba(16,185,129,0.2)',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#10B981', boxShadow: '0 0 8px #10B981' }} />
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#10B981' }}>
-              Live Market Sync Enabled (AMFI, NSE &amp; Gold)
-            </span>
+        {/* ── Live Banner ── */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 14px', borderRadius:12, background:'rgba(16,185,129,0.07)', border:'1px solid rgba(16,185,129,0.18)' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <div style={{ width:7, height:7, borderRadius:'50%', background:'#10B981', boxShadow:'0 0 8px #10B981', animation:'pulseGlow 2s ease-in-out infinite' }} />
+            <span style={{ fontSize:11.5, fontWeight:700, color:'#10B981' }}>Live Market Sync · AMFI, NSE &amp; Gold</span>
           </div>
-          <button
-            onClick={handleSyncLive}
-            disabled={isSyncingLive}
-            style={{
-              background: 'none', border: 'none', color: '#10B981',
-              fontSize: 11.5, fontWeight: 800, cursor: 'pointer', padding: 0,
-              textDecoration: 'underline',
-            }}
-          >
-            Refresh Now
-          </button>
+          <button onClick={handleSyncLive} disabled={isSyncingLive} style={{ background:'none', border:'none', color:'#10B981', fontSize:11.5, fontWeight:800, cursor:'pointer', padding:0 }}>Refresh Now</button>
         </div>
 
-        {/* ── Overall Portfolio Hero ────────────────────────────────── */}
-        <div style={{
-          background: 'linear-gradient(145deg, var(--bg-card) 0%, rgba(26,26,42,0.9) 100%)',
-          border: '1px solid var(--border)', borderRadius: 20, padding: '20px',
-          position: 'relative', overflow: 'hidden', boxShadow: '0 8px 28px rgba(0,0,0,0.22)',
-        }}>
-          <div style={{ position: 'absolute', top: -40, right: -40, width: 140, height: 140, borderRadius: '50%', background: isPositive ? 'radial-gradient(circle, rgba(16,185,129,0.22) 0%, transparent 70%)' : 'radial-gradient(circle, rgba(239,68,68,0.22) 0%, transparent 70%)', pointerEvents: 'none' }} />
+        {/* ══ HERO CARD ════════════════════════════════════════════ */}
+        <div style={{ background:'linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%)', borderRadius:22, padding:'22px 20px', position:'relative', overflow:'hidden', boxShadow:'0 12px 40px rgba(0,0,0,0.4)', border:'1px solid rgba(139,92,246,0.2)' }}>
+          <div style={{ position:'absolute', top:-50, right:-30, width:160, height:160, borderRadius:'50%', background:isPositive?'radial-gradient(circle,rgba(16,185,129,0.25) 0%,transparent 70%)':'radial-gradient(circle,rgba(239,68,68,0.25) 0%,transparent 70%)', pointerEvents:'none' }} />
+          <div style={{ position:'absolute', bottom:-30, left:-20, width:120, height:120, borderRadius:'50%', background:'radial-gradient(circle,rgba(139,92,246,0.2) 0%,transparent 70%)', pointerEvents:'none' }} />
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(139,92,246,0.15)', color: '#8B5CF6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Layers size={18} />
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:9 }}>
+              <div style={{ width:36, height:36, borderRadius:12, background:'rgba(139,92,246,0.2)', color:'#a78bfa', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 0 12px rgba(139,92,246,0.3)' }}><Layers size={18} /></div>
+              <div>
+                <div style={{ fontSize:11, fontWeight:700, color:'rgba(255,255,255,0.5)', textTransform:'uppercase', letterSpacing:'0.8px' }}>Total Portfolio</div>
+                <div style={{ fontSize:11, color:'rgba(255,255,255,0.35)', marginTop:1 }}>{distinctHoldings.length} holdings</div>
               </div>
-              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Portfolio Value</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <button
-                onClick={toggleMask}
-                title={isMasked ? "Show amounts" : "Hide amounts"}
-                style={{
-                  background: isMasked ? 'rgba(139,92,246,0.2)' : 'rgba(255,255,255,0.06)',
-                  border: '1px solid var(--border)',
-                  color: isMasked ? 'var(--accent-2)' : 'var(--text-muted)',
-                  padding: '3px 8px', borderRadius: 8,
-                  display: 'flex', alignItems: 'center', gap: 4,
-                  fontSize: 11, fontWeight: 700, cursor: 'pointer',
-                }}
-              >
-                {isMasked ? <EyeOff size={12} /> : <Eye size={12} />}
-                <span>{isMasked ? 'Hidden' : 'Hide'}</span>
-              </button>
-              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-2)', background: 'var(--accent-dim)', padding: '3px 8px', borderRadius: 8 }}>
-                {distinctHoldings.length} holding{distinctHoldings.length !== 1 ? 's' : ''}
-              </span>
-            </div>
+            <span style={{ fontSize:11, fontWeight:700, background:isPositive?'rgba(16,185,129,0.2)':'rgba(239,68,68,0.2)', color:isPositive?'#34d399':'#f87171', border:`1px solid ${isPositive?'rgba(16,185,129,0.35)':'rgba(239,68,68,0.35)'}`, padding:'3px 9px', borderRadius:20 }}>
+              {isPositive ? '▲' : '▼'} {Math.abs(totalGainPct)}% Overall
+            </span>
           </div>
 
-          <div style={{ fontSize: 32, fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.8px' }}>
-            {isMasked ? '₹••••••••' : formatINR(totalCurrentValue)}
+          <div style={{ fontSize:36, fontWeight:900, color:'#fff', letterSpacing:'-1px', lineHeight:1, marginBottom:10, textShadow:'0 2px 20px rgba(255,255,255,0.15)' }}>
+            {isMasked ? '₹ ••••••••' : formatINR(totalCurrentValue)}
           </div>
 
-          {/* Returns Badges (Total & Today's 1D) */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
-            <div style={{
-              display: 'inline-flex', alignItems: 'center', gap: 4,
-              padding: '3px 9px', borderRadius: 999, fontWeight: 700, fontSize: 12,
-              background: isPositive ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
-              color: isPositive ? 'var(--success)' : 'var(--danger)',
-              border: `1px solid ${isPositive ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)'}`,
-            }}>
-              {isMasked ? (
-                <span>•••••• Total</span>
-              ) : (
-                <>
-                  {isPositive ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
-                  {isPositive ? '+' : ''}{formatINR(totalGain)} ({isPositive ? '+' : ''}{totalGainPct}%) Total
-                </>
-              )}
+          <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', marginBottom:18 }}>
+            <div style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'4px 10px', borderRadius:20, fontWeight:700, fontSize:12, background:isPositive?'rgba(16,185,129,0.15)':'rgba(239,68,68,0.15)', color:isPositive?'#34d399':'#f87171', border:`1px solid ${isPositive?'rgba(16,185,129,0.3)':'rgba(239,68,68,0.3)'}` }}>
+              {isMasked ? <span>•••••• P&amp;L</span> : <>{isPositive?<ArrowUpRight size={13}/>:<ArrowDownRight size={13}/>}{isPositive?'+':''}{formatINR(totalGain)} P&amp;L</>}
             </div>
-
             {(latest1D.gain !== 0 || latest1D.percent !== 0) && (
-              <div style={{
-                display: 'inline-flex', alignItems: 'center', gap: 4,
-                padding: '3px 9px', borderRadius: 999, fontWeight: 700, fontSize: 12,
-                background: latest1D.gain >= 0 ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
-                color: latest1D.gain >= 0 ? 'var(--success)' : 'var(--danger)',
-                border: `1px solid ${latest1D.gain >= 0 ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)'}`,
-              }}>
-                {isMasked ? (
-                  <span>•••••• 1D Today</span>
-                ) : (
-                  <>
-                    {latest1D.gain >= 0 ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
-                    {latest1D.gain >= 0 ? '+' : ''}{latest1D.gain ? formatINR(latest1D.gain) + ' ' : ''}
-                    ({latest1D.gain >= 0 ? '+' : ''}{latest1D.percent}%) 1D Today
-                  </>
-                )}
+              <div style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'4px 10px', borderRadius:20, fontWeight:700, fontSize:12, background:latest1D.gain>=0?'rgba(16,185,129,0.12)':'rgba(239,68,68,0.12)', color:latest1D.gain>=0?'#34d399':'#f87171', border:`1px solid ${latest1D.gain>=0?'rgba(16,185,129,0.25)':'rgba(239,68,68,0.25)'}` }}>
+                {isMasked ? <span>•••••• 1D</span> : <>{latest1D.gain>=0?<ArrowUpRight size={13}/>:<ArrowDownRight size={13}/>}{latest1D.gain>=0?'+':''}{latest1D.gain?formatINR(latest1D.gain)+' ':''} ({latest1D.gain>=0?'+':''}{latest1D.percent}%) 1D</>}
               </div>
             )}
           </div>
 
-          <div style={{ height: 1, background: 'var(--border)', margin: '14px 0' }} />
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8 }}>
-            <div>
-              <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginBottom: 2 }}>Invested</div>
-              <div style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--text-primary)' }}>
-                {isMasked ? '₹••••••' : formatINR(totalInvested)}
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', background:'rgba(255,255,255,0.05)', borderRadius:14, overflow:'hidden' }}>
+            {[
+              { label:'Invested', val:isMasked?'₹••••':formatINR(totalInvested), color:'#c4b5fd' },
+              { label:'MF', val:mfHoldings.length, color:'#8B5CF6' },
+              { label:'Stocks', val:stockHoldings.length, color:'#10B981' },
+              { label:'Gold', val:goldHoldings.length, color:'#F59E0B' },
+            ].map((item,i) => (
+              <div key={i} style={{ padding:'10px 8px', textAlign:'center', borderLeft:i>0?'1px solid rgba(255,255,255,0.06)':'none' }}>
+                <div style={{ fontSize:10, color:'rgba(255,255,255,0.4)', marginBottom:3, textTransform:'uppercase', letterSpacing:'0.4px' }}>{item.label}</div>
+                <div style={{ fontSize:14, fontWeight:800, color:item.color }}>{item.val}</div>
               </div>
-            </div>
-            <div>
-              <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginBottom: 2 }}>MF</div>
-              <div style={{ fontSize: 13.5, fontWeight: 800, color: '#8B5CF6' }}>{mfHoldings.length}</div>
-            </div>
-            <div>
-              <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginBottom: 2 }}>Stocks</div>
-              <div style={{ fontSize: 13.5, fontWeight: 800, color: '#10B981' }}>{stockHoldings.length}</div>
-            </div>
-            <div>
-              <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginBottom: 2 }}>Gold</div>
-              <div style={{ fontSize: 13.5, fontWeight: 800, color: '#F59E0B' }}>{goldHoldings.length}</div>
-            </div>
+            ))}
           </div>
         </div>
 
-        {/* ── Upload & Manual Bar ───────────────────────────────────── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 10 }}>
-          <div onClick={() => !isOcrRunning && fileInputRef.current?.click()} style={{
-            background: 'var(--bg-card)', border: '1.5px dashed var(--accent)', borderRadius: 16,
-            padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10,
-            cursor: isOcrRunning ? 'not-allowed' : 'pointer',
-          }}>
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--accent-dim)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              {isOcrRunning ? <RefreshCw size={18} style={{ animation: 'spin 1s linear infinite' }} /> : <Camera size={18} />}
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {isOcrRunning ? ocrStatusLabel[ocrStatus] : 'Upload Groww'}
+        {/* ══ CHARTS ════════════════════════════════════════════════ */}
+        {showCharts && allocationChartData.length > 0 && (
+          <div style={{ background:'var(--bg-card)', border:'1px solid var(--border)', borderRadius:18, padding:'16px', overflow:'hidden' }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                <div style={{ width:28, height:28, borderRadius:8, background:'rgba(59,130,246,0.15)', color:'#3B82F6', display:'flex', alignItems:'center', justifyContent:'center' }}><BarChart2 size={15} /></div>
+                <span style={{ fontSize:14, fontWeight:800, color:'var(--text-primary)' }}>Analytics</span>
               </div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Scan screenshot</div>
+              <div style={{ display:'flex', gap:6 }}>
+                <button className="inv-chart-tab" onClick={() => setActiveChartTab('allocation')} style={{ background:activeChartTab==='allocation'?'rgba(139,92,246,0.15)':'var(--bg-elevated)', color:activeChartTab==='allocation'?'#8B5CF6':'var(--text-secondary)', border:`1.5px solid ${activeChartTab==='allocation'?'rgba(139,92,246,0.35)':'var(--border)'}` }}>🥧 Allocation</button>
+                <button className="inv-chart-tab" onClick={() => setActiveChartTab('returns')} style={{ background:activeChartTab==='returns'?'rgba(16,185,129,0.15)':'var(--bg-elevated)', color:activeChartTab==='returns'?'#10B981':'var(--text-secondary)', border:`1.5px solid ${activeChartTab==='returns'?'rgba(16,185,129,0.35)':'var(--border)'}` }}>📊 Returns %</button>
+              </div>
+            </div>
+            {activeChartTab === 'allocation' ? (
+              <div>
+                <ResponsiveContainer width="100%" height={190}>
+                  <PieChart>
+                    <Pie data={allocationChartData} cx="50%" cy="50%" innerRadius={52} outerRadius={82} paddingAngle={3} dataKey="value">
+                      {allocationChartData.map((entry, index) => <Cell key={`c-${index}`} fill={entry.color} stroke="transparent" />)}
+                    </Pie>
+                    <Tooltip formatter={(value: any) => [isMasked ? '₹••••••' : formatINR(Number(value)), '']} contentStyle={{ background:'var(--bg-card)', border:'1px solid var(--border)', borderRadius:10, fontSize:12, color:'var(--text-primary)' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div style={{ display:'flex', justifyContent:'center', gap:16, flexWrap:'wrap', marginTop:4 }}>
+                  {allocationChartData.map(entry => {
+                    const total = allocationChartData.reduce((s,e) => s+e.value, 0);
+                    const pct = total > 0 ? ((entry.value/total)*100).toFixed(1) : '0';
+                    return <div key={entry.name} style={{ display:'flex', alignItems:'center', gap:6 }}><div style={{ width:10, height:10, borderRadius:3, background:entry.color, flexShrink:0 }} /><span style={{ fontSize:11.5, color:'var(--text-secondary)', fontWeight:600 }}>{entry.name} · {pct}%</span></div>;
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div style={{ fontSize:11.5, color:'var(--text-muted)', marginBottom:10, fontWeight:600 }}>Returns % per holding (top 8)</div>
+                <ResponsiveContainer width="100%" height={Math.max(160, returnsChartData.length * 38)}>
+                  <BarChart data={returnsChartData} layout="vertical" margin={{ left:0, right:16, top:0, bottom:0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" horizontal={false} />
+                    <XAxis type="number" tick={{ fontSize:10, fill:'var(--text-muted)' }} tickFormatter={v => `${v}%`} axisLine={false} tickLine={false} />
+                    <YAxis type="category" dataKey="name" width={70} tick={{ fontSize:10, fill:'var(--text-muted)' }} axisLine={false} tickLine={false} />
+                    <Tooltip formatter={(val: any, _n: any, props: any) => [`${val>0?'+':''}${val}%`, props.payload?.fullName||props.payload?.name]} contentStyle={{ background:'var(--bg-card)', border:'1px solid var(--border)', borderRadius:10, fontSize:12, color:'var(--text-primary)' }} />
+                    <Bar dataKey="gainPct" radius={[0,6,6,0]} maxBarSize={18}>
+                      {returnsChartData.map((entry, index) => <Cell key={`c-${index}`} fill={entry.color} />)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Quick Action Bar ──────────────────────────────────── */}
+        <div style={{ display:'grid', gridTemplateColumns:'1.2fr 1fr', gap:10 }}>
+          <div onClick={() => !isOcrRunning && fileInputRef.current?.click()} style={{ background:'var(--bg-card)', border:'1.5px dashed var(--accent)', borderRadius:16, padding:'12px 14px', display:'flex', alignItems:'center', gap:10, cursor:isOcrRunning?'not-allowed':'pointer' }}>
+            <div style={{ width:36, height:36, borderRadius:10, background:'var(--accent-dim)', color:'var(--accent)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+              {isOcrRunning ? <RefreshCw size={18} style={{ animation:'spin 1s linear infinite' }} /> : <Camera size={18} />}
+            </div>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontSize:13, fontWeight:800, color:'var(--text-primary)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{isOcrRunning ? ocrStatusLabel[ocrStatus] : 'Upload Groww'}</div>
+              <div style={{ fontSize:11, color:'var(--text-muted)' }}>Scan screenshot</div>
             </div>
           </div>
-
-          <button
-            onClick={() => {
-              setManualType('gold');
-              setManualName('24K Digital Gold');
-              setManualUnits('');
-              setManualBuyPrice('');
-              setManualInvested('');
-              setManualCurrent('');
-              setManualDate(new Date().toISOString().split('T')[0]);
-              setManualTime(new Date().toTimeString().slice(0, 5));
-              setShowManualModal(true);
-              fetchLiveGold();
-            }}
-            style={{
-              background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)',
-              borderRadius: 16, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10,
-              cursor: 'pointer', textAlign: 'left',
-            }}
-          >
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(245,158,11,0.18)', color: '#F59E0B', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18 }}>
-              🪙
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-primary)' }}>+ Add Manual</div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Gold, MF, Stock</div>
+          <button onClick={() => { setManualType('gold'); setManualName('24K Digital Gold'); setManualUnits(''); setManualBuyPrice(''); setManualInvested(''); setManualCurrent(''); setManualDate(new Date().toISOString().split('T')[0]); setManualTime(new Date().toTimeString().slice(0,5)); setShowManualModal(true); fetchLiveGold(); }} style={{ background:'rgba(245,158,11,0.08)', border:'1px solid rgba(245,158,11,0.25)', borderRadius:16, padding:'12px 14px', display:'flex', alignItems:'center', gap:10, cursor:'pointer', textAlign:'left' }}>
+            <div style={{ width:36, height:36, borderRadius:10, background:'rgba(245,158,11,0.18)', color:'#F59E0B', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, fontSize:18 }}>🪙</div>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontSize:13, fontWeight:800, color:'var(--text-primary)' }}>+ Add Manual</div>
+              <div style={{ fontSize:11, color:'var(--text-muted)' }}>Gold, MF, Stock</div>
             </div>
           </button>
         </div>
 
-        {/* ── Tracked Individual Holdings Section ───────────────────── */}
-        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 18, padding: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(139,92,246,0.15)', color: '#8B5CF6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Tag size={15} />
-              </div>
+        {/* ══ HOLDINGS ═════════════════════════════════════════════ */}
+        <div>
+          {/* Section header */}
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+              <div style={{ width:28, height:28, borderRadius:8, background:'rgba(139,92,246,0.15)', color:'#8B5CF6', display:'flex', alignItems:'center', justifyContent:'center' }}><Tag size={14} /></div>
               <div>
-                <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)' }}>Tracked Holdings</div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>AMFI, NSE &amp; Live Gold Market</div>
+                <div style={{ fontSize:15, fontWeight:800, color:'var(--text-primary)' }}>Holdings</div>
+                <div style={{ fontSize:11, color:'var(--text-muted)' }}>{displayHoldings.length} of {distinctHoldings.length}</div>
               </div>
             </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{distinctHoldings.length} total</span>
-              {distinctHoldings.length > 0 && (
-                <button
-                  onClick={handleClearAll}
-                  style={{
-                    background: 'none', border: 'none', color: 'var(--danger)',
-                    fontSize: 11.5, fontWeight: 700, cursor: 'pointer', padding: 0,
-                  }}
-                >
-                  Clear All
-                </button>
-              )}
-            </div>
+            {distinctHoldings.length > 0 && <button onClick={handleClearAll} style={{ background:'none', border:'none', color:'var(--danger)', fontSize:11.5, fontWeight:700, cursor:'pointer', padding:0 }}>Clear All</button>}
           </div>
 
+          {/* Filter tabs */}
+          <div style={{ display:'flex', gap:8, overflowX:'auto', paddingBottom:4, marginBottom:10 }}>
+            {([
+              { key:'all', label:'All', icon:'🗂️', count:distinctHoldings.length },
+              { key:'mutual_funds', label:'MF', icon:'📊', count:mfHoldings.length },
+              { key:'stocks', label:'Stocks', icon:'📈', count:stockHoldings.length },
+              { key:'gold', label:'Gold', icon:'🪙', count:goldHoldings.length },
+            ] as const).map(tab => {
+              const isActive = activeFilter === tab.key;
+              const colorMap: Record<string,string> = { all:'#3B82F6', mutual_funds:'#8B5CF6', stocks:'#10B981', gold:'#F59E0B' };
+              const col = colorMap[tab.key];
+              return (
+                <button key={tab.key} className="inv-filter-tab" onClick={() => { setActiveFilter(tab.key); lightTap(); }} style={{ background:isActive?`${col}22`:'var(--bg-card)', color:isActive?col:'var(--text-secondary)', border:`1.5px solid ${isActive?col+'66':'var(--border)'}` }}>
+                  <span>{tab.icon}</span><span>{tab.label}</span>
+                  {tab.count > 0 && <span style={{ fontSize:10, fontWeight:800, padding:'1px 6px', borderRadius:10, background:isActive?`${col}33`:'var(--bg-elevated)', color:isActive?col:'var(--text-muted)' }}>{tab.count}</span>}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Sort controls */}
+          <div style={{ display:'flex', alignItems:'center', gap:6, overflowX:'auto', paddingBottom:4, marginBottom:12 }}>
+            <span style={{ fontSize:11, color:'var(--text-muted)', fontWeight:700, flexShrink:0, display:'flex', alignItems:'center', gap:4 }}><SlidersHorizontal size={12} /> Sort:</span>
+            {([
+              { key:'invested', label:'Invested' },
+              { key:'returns', label:'Returns ₹' },
+              { key:'gainPct', label:'Returns %' },
+              { key:'name', label:'Name' },
+            ] as const).map(opt => (
+              <button key={opt.key} className={`inv-sort-btn${sortBy===opt.key?' active':''}`} onClick={() => { setSortBy(opt.key); lightTap(); }}>{opt.label}{sortBy===opt.key?' ▾':''}</button>
+            ))}
+          </div>
+
+          {/* Holdings list */}
           {distinctHoldings.length === 0 ? (
-            <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
-              No holdings added yet. Tap &quot;+ Add&quot; or &quot;Upload&quot; to begin tracking!
+            <div style={{ padding:'36px 24px', textAlign:'center', background:'var(--bg-card)', borderRadius:18, border:'1.5px dashed var(--border)' }}>
+              <div style={{ fontSize:32, marginBottom:10 }}>📭</div>
+              <div style={{ fontSize:14, fontWeight:700, color:'var(--text-primary)', marginBottom:4 }}>No holdings yet</div>
+              <div style={{ fontSize:12, color:'var(--text-muted)' }}>Tap &quot;Add&quot; or &quot;Upload Groww&quot; to start tracking</div>
             </div>
+          ) : displayHoldings.length === 0 ? (
+            <div style={{ padding:'24px', textAlign:'center', color:'var(--text-muted)', fontSize:13 }}>No holdings match this filter.</div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {distinctHoldings.map((h) => {
-                const pos = h.totalGain >= 0;
+            <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+              {displayHoldings.map((h, idx) => {
+                const pos = (h.totalGain || 0) >= 0;
                 const isStock = h.portfolioType === 'stocks';
                 const isGold = h.portfolioType === 'gold';
-                const typeCfg = PORTFOLIO_TYPES.find((t) => t.value === h.portfolioType) || PORTFOLIO_TYPES[0];
+                const typeCfg = PORTFOLIO_TYPES.find(t => t.value === h.portfolioType) || PORTFOLIO_TYPES[0];
                 const unitLabel = isGold ? 'g' : isStock ? 'shares' : 'units';
-
+                const gainPct = Number((h.gainPercent || 0).toFixed(2));
                 return (
-                  <div key={h.holdingName || h._id} style={{
-                    padding: '14px', borderRadius: 14,
-                    background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-                    borderLeft: `4px solid ${typeCfg.color}`,
-                  }}>
-                    {/* Header: Name + Edit + Delete */}
-                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 10 }}>
-                      <div>
-                        <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1.3 }}>
-                          {h.holdingName || (isStock ? 'Stock Holding' : isGold ? 'Gold Investment' : 'Mutual Fund Scheme')}
+                  <div key={h.holdingName || h._id} className="inv-holding-card" style={{ borderRadius:16, background:'var(--bg-card)', border:'1px solid var(--border)', borderLeft:`4px solid ${typeCfg.color}`, overflow:'hidden', transition:'box-shadow 0.2s ease, transform 0.2s ease', animationDelay:`${idx*0.04}s` }}>
+                    <div style={{ padding:'14px 14px 10px' }}>
+                      <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:8 }}>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:5 }}>
+                            <span style={{ fontSize:10, fontWeight:800, padding:'2px 7px', borderRadius:8, background:`${typeCfg.color}20`, color:typeCfg.color, border:`1px solid ${typeCfg.color}40`, textTransform:'uppercase', letterSpacing:'0.5px' }}>{typeCfg.icon} {typeCfg.label}</span>
+                            {h.units && h.units > 0 && <span style={{ fontSize:10.5, color:'var(--text-muted)', fontWeight:600 }}>{h.units} {unitLabel}</span>}
+                          </div>
+                          <div style={{ fontSize:14, fontWeight:800, color:'var(--text-primary)', lineHeight:1.3, wordBreak:'break-word' }}>
+                            {h.holdingName || (isStock ? 'Stock Holding' : isGold ? 'Gold Investment' : 'Mutual Fund')}
+                          </div>
+                          <div style={{ fontSize:10.5, color:'var(--text-muted)', marginTop:3, display:'flex', alignItems:'center', gap:5, flexWrap:'wrap' }}>
+                            {h.buyPrice && h.buyPrice > 0 && <span>@ {isMasked ? '₹•••' : formatINR(h.buyPrice)}{isGold?'/g':'/NAV'}</span>}
+                            {h.purchaseTime && <span>· {h.purchaseTime}</span>}
+                            {!h.purchaseTime && h.date && <span>· {h.date}</span>}
+                          </div>
                         </div>
-                        <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                          <span style={{ fontWeight: 700, color: typeCfg.color }}>{typeCfg.icon} {typeCfg.label}</span>
-                          {h.units && h.units > 0 && (
-                            <span>• {h.units} {unitLabel}</span>
-                          )}
-                          {h.buyPrice && h.buyPrice > 0 && (
-                            <span>@ {isMasked ? '₹•••' : formatINR(h.buyPrice)}{isGold ? '/g' : ''}</span>
-                          )}
-                          {h.purchaseTime && (
-                            <span>• {h.purchaseTime}</span>
-                          )}
-                          {!h.purchaseTime && h.date && (
-                            <span>• Synced {h.date}</span>
-                          )}
+                        <div style={{ display:'flex', alignItems:'center', gap:4, flexShrink:0 }}>
+                          <button onClick={() => setEditingHolding({ id:h._id, originalName:h.holdingName||'', holdingName:h.holdingName||'', fundName:h.fundName, totalInvested:h.totalInvested||0, currentValue:h.currentValue||0, portfolioType:h.portfolioType||'mutual_funds', units:h.units, buyPrice:h.buyPrice, purchaseTime:h.purchaseTime })} style={{ background:'var(--bg-elevated)', border:'1px solid var(--border)', color:'var(--text-secondary)', padding:'6px 8px', cursor:'pointer', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center' }} title="Edit"><Pencil size={14} /></button>
+                          <button onClick={() => setHoldingToDelete({ id:h._id, name:h.holdingName||'Holding', fundName:h.fundName })} style={{ background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.2)', color:'var(--danger)', padding:'6px 8px', cursor:'pointer', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center' }} title="Delete"><Trash2 size={14} /></button>
                         </div>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-                        <button
-                          onClick={() => setEditingHolding({
-                            id: h._id,
-                            originalName: h.holdingName || '',
-                            holdingName: h.holdingName || '',
-                            fundName: h.fundName,
-                            totalInvested: h.totalInvested || 0,
-                            currentValue: h.currentValue || 0,
-                            portfolioType: h.portfolioType || 'mutual_funds',
-                            units: h.units,
-                            buyPrice: h.buyPrice,
-                            purchaseTime: h.purchaseTime,
-                          })}
-                          style={{
-                            background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border)',
-                            color: 'var(--text-secondary)', padding: '6px 8px', cursor: 'pointer',
-                            borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          }}
-                          title="Edit holding"
-                        >
-                          <Pencil size={15} />
-                        </button>
-                        <button
-                          onClick={() => setHoldingToDelete({ id: h._id, name: h.holdingName || 'Holding', fundName: h.fundName })}
-                          style={{
-                            background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
-                            color: 'var(--danger)', padding: '6px 8px', cursor: 'pointer',
-                            borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          }}
-                          title="Delete holding"
-                        >
-                          <Trash2 size={15} />
-                        </button>
                       </div>
                     </div>
-
-                    {/* Metrics grid */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, paddingTop: 6, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                      <div>
-                        <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Invested</div>
-                        <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-primary)', marginTop: 1 }}>
-                          {isMasked ? '₹••••••' : formatINR(h.totalInvested)}
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', borderTop:'1px solid rgba(255,255,255,0.05)', background:'rgba(0,0,0,0.15)' }}>
+                      {[
+                        { label:'Invested', val:isMasked?'₹••••••':formatINR(h.totalInvested), color:'var(--text-primary)', sub:'' },
+                        { label:'Current',  val:isMasked?'₹••••••':formatINR(h.currentValue),  color:'var(--text-primary)', sub:'' },
+                        { label:'Returns',  val:isMasked?'••••••':`${pos?'+':''}${formatINR(h.totalGain)}`, color:pos?'var(--success)':'var(--danger)', sub:isMasked?'':`(${pos?'+':''}${gainPct}%)` },
+                      ].map((item,i) => (
+                        <div key={i} style={{ padding:'10px 12px', borderLeft:i>0?'1px solid rgba(255,255,255,0.04)':'none' }}>
+                          <div style={{ fontSize:9.5, color:'var(--text-muted)', marginBottom:3, textTransform:'uppercase', letterSpacing:'0.4px' }}>{item.label}</div>
+                          <div style={{ fontSize:12.5, fontWeight:800, color:item.color, lineHeight:1.2 }}>{item.val}</div>
+                          {item.sub && <div style={{ fontSize:10, color:pos?'var(--success)':'var(--danger)', opacity:0.8 }}>{item.sub}</div>}
                         </div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Current</div>
-                        <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-primary)', marginTop: 1 }}>
-                          {isMasked ? '₹••••••' : formatINR(h.currentValue)}
-                        </div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Returns</div>
-                        <div style={{ fontSize: 12.5, fontWeight: 800, color: pos ? 'var(--success)' : 'var(--danger)', marginTop: 1 }}>
-                          {isMasked ? (
-                            <span>••••••</span>
-                          ) : (
-                            <>
-                              {pos ? '+' : ''}{formatINR(h.totalGain)}
-                              <span style={{ fontSize: 10.5, opacity: 0.85, marginLeft: 2 }}>({pos ? '+' : ''}{h.gainPercent}%)</span>
-                            </>
-                          )}
-                        </div>
-                      </div>
+                      ))}
                     </div>
                   </div>
                 );
@@ -1276,6 +1196,7 @@ export default function InvestmentsPage() {
             </div>
           )}
         </div>
+
 
         {/* ── Monthly SIP & Auto-Deduct Section ─────────────────────────── */}
         <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 18, padding: '16px' }}>
