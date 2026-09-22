@@ -51,7 +51,52 @@ export async function GET(req: Request) {
       })
       .sort((a, b) => b.annualCost - a.annualCost);
 
-    return NextResponse.json({ leaks });
+    // Micro-spend creeping detection: repetitive small transactions between ₹20 and ₹350
+    const microSpendMap: Record<string, { name: string; count: number; total: number }> = {};
+    let weekendTotal = 0;
+    let weekdayTotal = 0;
+
+    expenses.forEach(exp => {
+      const amt = exp.amount || 0;
+      if (amt >= 20 && amt <= 350) {
+        const label = (exp.note || 'Micro Spend').trim().toLowerCase().slice(0, 14);
+        if (!microSpendMap[label]) {
+          microSpendMap[label] = { name: exp.note || 'Micro Spend', count: 0, total: 0 };
+        }
+        microSpendMap[label].count += 1;
+        microSpendMap[label].total += amt;
+      }
+
+      if (exp.date) {
+        const day = new Date(exp.date).getDay();
+        if (day === 0 || day === 6) {
+          weekendTotal += amt;
+        } else {
+          weekdayTotal += amt;
+        }
+      }
+    });
+
+    const microLeaks = Object.values(microSpendMap)
+      .filter(m => m.count >= 3)
+      .map(m => ({
+        name: m.name,
+        count: m.count,
+        total: m.total,
+        monthlyProrated: Math.round(m.total / 3),
+      }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 3);
+
+    return NextResponse.json({
+      leaks,
+      microLeaks,
+      weekendBurn: {
+        weekendTotal,
+        weekdayTotal,
+        isWeekendHeavy: weekendTotal > (weekdayTotal * 0.7),
+      },
+    });
   } catch (error: any) {
     console.error('Error fetching leaks:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });

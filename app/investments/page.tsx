@@ -542,6 +542,21 @@ export default function InvestmentsPage() {
       });
     }
 
+    // ── Smart Rebalancing Advice (Tax-Efficient Cashflow Redirection) ──
+    if (goldPct > 25 && monthlySipTotal > 0) {
+      insights.push({
+        title: '🎯 AI Rebalancing Strategy',
+        desc: `Gold has surged to ${goldPct}% of your wealth. To rebalance without incurring capital gains tax, divert next month's SIPs 100% into Equity Index/Flexicap funds until Gold normalizes to ~15-20%.`,
+        type: 'info',
+      });
+    } else if (equityPct > 85) {
+      insights.push({
+        title: '🎯 AI Rebalancing Strategy',
+        desc: `High equity concentration (${equityPct}%). Consider allocating ₹2,000-₹5,000 of your monthly surplus to MMTC-PAMP Gold / Liquid funds to build non-correlated reserves.`,
+        type: 'info',
+      });
+    }
+
     return {
       score: Math.min(98, score),
       equityPct,

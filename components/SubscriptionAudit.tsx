@@ -15,8 +15,17 @@ interface Leak {
   annualCost: number;
 }
 
+interface MicroLeak {
+  name: string;
+  count: number;
+  total: number;
+  monthlyProrated: number;
+}
+
 export function SubscriptionAudit() {
   const [leaks, setLeaks] = useState<Leak[]>([]);
+  const [microLeaks, setMicroLeaks] = useState<MicroLeak[]>([]);
+  const [weekendBurn, setWeekendBurn] = useState<{ weekendTotal: number; weekdayTotal: number; isWeekendHeavy: boolean } | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -27,6 +36,12 @@ export function SubscriptionAudit() {
         if (data.leaks) {
           const filtered = data.leaks.filter((l: Leak) => l.amount > 50).slice(0, 5);
           setLeaks(filtered);
+        }
+        if (Array.isArray(data.microLeaks)) {
+          setMicroLeaks(data.microLeaks);
+        }
+        if (data.weekendBurn) {
+          setWeekendBurn(data.weekendBurn);
         }
       })
       .catch(console.error)
@@ -104,6 +119,37 @@ export function SubscriptionAudit() {
               </div>
             ))}
           </div>
+
+          {/* Micro-Spends Creeping Radar */}
+          {microLeaks.length > 0 && (
+            <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-2)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>
+                ⚡ Micro-Spend Leaks (Frequent Small Charges)
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {microLeaks.map((m, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'var(--bg-card)', borderRadius: 10, border: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+                      {m.name} <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>({m.count}x)</span>
+                    </div>
+                    <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--danger)' }}>
+                      ~{formatINR(m.monthlyProrated)}/mo
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Weekend vs Weekday Burn Callout */}
+          {weekendBurn && weekendBurn.isWeekendHeavy && (
+            <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 12, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 16 }}>🗓️</span>
+              <div style={{ fontSize: 12, color: 'var(--text-primary)' }}>
+                <span style={{ fontWeight: 700 }}>Weekend Outflow Alert:</span> Weekend spending ({formatINR(weekendBurn.weekendTotal)}) represents over 40% of total outlay.
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

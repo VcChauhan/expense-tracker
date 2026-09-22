@@ -238,3 +238,232 @@ Please explain why the user does NOT need to panic about their category budget o
     monthContextNote,
   };
 }
+
+/**
+ * Real-Time NLP Note-to-Category & Anomaly Auto-Predictor
+ * Runs on-device with zero delay as the user types a note in QuickAddSheet.
+ */
+export interface NotePredictionResult {
+  categoryId?: string;
+  tags?: string[];
+  isOneOff?: boolean;
+  oneOffType?: OneOffType;
+  aiNote?: string;
+  confidence: number;
+}
+
+export function predictFromNote(note: string, categories: Category[]): NotePredictionResult | null {
+  if (!note || note.trim().length < 2) return null;
+  const lower = note.toLowerCase().trim();
+
+  // 1. Detect Anomaly cues
+  let isOneOff = false;
+  let oneOffType: OneOffType | undefined = undefined;
+  let aiNote: string | undefined = undefined;
+
+  if (lower.includes('annual') || lower.includes('365 day') || lower.includes('yearly') || lower.includes('1 year')) {
+    isOneOff = true;
+    oneOffType = 'annual';
+    aiNote = 'Annual Subscription / Plan';
+  } else if (lower.includes('diwali') || lower.includes('festival') || lower.includes('puja') || lower.includes('eid') || lower.includes('holi') || lower.includes('rakhi')) {
+    isOneOff = true;
+    oneOffType = 'festival';
+    aiNote = 'Festival / Seasonal Expense';
+  } else if (lower.includes('flight') || lower.includes('ticket') || lower.includes('hotel') || lower.includes('trip') || lower.includes('vacation')) {
+    isOneOff = true;
+    oneOffType = 'travel';
+    aiNote = 'Travel / Flight Booking';
+  } else if (lower.includes('hospital') || lower.includes('doctor') || lower.includes('surgery') || lower.includes('medic') || lower.includes('insurance')) {
+    isOneOff = true;
+    oneOffType = 'medical';
+    aiNote = 'Medical / Health Outlay';
+  }
+
+  // 2. Map Keywords to Category and Tags
+  const categoryKeywords: Record<string, { catKeywords: string[]; tags: string[] }> = {
+    'groceries': {
+      catKeywords: ['blinkit', 'zepto', 'instamart', 'bigbasket', 'grocery', 'vegetables', 'fruits', 'milk', 'bread', 'supermarket', 'dmart'],
+      tags: ['groceries', 'home'],
+    },
+    'food': {
+      catKeywords: ['swiggy', 'zomato', 'restaurant', 'cafe', 'coffee', 'chai', 'tea', 'lunch', 'dinner', 'breakfast', 'pizza', 'burger', 'snack'],
+      tags: ['dining', 'food'],
+    },
+    'travel': {
+      catKeywords: ['uber', 'ola', 'rapido', 'metro', 'petrol', 'diesel', 'fuel', 'cab', 'auto', 'toll', 'flight', 'railway', 'train', 'irctc'],
+      tags: ['commute', 'travel'],
+    },
+    'electricity': {
+      catKeywords: ['electricity', 'power bill', 'bescom', 'tneb', 'bses', 'current bill', 'mseb'],
+      tags: ['utility', 'electricity'],
+    },
+    'subscriptions': {
+      catKeywords: ['netflix', 'spotify', 'hotstar', 'prime', 'youtube', 'apple', 'icloud', 'google one', 'chatgpt', 'gym', 'membership'],
+      tags: ['subscription', 'digital'],
+    },
+    'rent': {
+      catKeywords: ['rent', 'maintenance', 'landlord', 'flat rent', 'society'],
+      tags: ['housing', 'rent'],
+    },
+    'investment': {
+      catKeywords: ['sip', 'groww', 'zerodha', 'mutual fund', 'stocks', 'gold', 'mmtc', 'bullion', 'index fund', 'etf'],
+      tags: ['investment', 'wealth'],
+    },
+    'family': {
+      catKeywords: ['mom', 'dad', 'home sent', 'family', 'parents', 'sister', 'brother', 'school fee'],
+      tags: ['family'],
+    },
+  };
+
+  let matchedCategory: Category | undefined = undefined;
+  let matchedTags: string[] = [];
+
+  for (const [key, config] of Object.entries(categoryKeywords)) {
+    if (config.catKeywords.some(kw => lower.includes(kw))) {
+      // Find matching category from user's categories
+      matchedCategory = categories.find(c => {
+        const cLower = c.name.toLowerCase();
+        return cLower.includes(key) || (key === 'food' && (cLower.includes('dining') || cLower.includes('food') || cLower.includes('groceries')));
+      });
+      matchedTags = config.tags;
+      break;
+    }
+  }
+
+  // Fallback direct name matching
+  if (!matchedCategory) {
+    matchedCategory = categories.find(c => lower.includes(c.name.toLowerCase()));
+  }
+
+  if (matchedCategory || isOneOff) {
+    return {
+      categoryId: matchedCategory?.id,
+      tags: matchedTags.length > 0 ? matchedTags : undefined,
+      isOneOff,
+      oneOffType,
+      aiNote,
+      confidence: matchedCategory ? 0.9 : 0.6,
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Smart Credit Card Optimizer & Utilization Sentry
+ * Evaluates user's credit cards on-device to pick the card with max free credit days
+ * and checks if the charge breaches the 30% healthy utilization limit.
+ */
+export interface CreditCardRecommendation {
+  recommendedCard: any;
+  freeDaysRemaining: number;
+  currentUtilizationPct: number;
+  projectedUtilizationPct: number;
+  isOverLimitRisk: boolean;
+  reason: string;
+}
+
+export function evaluateOptimalCreditCard(
+  amount: number,
+  creditCards: any[] = [],
+  expenses: Expense[] = []
+): CreditCardRecommendation | null {
+  if (!creditCards || creditCards.length === 0) return null;
+
+  const today = new Date();
+  const curDate = today.getDate();
+  const curYear = today.getFullYear();
+  const curMonth = today.getMonth();
+
+  let bestCard: any = null;
+  let maxFreeDays = -1;
+  let bestUtilization = 0;
+  let bestProjected = 0;
+  let bestRisk = false;
+  let bestReason = '';
+
+  for (const card of creditCards) {
+    const limit = card.limit || 100000;
+    const billingDay = card.billingDay || 15;
+    const paymentDueDays = card.paymentDueDays || 20;
+
+    // Calculate free days remaining from today until payment due date
+    let daysUntilBill = billingDay - curDate;
+    if (daysUntilBill <= 0) {
+      // Today is past the bill day: expense falls into NEXT cycle! (Max benefit)
+      const daysInCurMonth = new Date(curYear, curMonth + 1, 0).getDate();
+      daysUntilBill = (daysInCurMonth - curDate) + billingDay;
+    }
+    const freeCreditDays = daysUntilBill + paymentDueDays;
+
+    // Calculate current cycle spend
+    const cardId = card.id || card.last4;
+    const cycleSpend = expenses.filter(e => {
+      const pm = (e.paymentMethod || '').toLowerCase();
+      return pm.startsWith('credit_card') && pm.includes(String(cardId));
+    }).reduce((s, e) => s + (e.amount || 0), 0);
+
+    const currentUtil = Math.round((cycleSpend / limit) * 100);
+    const projectedSpend = cycleSpend + amount;
+    const projectedUtil = Math.round((projectedSpend / limit) * 100);
+    const isRisk = projectedUtil > 30;
+
+    // Rank primarily by free credit days, favoring non-risky utilization
+    const effectiveScore = isRisk ? freeCreditDays - 20 : freeCreditDays;
+
+    if (effectiveScore > maxFreeDays) {
+      maxFreeDays = effectiveScore;
+      bestCard = card;
+      bestUtilization = currentUtil;
+      bestProjected = projectedUtil;
+      bestRisk = isRisk;
+      bestReason = isRisk
+        ? `${freeCreditDays} days free credit, but note utilization will reach ${projectedUtil}%`
+        : `Gives ${freeCreditDays} days interest-free credit (${projectedUtil}% utilization)`;
+    }
+  }
+
+  if (!bestCard) return null;
+
+  return {
+    recommendedCard: bestCard,
+    freeDaysRemaining: maxFreeDays,
+    currentUtilizationPct: bestUtilization,
+    projectedUtilizationPct: bestProjected,
+    isOverLimitRisk: bestRisk,
+    reason: bestReason,
+  };
+}
+
+/**
+ * Opportunity Cost & Portfolio Compounding Simulator
+ * Computes how much a discretionary spend amount would compound to in the user's
+ * investment portfolio at conservative, moderate (13%), and optimistic CAGR over 3Y, 5Y, and 10Y.
+ */
+export interface OpportunityCostAnalysis {
+  purchaseAmount: number;
+  years3: number;
+  years5: number;
+  years10: number;
+  cagrUsed: number;
+  wealthLostComparisonText: string;
+}
+
+export function calculateOpportunityCost(purchaseAmount: number, cagr: number = 13): OpportunityCostAnalysis {
+  const amt = Math.max(0, purchaseAmount);
+  const rate = cagr / 100;
+
+  const y3 = Math.round(amt * Math.pow(1 + rate, 3));
+  const y5 = Math.round(amt * Math.pow(1 + rate, 5));
+  const y10 = Math.round(amt * Math.pow(1 + rate, 10));
+
+  return {
+    purchaseAmount: amt,
+    years3: y3,
+    years5: y5,
+    years10: y10,
+    cagrUsed: cagr,
+    wealthLostComparisonText: `If invested at ${cagr}% CAGR instead, this would compound to ₹${y5.toLocaleString('en-IN')} in 5 years (or ₹${y10.toLocaleString('en-IN')} in 10 years).`,
+  };
+}
+

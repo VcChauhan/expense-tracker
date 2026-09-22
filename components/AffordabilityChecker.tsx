@@ -2,8 +2,9 @@
 
 import { useState, useMemo } from 'react';
 import { formatINR, Category, SavingsGoal } from '@/lib/types';
-import { ShoppingBag, CheckCircle2, AlertTriangle, XCircle, Calculator } from 'lucide-react';
+import { ShoppingBag, CheckCircle2, AlertTriangle, XCircle, Calculator, TrendingUp, Sparkles } from 'lucide-react';
 import { CategoryIcon } from './CategoryIcon';
+import { calculateOpportunityCost } from '@/lib/onDeviceAi';
 
 interface AffordabilityCheckerProps {
   monthlySalary: number;
@@ -215,6 +216,46 @@ export function AffordabilityChecker({
               {analysis.impactPct.toFixed(0)}% of what you have left this month
             </div>
           </div>
+
+          {/* 🔮 Opportunity Cost & Compounding Perspective */}
+          {(() => {
+            const opp = calculateOpportunityCost(purchaseAmount, 13);
+            return (
+              <div style={{
+                marginTop: 14,
+                padding: '10px 12px',
+                borderRadius: 12,
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 6,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--accent-2)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <Sparkles size={12} /> Wealth Opportunity Cost (13% CAGR)
+                  </span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--success)' }}>
+                    ₹{opp.years5.toLocaleString('en-IN')} in 5Y
+                  </span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, textAlign: 'center', marginTop: 2 }}>
+                  <div style={{ background: 'var(--bg-elevated)', padding: '6px 4px', borderRadius: 8 }}>
+                    <div style={{ fontSize: 9.5, color: 'var(--text-muted)', fontWeight: 600 }}>3 Years</div>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-primary)' }}>₹{opp.years3.toLocaleString('en-IN')}</div>
+                  </div>
+                  <div style={{ background: 'var(--bg-elevated)', padding: '6px 4px', borderRadius: 8 }}>
+                    <div style={{ fontSize: 9.5, color: 'var(--text-muted)', fontWeight: 600 }}>5 Years</div>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--success)' }}>₹{opp.years5.toLocaleString('en-IN')}</div>
+                  </div>
+                  <div style={{ background: 'var(--bg-elevated)', padding: '6px 4px', borderRadius: 8 }}>
+                    <div style={{ fontSize: 9.5, color: 'var(--text-muted)', fontWeight: 600 }}>10 Years</div>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--accent-2)' }}>₹{opp.years10.toLocaleString('en-IN')}</div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
     </div>

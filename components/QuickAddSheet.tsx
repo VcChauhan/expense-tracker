@@ -10,7 +10,7 @@ import { QuickTemplates } from './QuickTemplates';
 import { PaymentMethodSelector } from './PaymentMethodSelector';
 import { PaymentMethod, PaymentMethodValue, OneOffType } from '@/lib/types';
 import { QuickTemplate } from '@/lib/types';
-import { ONE_OFF_TYPES } from '@/lib/onDeviceAi';
+import { ONE_OFF_TYPES, predictFromNote, evaluateOptimalCreditCard } from '@/lib/onDeviceAi';
 import { successBuzz, errorShake, warningPulse } from '@/lib/haptics';
 
 export default function QuickAddSheet() {
@@ -64,18 +64,29 @@ export default function QuickAddSheet() {
   function handleNoteChange(text: string) {
     setForm(f => {
       const updated = { ...f, note: text };
-      if (f.tags.length === 0) {
-        const lower = text.toLowerCase();
-        if (lower.includes('swiggy') || lower.includes('zomato') || lower.includes('chai') || lower.includes('lunch')) {
-          updated.tags = ['lunch'];
-        } else if (lower.includes('uber') || lower.includes('ola') || lower.includes('auto') || lower.includes('petrol')) {
-          updated.tags = ['commute'];
-        } else if (lower.includes('badminton') || lower.includes('turf') || lower.includes('gym')) {
-          updated.tags = ['badminton'];
-        } else if (lower.includes('blinkit') || lower.includes('zepto') || lower.includes('grocery')) {
-          updated.tags = ['grocery'];
+
+      // On-Device NLP real-time auto-predictor
+      if (settings?.categories) {
+        const prediction = predictFromNote(text, settings.categories);
+        if (prediction) {
+          if (prediction.categoryId && !f.categoryId) {
+            updated.categoryId = prediction.categoryId;
+          } else if (prediction.categoryId && f.note.length < 3) {
+            updated.categoryId = prediction.categoryId;
+          }
+          if (prediction.tags && f.tags.length === 0) {
+            updated.tags = prediction.tags;
+          }
+          if (prediction.isOneOff && !f.isOneOff) {
+            updated.isOneOff = true;
+            updated.oneOffType = prediction.oneOffType || 'annual';
+            if (!f.aiNote && prediction.aiNote) {
+              updated.aiNote = prediction.aiNote;
+            }
+          }
         }
       }
+
       return updated;
     });
   }
@@ -713,7 +724,33 @@ export default function QuickAddSheet() {
               </div>
 
               <div style={{ marginBottom: 12 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.6px' }}>Payment Method</div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Payment Method</div>
+                  {/* Subtle On-Device Credit Card Recommendation */}
+                  {(() => {
+                    const parsedAmt = parseFloat(form.amount) || 0;
+                    if (parsedAmt <= 0 || !settings?.creditCards || settings.creditCards.length === 0) return null;
+                    const rec = evaluateOptimalCreditCard(parsedAmt, settings.creditCards);
+                    if (!rec) return null;
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const cardVal = `credit_card:${rec.recommendedCard.last4 || rec.recommendedCard.id}` as PaymentMethodValue;
+                          setForm(f => ({ ...f, paymentMethod: cardVal }));
+                        }}
+                        style={{
+                          background: 'none', border: 'none', padding: 0,
+                          fontSize: 11, fontWeight: 700,
+                          color: rec.isOverLimitRisk ? 'var(--warning)' : 'var(--accent-2)',
+                          display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer',
+                        }}
+                      >
+                        <span>✨ Best: {rec.recommendedCard.name} ({rec.freeDaysRemaining}d free)</span>
+                      </button>
+                    );
+                  })()}
+                </div>
                 <PaymentMethodSelector
                   value={form.paymentMethod}
                   onChange={paymentMethod => setForm(f => ({ ...f, paymentMethod }))}
