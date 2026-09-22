@@ -505,6 +505,36 @@ export default function InvestmentsPage() {
       });
 
       if (res.ok) {
+        // Auto-increment matched holding's invested amount if linked to a tracked fund
+        const cleanSipName = (item.name || '').toLowerCase().replace(/\s*sip\s*/i, '').trim();
+        const matchedHolding = distinctHoldings.find((h) => {
+          const hName = (h.holdingName || h.fundName || '').toLowerCase().trim();
+          return hName && (hName.includes(cleanSipName) || cleanSipName.includes(hName));
+        });
+
+        if (matchedHolding) {
+          const newInvested = (matchedHolding.totalInvested || 0) + item.amount;
+          const newCurrent = (matchedHolding.currentValue || 0) + item.amount;
+          try {
+            await fetch('/api/investments/snapshots', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                id: matchedHolding._id,
+                originalName: matchedHolding.holdingName,
+                holdingName: matchedHolding.holdingName,
+                totalInvested: newInvested,
+                currentValue: newCurrent,
+                portfolioType: matchedHolding.portfolioType,
+                units: matchedHolding.units,
+                buyPrice: matchedHolding.buyPrice,
+              }),
+            });
+          } catch (e) {
+            console.warn('Could not auto-increment holding from SIP log:', e);
+          }
+        }
+
         const nextList = (settings?.recurringExpenses || []).map((r) =>
           r.id === item.id ? { ...r, lastLoggedMonth: currentYM } : r
         );
@@ -515,7 +545,7 @@ export default function InvestmentsPage() {
         });
 
         successBuzz();
-        setSyncToast(`Logged ₹${item.amount.toLocaleString('en-IN')} SIP to expenses!`);
+        setSyncToast(`Logged ₹${item.amount.toLocaleString('en-IN')} SIP to expenses${matchedHolding ? ` & added to ${matchedHolding.holdingName}` : ''}!`);
         setTimeout(() => setSyncToast(null), 3500);
         await loadData();
       } else {
