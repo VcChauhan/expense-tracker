@@ -118,6 +118,7 @@ export default function InvestmentsPage() {
 
   // Monthly SIP management state
   const [showAddSipModal, setShowAddSipModal] = useState(false);
+  const [selectedSipHoldingKey, setSelectedSipHoldingKey] = useState<string>('');
   const [newSipName, setNewSipName] = useState('');
   const [newSipAmount, setNewSipAmount] = useState('');
   const [newSipDay, setNewSipDay] = useState('3');
@@ -599,6 +600,20 @@ export default function InvestmentsPage() {
     } finally {
       setIsSavingSip(false);
     }
+  };
+
+  const openSipModal = (preselectedHolding?: any) => {
+    const target = preselectedHolding || (mfHoldings[0] || distinctHoldings[0]);
+    if (target) {
+      const key = target._id || target.holdingName;
+      setSelectedSipHoldingKey(key);
+      setNewSipName(`${target.holdingName} SIP`);
+    } else {
+      setSelectedSipHoldingKey('custom');
+      setNewSipName('Monthly SIP');
+    }
+    setNewSipAmount(investmentCategory?.budget ? String(investmentCategory.budget) : '25000');
+    setShowAddSipModal(true);
   };
 
   const handleDeleteSip = async (id: string) => {
@@ -1206,11 +1221,7 @@ export default function InvestmentsPage() {
               </div>
             </div>
             <button
-              onClick={() => {
-                setNewSipName(distinctHoldings[0]?.holdingName ? `${distinctHoldings[0].holdingName} SIP` : 'Monthly SIP');
-                setNewSipAmount(investmentCategory?.budget ? String(investmentCategory.budget) : '25000');
-                setShowAddSipModal(true);
-              }}
+              onClick={() => openSipModal()}
               style={{
                 display: 'flex', alignItems: 'center', gap: 4,
                 padding: '7px 12px', borderRadius: 10,
@@ -1270,11 +1281,7 @@ export default function InvestmentsPage() {
                 No recurring SIPs added yet. Set your fixed monthly SIP (e.g. ₹25,000) so you can record it in expense history with 1 tap once money deducts.
               </p>
               <button
-                onClick={() => {
-                  setNewSipName(distinctHoldings[0]?.holdingName ? `${distinctHoldings[0].holdingName} SIP` : 'Monthly SIP');
-                  setNewSipAmount(investmentCategory?.budget ? String(investmentCategory.budget) : '25000');
-                  setShowAddSipModal(true);
-                }}
+                onClick={() => openSipModal()}
                 style={{
                   padding: '8px 14px', borderRadius: 10, border: '1px solid var(--accent)',
                   background: 'rgba(139,92,246,0.12)', color: 'var(--accent-2)',
@@ -1979,10 +1986,71 @@ export default function InvestmentsPage() {
             </div>
 
             <form onSubmit={handleCreateSip} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {/* Dropdown to pick from tracked Mutual Funds, Stocks, or Gold */}
               <div>
                 <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 5 }}>
-                  SIP / SCHEME NAME
+                  LINK TO INVESTED ASSET (MUTUAL FUND / STOCK / GOLD)
                 </label>
+                <select
+                  value={selectedSipHoldingKey}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSelectedSipHoldingKey(val);
+                    if (val === 'custom') {
+                      setNewSipName('');
+                    } else {
+                      const found = distinctHoldings.find((h) => (h._id || h.holdingName) === val);
+                      if (found) {
+                        setNewSipName(`${found.holdingName} SIP`);
+                      }
+                    }
+                  }}
+                  style={{
+                    width: '100%', padding: '10px 12px', borderRadius: 10,
+                    background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                    color: 'var(--text-primary)', fontSize: 13.5, fontWeight: 700, outline: 'none',
+                    boxSizing: 'border-box', cursor: 'pointer',
+                  }}
+                >
+                  <option value="" disabled>-- Select a Mutual Fund, Stock, or Gold --</option>
+                  {mfHoldings.length > 0 && (
+                    <optgroup label="📊 Mutual Funds">
+                      {mfHoldings.map((h) => (
+                        <option key={h._id || h.holdingName} value={h._id || h.holdingName}>
+                          {h.holdingName} ({formatINR(h.currentValue || h.totalInvested)})
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {stockHoldings.length > 0 && (
+                    <optgroup label="📈 Stocks &amp; Equity">
+                      {stockHoldings.map((h) => (
+                        <option key={h._id || h.holdingName} value={h._id || h.holdingName}>
+                          {h.holdingName} ({formatINR(h.currentValue || h.totalInvested)})
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {goldHoldings.length > 0 && (
+                    <optgroup label="🪙 Gold">
+                      {goldHoldings.map((h) => (
+                        <option key={h._id || h.holdingName} value={h._id || h.holdingName}>
+                          {h.holdingName} ({formatINR(h.currentValue || h.totalInvested)})
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  <option value="custom">✍️ Custom Name (Other / New SIP)</option>
+                </select>
+              </div>
+
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)' }}>
+                    SIP / SCHEME NAME
+                  </label>
+                  <span style={{ fontSize: 10, color: 'var(--accent-2)', fontWeight: 600 }}>Editable</span>
+                </div>
                 <input
                   type="text"
                   value={newSipName}
@@ -2040,27 +2108,40 @@ export default function InvestmentsPage() {
                 </div>
               </div>
 
-              {/* Quick suggestions if user has uploaded holdings */}
+              {/* Quick tap chips for all tracked holdings */}
               {distinctHoldings.length > 0 && (
                 <div>
-                  <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginBottom: 4 }}>Or pick from your holdings:</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                    {distinctHoldings.slice(0, 3).map((h) => (
-                      <button
-                        key={h.holdingName || h._id}
-                        type="button"
-                        onClick={() => {
-                          setNewSipName(`${h.holdingName} SIP`);
-                        }}
-                        style={{
-                          padding: '4px 8px', borderRadius: 8, fontSize: 10.5,
-                          background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-                          color: 'var(--text-secondary)', cursor: 'pointer',
-                        }}
-                      >
-                        {h.holdingName?.slice(0, 20)}…
-                      </button>
-                    ))}
+                  <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginBottom: 5 }}>
+                    Or tap to select:
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 110, overflowY: 'auto', paddingBottom: 2 }}>
+                    {distinctHoldings.map((h) => {
+                      const isSelected = selectedSipHoldingKey === (h._id || h.holdingName);
+                      const icon = h.portfolioType === 'gold' ? '🪙' : h.portfolioType === 'stocks' ? '📈' : '📊';
+                      return (
+                        <button
+                          key={h.holdingName || h._id}
+                          type="button"
+                          onClick={() => {
+                            const key = h._id || h.holdingName;
+                            setSelectedSipHoldingKey(key);
+                            setNewSipName(`${h.holdingName} SIP`);
+                          }}
+                          style={{
+                            padding: '5px 9px', borderRadius: 8, fontSize: 11,
+                            fontWeight: isSelected ? 700 : 500,
+                            background: isSelected ? 'var(--accent)' : 'var(--bg-elevated)',
+                            color: isSelected ? '#fff' : 'var(--text-secondary)',
+                            border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
+                            cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4,
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          <span>{icon}</span>
+                          <span>{h.holdingName}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
