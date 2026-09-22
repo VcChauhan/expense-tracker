@@ -379,7 +379,7 @@ export default function ExpensesPage() {
     return (
       <div 
         key={exp._id} 
-        className="expense-row" 
+        className="expense-row expense-row-optimized" 
         style={{ 
           display: 'flex', 
           alignItems: 'center', 
@@ -1501,7 +1501,7 @@ export default function ExpensesPage() {
       })()}
 
       {toast && (
-        <div style={{ position: 'fixed', bottom: 100, left: '50%', transform: 'translateX(-50%)', background: toast.type === 'success' ? 'var(--success)' : 'var(--danger)', color: '#fff', padding: '12px 24px', borderRadius: 9999, fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, zIndex: 1000, boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
+        <div className="toast-spring" style={{ position: 'fixed', bottom: 100, left: '50%', background: toast.type === 'success' ? 'var(--success)' : 'var(--danger)', color: '#fff', padding: '12px 24px', borderRadius: 9999, fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, zIndex: 1000, boxShadow: '0 8px 24px rgba(0,0,0,0.25)' }}>
           {toast.type === 'success' ? <CheckCircle2 size={18} /> : <XCircle size={18} />} {toast.msg}
         </div>
       )}

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { House, Receipt, Plus, BarChart3, Lightbulb, Settings, TrendingUp, LogOut, MoreHorizontal, X } from 'lucide-react';
+import { lightTap } from '@/lib/haptics';
 
 export default function BottomNav() {
   const pathname = usePathname();
@@ -12,6 +13,7 @@ export default function BottomNav() {
   const [loggingOut, setLoggingOut] = useState(false);
 
   const triggerQuickAdd = () => {
+    lightTap();
     window.dispatchEvent(new Event('open-quick-add'));
   };
 
@@ -90,7 +92,7 @@ export default function BottomNav() {
             return (
               <button
                 key="menu"
-                onClick={() => setMenuOpen(true)}
+                onClick={() => { lightTap(); setMenuOpen(true); }}
                 style={{
                   display: 'flex', alignItems: 'center', gap: isActive ? 6 : 0,
                   padding: isActive ? '9px 16px 9px 12px' : '9px 12px',
@@ -115,6 +117,7 @@ export default function BottomNav() {
             <Link
               key={item.href}
               href={item.href!}
+              onClick={() => lightTap()}
               style={{
                 display: 'flex', alignItems: 'center', gap: isActive ? 6 : 0,
                 padding: isActive ? '9px 16px 9px 12px' : '9px 12px',

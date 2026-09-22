@@ -319,8 +319,9 @@ body {
   to   { opacity: 1; transform: translateY(0); }
 }
 @keyframes toast-in {
-  from { opacity: 0; transform: translateY(16px) scale(0.9); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
+  0%   { opacity: 0; transform: translateY(18px) scale(0.9); }
+  70%  { transform: translateY(-3px) scale(1.02); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 @keyframes progress-fill {
   from { width: 0%; }
@@ -333,6 +334,40 @@ body {
   0%, 100% { transform: translate(0, 0) scale(1); }
   33%       { transform: translate(20px, -20px) scale(1.05); }
   66%       { transform: translate(-15px, 15px) scale(0.97); }
+}
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes toast-spring-pop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 22px) scale(0.88);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
+.toast-spring {
+  animation: toast-spring-pop 0.32s cubic-bezier(0.16, 1.4, 0.3, 1) both;
+}
+
+/* ─── Tactile Micro-Interactions ─── */
+button:active:not(:disabled),
+.interactive-tap:active,
+.btn:active:not(:disabled) {
+  transform: scale(0.972);
+  transition: transform 0.08s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .animate-fade-in   { animation: fade-in-up 0.35s var(--ease) both; }
@@ -369,6 +404,7 @@ body {
   max-width: 1100px;
   width: 100%;
   margin: 0 auto;
+  animation: page-enter 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 /* ===================== Sidebar (Desktop) ===================== */
@@ -1387,14 +1423,10 @@ tbody td { padding: 14px 16px; color: var(--text-primary); border-bottom: 1px so
   text-transform: uppercase; margin-top: 2px;
 }
 
-.month-divider {
-  position: absolute; width: 100%; left: 0;
-  display: flex; align-items: center; justify-content: center; z-index: 3;
-}
-.month-divider-inner {
-  background: var(--bg-card); border: 1px solid var(--border);
-  padding: 4px 16px; border-radius: 20px; font-size: 12px; font-weight: 700;
-  color: var(--text-primary); box-shadow: var(--shadow-sm);
+/* ===================== Virtualized / Large List Performance ===================== */
+.expense-row-optimized {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 72px;
 }
 
 /* ===================== Utilities ===================== */

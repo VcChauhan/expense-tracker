@@ -1,4 +1,5 @@
 import { AlertCircle } from 'lucide-react';
+import { lightTap, errorShake } from '@/lib/haptics';
 
 interface ConfirmModalProps {
   isOpen: boolean;
@@ -43,12 +44,12 @@ export function ConfirmModal({ isOpen, title = 'Confirm Action', message, onConf
           <button style={{
             padding: '10px 16px', borderRadius: 8, fontSize: 14, fontWeight: 600,
             background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-primary)', cursor: 'pointer'
-          }} onClick={onCancel}>Cancel</button>
+          }} onClick={() => { lightTap(); onCancel(); }}>Cancel</button>
           <button style={{
             padding: '10px 16px', borderRadius: 8, fontSize: 14, fontWeight: 600,
             background: isDelete ? 'linear-gradient(to right, #DC2626, #B91C1C)' : 'linear-gradient(to right, var(--accent), #5B4FE0)', 
             color: 'white', border: 'none', cursor: 'pointer'
-          }} onClick={onConfirm}>
+          }} onClick={() => { if (isDelete) errorShake(); else lightTap(); onConfirm(); }}>
             {isDelete ? 'Yes, Delete' : 'Confirm'}
           </button>
         </div>

@@ -11,7 +11,7 @@ import { PaymentMethodSelector } from './PaymentMethodSelector';
 import { PaymentMethod, PaymentMethodValue, OneOffType } from '@/lib/types';
 import { QuickTemplate } from '@/lib/types';
 import { ONE_OFF_TYPES, predictFromNote, evaluateOptimalCreditCard } from '@/lib/onDeviceAi';
-import { successBuzz, errorShake, warningPulse } from '@/lib/haptics';
+import { successBuzz, errorShake, warningPulse, lightTap } from '@/lib/haptics';
 
 export default function QuickAddSheet() {
   const router = useRouter();
@@ -138,10 +138,20 @@ export default function QuickAddSheet() {
   useEffect(() => {
     const handleGlobalOpen = () => setIsOpen(true);
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!isOpen) return;
-      // Digits/backspace/decimal are now handled natively by the amount
-      // <input> itself — only global shortcuts stay here, so we don't
-      // double-append a keystroke when the input already has focus.
+      if (!isOpen) {
+        // If not typing in an input, textarea, or contentEditable element, allow 'n', '+', or Cmd/Ctrl+K to open
+        const activeTag = document.activeElement?.tagName.toLowerCase();
+        const isEditable = (document.activeElement as HTMLElement)?.isContentEditable;
+        if (activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select' || isEditable) return;
+
+        if (e.key === 'n' || e.key === 'N' || e.key === '+' || ((e.metaKey || e.ctrlKey) && e.key === 'k')) {
+          e.preventDefault();
+          lightTap();
+          setIsOpen(true);
+        }
+        return;
+      }
+
       if (e.key === 'Enter') {
         latestSubmit.current();
       } else if (e.key === 'Escape') {

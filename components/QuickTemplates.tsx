@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { formatINR, QuickTemplate, Category } from '@/lib/types';
 import { CategoryIcon } from './CategoryIcon';
 import { Plus, X } from 'lucide-react';
+import { lightTap } from '@/lib/haptics';
 
 interface QuickTemplatesProps {
   templates: QuickTemplate[];
@@ -68,7 +69,7 @@ export function QuickTemplates({ templates, categories, onSelect, onSave }: Quic
           <button
             key={template.id}
             type="button"
-            onClick={() => onSelect(template)}
+            onClick={() => { lightTap(); onSelect(template); }}
             onMouseEnter={() => setHoveredId(template.id)}
             onMouseLeave={() => setHoveredId(null)}
             style={{
