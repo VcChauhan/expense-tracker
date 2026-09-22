@@ -1460,15 +1460,61 @@ export default function InvestmentsPage() {
                   style={{ width: '100%', padding: '10px 14px', borderRadius: 12, background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 14, fontWeight: 600 }} />
               </div>
 
+              {/* Units & Avg NAV (Auto-populates Invested) */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>
+                    {reviewData.portfolioType === 'gold' ? 'Weight (Grams)' : reviewData.portfolioType === 'stocks' ? 'Shares / Qty' : 'Redeemable Units'}
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="e.g. 66.224"
+                    value={reviewData.units !== undefined ? reviewData.units : ''}
+                    onChange={(e) => {
+                      const u = parseFloat(e.target.value) || 0;
+                      const b = reviewData.buyPrice || 0;
+                      const inv = (u > 0 && b > 0) ? Math.round(u * b) : reviewData.totalInvested;
+                      setReviewData({ ...reviewData, units: u, totalInvested: inv });
+                    }}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 12, background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 14, fontWeight: 600 }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>
+                    {reviewData.portfolioType === 'gold' ? 'Buy Rate (₹/g)' : reviewData.portfolioType === 'stocks' ? 'Buy Price (₹)' : 'Avg NAV (₹)'}
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="e.g. 458.52"
+                    value={reviewData.buyPrice !== undefined ? reviewData.buyPrice : ''}
+                    onChange={(e) => {
+                      const b = parseFloat(e.target.value) || 0;
+                      const u = reviewData.units || 0;
+                      const inv = (u > 0 && b > 0) ? Math.round(u * b) : reviewData.totalInvested;
+                      setReviewData({ ...reviewData, buyPrice: b, totalInvested: inv });
+                    }}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 12, background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 14, fontWeight: 600 }}
+                  />
+                </div>
+              </div>
+
               {/* Invested + Current */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div>
-                  <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>Invested (₹)</label>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>Invested (₹)</label>
+                    <span style={{ fontSize: 10, color: 'var(--accent-2)', fontWeight: 600 }}>Editable</span>
+                  </div>
                   <input type="number" value={reviewData.totalInvested || ''} onChange={(e) => setReviewData({ ...reviewData, totalInvested: Number(e.target.value) })}
                     style={{ width: '100%', padding: '10px 14px', borderRadius: 12, background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 15, fontWeight: 700 }} />
                 </div>
                 <div>
-                  <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>Current Value (₹)</label>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>Current Value (₹)</label>
+                    <span style={{ fontSize: 10, color: 'var(--accent-2)', fontWeight: 600 }}>Editable</span>
+                  </div>
                   <input type="number" value={reviewData.currentValue || ''} onChange={(e) => setReviewData({ ...reviewData, currentValue: Number(e.target.value) })}
                     style={{ width: '100%', padding: '10px 14px', borderRadius: 12, background: 'var(--bg-elevated)', border: `2px solid ${typeCfg.color}40`, color: 'var(--text-primary)', fontSize: 15, fontWeight: 700 }} />
                 </div>
@@ -1678,7 +1724,7 @@ export default function InvestmentsPage() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <div>
                 <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>
-                  {editingHolding.portfolioType === 'gold' ? 'WEIGHT (GRAMS)' : editingHolding.portfolioType === 'stocks' ? 'SHARES / QTY' : 'UNITS (OPTIONAL)'}
+                  {editingHolding.portfolioType === 'gold' ? 'WEIGHT (GRAMS)' : editingHolding.portfolioType === 'stocks' ? 'SHARES / QTY' : 'REDEEMABLE UNITS'}
                 </label>
                 <input
                   type="number"
@@ -1690,9 +1736,7 @@ export default function InvestmentsPage() {
                     setEditingHolding({
                       ...editingHolding,
                       units: u,
-                      ...(b > 0 && (!editingHolding.totalInvested || editingHolding.totalInvested === 0)
-                        ? { totalInvested: Math.round(u * b) }
-                        : {}),
+                      ...(b > 0 && u > 0 ? { totalInvested: Math.round(u * b) } : {}),
                     });
                   }}
                   placeholder={editingHolding.portfolioType === 'gold' ? 'e.g. 5.00' : 'e.g. 10'}
@@ -1706,7 +1750,7 @@ export default function InvestmentsPage() {
               </div>
               <div>
                 <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>
-                  {editingHolding.portfolioType === 'gold' ? 'BUY RATE (₹/g)' : editingHolding.portfolioType === 'stocks' ? 'BUY PRICE / SHARE (₹)' : 'PURCHASE NAV (₹)'}
+                  {editingHolding.portfolioType === 'gold' ? 'BUY RATE (₹/g)' : editingHolding.portfolioType === 'stocks' ? 'BUY PRICE / SHARE (₹)' : 'AVG NAV (₹)'}
                 </label>
                 <input
                   type="number"
@@ -1718,9 +1762,7 @@ export default function InvestmentsPage() {
                     setEditingHolding({
                       ...editingHolding,
                       buyPrice: b,
-                      ...(u > 0 && (!editingHolding.totalInvested || editingHolding.totalInvested === 0)
-                        ? { totalInvested: Math.round(u * b) }
-                        : {}),
+                      ...(u > 0 && b > 0 ? { totalInvested: Math.round(u * b) } : {}),
                     });
                   }}
                   placeholder="0"
@@ -1737,9 +1779,12 @@ export default function InvestmentsPage() {
             {/* Invested & Current Value inputs */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <div>
-                <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>
-                  INVESTED (₹)
-                </label>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-muted)' }}>
+                    INVESTED (₹)
+                  </label>
+                  <span style={{ fontSize: 10, color: 'var(--accent-2)', fontWeight: 600 }}>Editable</span>
+                </div>
                 <input
                   type="number"
                   step="any"
@@ -1753,6 +1798,9 @@ export default function InvestmentsPage() {
                     boxSizing: 'border-box',
                   }}
                 />
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 3 }}>
+                  Auto-calculated: Units × Avg NAV (feel free to edit)
+                </div>
               </div>
               <div>
                 <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>
@@ -2202,7 +2250,7 @@ export default function InvestmentsPage() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <div>
                 <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 5 }}>
-                  {manualType === 'gold' ? 'WEIGHT (GRAMS)' : manualType === 'stocks' ? 'SHARES / QUANTITY' : 'UNITS (OPTIONAL)'}
+                  {manualType === 'gold' ? 'WEIGHT (GRAMS)' : manualType === 'stocks' ? 'SHARES / QUANTITY' : 'REDEEMABLE UNITS'}
                 </label>
                 <input
                   type="number"
@@ -2233,7 +2281,7 @@ export default function InvestmentsPage() {
 
               <div>
                 <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 5 }}>
-                  {manualType === 'gold' ? 'PURCHASE RATE (₹/g)' : manualType === 'stocks' ? 'BUY PRICE / SHARE (₹)' : 'PURCHASE NAV (₹)'}
+                  {manualType === 'gold' ? 'PURCHASE RATE (₹/g)' : manualType === 'stocks' ? 'BUY PRICE / SHARE (₹)' : 'AVG NAV (₹)'}
                 </label>
                 <input
                   type="number"
@@ -2252,7 +2300,7 @@ export default function InvestmentsPage() {
                       }
                     }
                   }}
-                  placeholder={manualType === 'gold' ? (liveGoldRate?.ratePerGram ? String(liveGoldRate.ratePerGram) : '13500') : '0'}
+                  placeholder={manualType === 'gold' ? (liveGoldRate?.ratePerGram ? String(liveGoldRate.ratePerGram) : '15795') : '0'}
                   style={{
                     width: '100%', padding: '10px 12px', borderRadius: 10,
                     background: 'var(--bg-elevated)', border: '1px solid var(--border)',
@@ -2266,9 +2314,12 @@ export default function InvestmentsPage() {
             {/* Total Invested & Current Value */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <div>
-                <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 5 }}>
-                  TOTAL INVESTED (₹) *
-                </label>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)' }}>
+                    TOTAL INVESTED (₹) *
+                  </label>
+                  <span style={{ fontSize: 10, color: 'var(--accent-2)', fontWeight: 600 }}>Editable</span>
+                </div>
                 <input
                   type="number"
                   step="any"
@@ -2283,6 +2334,9 @@ export default function InvestmentsPage() {
                     boxSizing: 'border-box',
                   }}
                 />
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 3 }}>
+                  Auto-calculated: Units × Avg NAV (feel free to edit)
+                </div>
               </div>
 
               <div>
