@@ -36,6 +36,7 @@ export async function POST(request: Request) {
       buyPrice = 0,
       purchaseTime = '',
       screenshotUrl = '',
+      tag = '',
       syncNetWorth = true,
     } = body;
 
@@ -65,6 +66,7 @@ export async function POST(request: Request) {
       buyPrice: Number(buyPrice) || 0,
       purchaseTime: purchaseTime || '',
       screenshotUrl,
+      tag: tag || '',
     });
 
     // Auto-update Net Worth asset if requested
@@ -208,6 +210,7 @@ export async function PATCH(request: Request) {
         ...(units !== undefined ? { units: Number(units) || 0 } : {}),
         ...(buyPrice !== undefined ? { buyPrice: Number(buyPrice) || 0 } : {}),
         ...(purchaseTime !== undefined ? { purchaseTime: String(purchaseTime) } : {}),
+        ...(body.tag !== undefined ? { tag: String(body.tag) } : {}),
       },
     });
 

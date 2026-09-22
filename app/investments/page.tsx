@@ -45,6 +45,7 @@ type EditHoldingData = {
   units?: number;
   buyPrice?: number;
   purchaseTime?: string;
+  tag?: string;
 };
 
 type OcrStatus = 'idle' | 'preprocessing' | 'loading-worker' | 'ocr' | 'parsing' | 'done' | 'error';
@@ -142,7 +143,8 @@ export default function InvestmentsPage() {
   const [manualTime, setManualTime] = useState(() => new Date().toTimeString().slice(0, 5));
   const [manualSyncNetWorth, setManualSyncNetWorth] = useState(true);
   const [isSavingManual, setIsSavingManual] = useState(false);
-  const [liveGoldRate, setLiveGoldRate] = useState<{ ratePerGram: number; goldBeesPrice: number; prevClose: number } | null>(null);
+  const [liveGoldRate, setLiveGoldRate] = useState<{ ratePerGram: number; mmtcPampRatePerGram?: number; goldBeesPrice: number; prevClose: number } | null>(null);
+  const [isManualMmtc, setIsManualMmtc] = useState(false);
   const [isLoadingLiveGold, setIsLoadingLiveGold] = useState(false);
 
   // ── UI Masking / Privacy state (like Groww) ──
@@ -617,6 +619,7 @@ export default function InvestmentsPage() {
           units: editingHolding.units,
           buyPrice: editingHolding.buyPrice,
           purchaseTime: editingHolding.purchaseTime,
+          tag: editingHolding.tag || (/mmt[cp]\s*pamp/i.test(editingHolding.holdingName) ? 'mmtc_pamp' : ''),
         }),
       });
 
@@ -1142,8 +1145,16 @@ export default function InvestmentsPage() {
                   <span style={{ fontSize: 10, fontWeight: 800, color: '#10B981', letterSpacing: '0.4px' }}>LIVE</span>
                 </div>
               </div>
-              <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0 0' }}>
-                AMFI · NSE · Gold {liveGoldRate ? `₹${liveGoldRate.ratePerGram.toLocaleString('en-IN')}/g` : 'Domestic Retail'}
+              <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0 0', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <span>AMFI · NSE</span>
+                <span>·</span>
+                <span>24K: <strong>{liveGoldRate ? `₹${liveGoldRate.ratePerGram.toLocaleString('en-IN')}/g` : '₹15,795/g'}</strong></span>
+                {liveGoldRate?.mmtcPampRatePerGram && (
+                  <>
+                    <span>·</span>
+                    <span style={{ color: '#FACC15', fontWeight: 700 }}>MMTC-PAMP: ₹{liveGoldRate.mmtcPampRatePerGram.toLocaleString('en-IN')}/g</span>
+                  </>
+                )}
               </p>
             </div>
           </div>
@@ -1538,6 +1549,11 @@ export default function InvestmentsPage() {
                   const pos = (h.totalGain || 0) >= 0;
                   const isStock = h.portfolioType === 'stocks';
                   const isGold = h.portfolioType === 'gold';
+                  const isMmtcPamp = isGold && (
+                    h.tag === 'mmtc_pamp' ||
+                    /mmt[cp]\s*pamp/i.test(h.holdingName || '') ||
+                    /pamp/i.test(h.holdingName || '')
+                  );
                   const typeCfg = PORTFOLIO_TYPES.find((t) => t.value === h.portfolioType) || PORTFOLIO_TYPES[0];
                   const unitLabel = isGold ? 'g' : isStock ? 'shares' : 'units';
                   const gainPct = Number((h.gainPercent || 0).toFixed(2));
@@ -1561,8 +1577,8 @@ export default function InvestmentsPage() {
                       <div style={{ padding: '14px 16px 12px' }}>
                         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            {/* Type Pill */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+                            {/* Type Pill + MMTC-PAMP 999.9 Tag */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5, flexWrap: 'wrap' }}>
                               <span style={{
                                 fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 6,
                                 background: `${typeCfg.color}18`,
@@ -1572,6 +1588,19 @@ export default function InvestmentsPage() {
                               }}>
                                 {typeCfg.icon} {typeCfg.label}
                               </span>
+                              {isMmtcPamp && (
+                                <span style={{
+                                  fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 6,
+                                  background: 'rgba(234,179,8,0.18)', color: '#FACC15',
+                                  border: '1px solid rgba(234,179,8,0.4)',
+                                  display: 'inline-flex', alignItems: 'center', gap: 3,
+                                  boxShadow: '0 0 10px rgba(234,179,8,0.2)',
+                                  letterSpacing: '0.3px',
+                                }}>
+                                  <span>💎</span>
+                                  <span>MMTC-PAMP 999.9</span>
+                                </span>
+                              )}
                               {h.units && h.units > 0 && (
                                 <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>
                                   {h.units} {unitLabel}
@@ -1591,7 +1620,7 @@ export default function InvestmentsPage() {
                             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                               {h.buyPrice && h.buyPrice > 0 && (
                                 <span>
-                                  Avg: {isMasked ? '₹•••' : formatINR(h.buyPrice)}{isGold ? '/g' : '/NAV'}
+                                  Avg: {isMasked ? '₹•••' : formatINR(h.buyPrice)}{isGold ? (isMmtcPamp ? '/g (MMTC-PAMP)' : '/g') : '/NAV'}
                                 </span>
                               )}
                               {h.purchaseTime && <span>· {h.purchaseTime}</span>}
@@ -1613,6 +1642,7 @@ export default function InvestmentsPage() {
                                 units: h.units,
                                 buyPrice: h.buyPrice,
                                 purchaseTime: h.purchaseTime,
+                                tag: h.tag || (/mmt[cp]\s*pamp/i.test(h.holdingName || '') ? 'mmtc_pamp' : ''),
                               })}
                               style={{
                                 background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
@@ -2561,6 +2591,38 @@ export default function InvestmentsPage() {
               </div>
             </div>
 
+            {/* MMTC-PAMP Tag Toggle if Gold */}
+            {editingHolding.portfolioType === 'gold' && (
+              <label style={{
+                display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
+                padding: '10px 14px', borderRadius: 12,
+                background: (editingHolding.tag === 'mmtc_pamp' || /mmt[cp]\s*pamp/i.test(editingHolding.holdingName)) ? 'rgba(234,179,8,0.14)' : 'var(--bg-elevated)',
+                border: `1.5px solid ${(editingHolding.tag === 'mmtc_pamp' || /mmt[cp]\s*pamp/i.test(editingHolding.holdingName)) ? '#EAB308' : 'var(--border)'}`,
+                transition: 'all 0.15s ease',
+              }}>
+                <input
+                  type="checkbox"
+                  checked={editingHolding.tag === 'mmtc_pamp' || /mmt[cp]\s*pamp/i.test(editingHolding.holdingName)}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setEditingHolding({
+                      ...editingHolding,
+                      tag: checked ? 'mmtc_pamp' : '',
+                    });
+                  }}
+                  style={{ width: 17, height: 17, accentColor: '#EAB308', cursor: 'pointer' }}
+                />
+                <div>
+                  <div style={{ fontSize: 12.5, fontWeight: 800, color: '#FACC15', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span>💎 MMTC-PAMP 999.9 CertiCard Purest Gold</span>
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                    Tracks live MMTC-PAMP retail rate ({liveGoldRate?.mmtcPampRatePerGram ? `₹${liveGoldRate.mmtcPampRatePerGram.toLocaleString('en-IN')}/g` : '~₹16,814/g'}) instead of standard raw bullion.
+                  </div>
+                </div>
+              </label>
+            )}
+
             {/* Units / Grams & Buy Price inputs */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <div>
@@ -3251,6 +3313,38 @@ export default function InvestmentsPage() {
                 ))}
               </div>
             </div>
+
+            {/* MMTC-PAMP Tag Toggle if Gold */}
+            {editingHolding.portfolioType === 'gold' && (
+              <label style={{
+                display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
+                padding: '10px 14px', borderRadius: 12,
+                background: (editingHolding.tag === 'mmtc_pamp' || /mmt[cp]\s*pamp/i.test(editingHolding.holdingName)) ? 'rgba(234,179,8,0.14)' : 'var(--bg-elevated)',
+                border: `1.5px solid ${(editingHolding.tag === 'mmtc_pamp' || /mmt[cp]\s*pamp/i.test(editingHolding.holdingName)) ? '#EAB308' : 'var(--border)'}`,
+                transition: 'all 0.15s ease',
+              }}>
+                <input
+                  type="checkbox"
+                  checked={editingHolding.tag === 'mmtc_pamp' || /mmt[cp]\s*pamp/i.test(editingHolding.holdingName)}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setEditingHolding({
+                      ...editingHolding,
+                      tag: checked ? 'mmtc_pamp' : '',
+                    });
+                  }}
+                  style={{ width: 17, height: 17, accentColor: '#EAB308', cursor: 'pointer' }}
+                />
+                <div>
+                  <div style={{ fontSize: 12.5, fontWeight: 800, color: '#FACC15', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span>💎 MMTC-PAMP 999.9 CertiCard Purest Gold</span>
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                    Tracks live MMTC-PAMP retail rate ({liveGoldRate?.mmtcPampRatePerGram ? `₹${liveGoldRate.mmtcPampRatePerGram.toLocaleString('en-IN')}/g` : '~₹16,814/g'}) instead of standard raw bullion.
+                  </div>
+                </div>
+              </label>
+            )}
 
             {/* Units / Grams & Buy Price inputs */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>

@@ -44,7 +44,7 @@ const STOCK_TICKER_MAP: Record<string, string> = {
   'tata motors': 'TATAMOTORS.NS',
 };
 
-async function getLiveGoldRate(): Promise<{ ratePerGram: number; goldBeesPrice: number; prevClose: number }> {
+async function getLiveGoldRate(): Promise<{ ratePerGram: number; mmtcPampRatePerGram: number; goldBeesPrice: number; prevClose: number }> {
   let ratePerGram = 0;
   let goldBeesPrice = 0;
   let prevClose = 0;
@@ -126,7 +126,9 @@ async function getLiveGoldRate(): Promise<{ ratePerGram: number; goldBeesPrice: 
     ratePerGram = 15795; // fallback current market retail rate
   }
 
-  return { ratePerGram, goldBeesPrice, prevClose };
+  // MMTC-PAMP 24K 999.9 purest certified gold trades at ~6.45% retail minting & packaging premium over wholesale 24K bullion
+  const mmtcPampRatePerGram = Math.round(ratePerGram * 1.0645);
+  return { ratePerGram, mmtcPampRatePerGram, goldBeesPrice, prevClose };
 }
 
 export async function GET() {
@@ -165,14 +167,25 @@ export async function POST() {
 
         try {
           if (isGold) {
-            // Fetch live gold rate (ETF & physical per gram)
-            const { ratePerGram, goldBeesPrice, prevClose } = await getLiveGoldRate();
+            // Fetch live gold rate (ETF, standard physical & MMTC-PAMP 999.9)
+            const { ratePerGram, mmtcPampRatePerGram, goldBeesPrice, prevClose } = await getLiveGoldRate();
             const lowerName = holdingName.toLowerCase();
             const isEtf = lowerName.includes('bees') || lowerName.includes('etf');
 
             let newCurrent = snap.currentValue;
             let oneDay = 0;
             let oneDayPct = 0;
+            const isMmtcPamp = !isEtf && (
+              snap.tag === 'mmtc_pamp' ||
+              /mmt[cp]\s*pamp/i.test(lowerName) ||
+              /pamp/i.test(lowerName)
+            );
+
+            if (isMmtcPamp && snap.tag !== 'mmtc_pamp') {
+              snap.tag = 'mmtc_pamp';
+            }
+
+            const targetGoldRate = isMmtcPamp ? mmtcPampRatePerGram : ratePerGram;
 
             if (isEtf && goldBeesPrice > 0) {
               const qty = (snap.units && snap.units > 0)
@@ -181,13 +194,13 @@ export async function POST() {
               newCurrent = Math.round(qty * goldBeesPrice);
               oneDay = Math.round(qty * (goldBeesPrice - prevClose));
               oneDayPct = prevClose > 0 ? Number((((goldBeesPrice - prevClose) / prevClose) * 100).toFixed(2)) : 0;
-            } else if (ratePerGram > 0) {
+            } else if (targetGoldRate > 0) {
               const grams = (snap.units && snap.units > 0)
                 ? snap.units
                 : ((snap.buyPrice && snap.buyPrice > 0)
                     ? snap.totalInvested / snap.buyPrice
-                    : snap.currentValue / ratePerGram);
-              newCurrent = Math.round(grams * ratePerGram);
+                    : snap.currentValue / targetGoldRate);
+              newCurrent = Math.round(grams * targetGoldRate);
               const dailyChangePct = (prevClose > 0 && goldBeesPrice > 0)
                 ? ((goldBeesPrice - prevClose) / prevClose)
                 : 0.002;

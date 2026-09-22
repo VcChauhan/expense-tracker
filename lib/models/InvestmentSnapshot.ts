@@ -26,6 +26,7 @@ export interface IInvestmentSnapshot extends Document {
   buyPrice?: number;
   purchaseTime?: string;
   screenshotUrl?: string;
+  tag?: string;
   createdAt: Date;
 }
 
@@ -59,6 +60,7 @@ const InvestmentSnapshotSchema = new Schema<IInvestmentSnapshot>(
     buyPrice: { type: Number, default: 0 },
     purchaseTime: { type: String, default: '' },
     screenshotUrl: { type: String, default: '' },
+    tag: { type: String, default: '' },
   },
   { timestamps: true }
 );
