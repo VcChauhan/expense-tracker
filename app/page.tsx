@@ -17,7 +17,6 @@ import { MonthlyRecapCard } from '@/components/MonthlyRecapCard';
 import { AiBudgetAnomalyCard } from '@/components/AiBudgetAnomalyCard';
 import { AffordabilityChecker } from '@/components/AffordabilityChecker';
 import { RebalanceModal } from '@/components/RebalanceModal';
-import { SubscriptionAudit } from '@/components/SubscriptionAudit';
 import { CreditCardTracker } from '@/components/CreditCardTracker';
 import { OnboardingWizard } from '@/components/OnboardingWizard';
 
@@ -728,9 +727,6 @@ export default function DashboardPage() {
           <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', margin: '4px 2px 10px' }}>
             Bills &amp; Accounts
           </div>
-          
-          {/* ── Subscription & Leak Audit ── */}
-          <SubscriptionAudit />
 
           {/* ── Recurring Due This Month Widget ── */}
           {(() => {

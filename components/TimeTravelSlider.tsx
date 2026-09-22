@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useDeferredValue } from 'react';
 import { Category, formatINR } from '@/lib/types';
-import { Clock, PiggyBank, Wallet } from 'lucide-react';
+import { Clock, PiggyBank, Wallet, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface TimeTravelSliderProps {
   spent: number;
@@ -15,6 +15,7 @@ interface TimeTravelSliderProps {
 }
 
 export function TimeTravelSlider({ spent, budget, income, categories, activeTotalsMap, selectedMonth, selectedYear }: TimeTravelSliderProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
   const [daysForward, setDaysForward] = useState(0);
   const deferredDays = useDeferredValue(daysForward);
 
@@ -86,9 +87,9 @@ export function TimeTravelSlider({ spent, budget, income, categories, activeTota
   const isOverBudget = !!projection && projection.projectedSpend > budget;
 
   return (
-    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 20, padding: 24, marginBottom: 24, position: 'relative', overflow: 'hidden', animation: 'fade-in-up 0.4s var(--ease) both' }}>
+    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 20, padding: isExpanded ? 24 : '16px 20px', marginBottom: 20, position: 'relative', overflow: 'hidden', transition: 'all 0.3s ease' }}>
       
-      {deferredDays > 0 && (
+      {deferredDays > 0 && isExpanded && (
         <div style={{
           position: 'absolute', top: -50, right: -50, width: 200, height: 200,
           background: isOverBudget ? 'var(--danger)' : 'var(--accent)',
@@ -97,20 +98,42 @@ export function TimeTravelSlider({ spent, budget, income, categories, activeTota
         }} />
       )}
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, position: 'relative' }}>
-        <div style={{
-          width: 36, height: 36, borderRadius: 11, flexShrink: 0,
-          background: 'var(--accent-grad)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff',
-          boxShadow: '0 6px 16px -4px color-mix(in srgb, var(--accent) 55%, transparent)',
-        }}>
-          <Clock size={17} />
+      {/* Header Bar — acts as clickable accordion toggle */}
+      <div 
+        onClick={() => setIsExpanded(!isExpanded)}
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 11, flexShrink: 0,
+            background: 'var(--accent-grad)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff',
+            boxShadow: '0 4px 12px -2px color-mix(in srgb, var(--accent) 50%, transparent)',
+          }}>
+            <Clock size={17} />
+          </div>
+          <div>
+            <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Time Travel Projection</h3>
+            <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '2px 0 0' }}>
+              {isExpanded ? 'Simulating cash flow & burn rate' : 'Simulate month-end spend (+ ' + maxDaysForwardRender + 'd)'}
+            </p>
+          </div>
         </div>
-        <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Time Travel Projection</h3>
+
+        <button 
+          type="button" 
+          aria-label={isExpanded ? "Collapse" : "Expand"}
+          style={{
+            background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+            borderRadius: 99, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'var(--text-muted)', cursor: 'pointer', transition: 'transform 0.2s ease',
+          }}
+        >
+          {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </button>
       </div>
 
-      <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 24, position: 'relative' }}>
-        Drag to see your projected cash flow in the future based on your current burn rate and upcoming fixed bills.
-      </p>
+      {isExpanded && (
+        <div style={{ marginTop: 20, animation: 'fade-in-up 0.3s var(--ease) both' }}>
 
       <div style={{ marginBottom: 24, position: 'relative' }}>
         <input 
@@ -179,6 +202,8 @@ export function TimeTravelSlider({ spent, budget, income, categories, activeTota
       ) : (
         <div style={{ height: 116, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px dashed var(--border)', borderRadius: 16, position: 'relative' }}>
           <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-muted)' }}>Drag the slider to project the future</span>
+        </div>
+      )}
         </div>
       )}
 
