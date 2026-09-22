@@ -1039,6 +1039,8 @@ export default function InvestmentsPage() {
         @keyframes pulseGlow { 0%,100%{opacity:1} 50%{opacity:0.35} }
         @keyframes slideInUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
         @keyframes shimmer { 0%{background-position: -200% 0;} 100%{background-position: 200% 0;} }
+        @keyframes slideUpSheet { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
         .inv-seg-tab {
           flex: 1;
@@ -2185,13 +2187,33 @@ export default function InvestmentsPage() {
 
       </main>
 
-      {/* ── Review Modal ──────────────────────────────────────────────────── */}
+      {/* ── Review Modal (Bottom Sheet) ──────────────────────────────────────────────────── */}
       {showReviewModal && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
-          onClick={() => { setShowReviewModal(false); setOcrStatus('idle'); }}>
-          <div style={{ background: 'var(--bg-card)', borderTopLeftRadius: 28, borderTopRightRadius: 28, border: '1px solid var(--border)', borderBottom: 'none', width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto', padding: '20px 20px 40px' }}
-            onClick={(e) => e.stopPropagation()}>
-            <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border-strong)', margin: '0 auto 16px' }} />
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1100,
+            background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+            display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center',
+            animation: 'fadeIn 0.2s ease-out',
+          }}
+          onClick={() => { setShowReviewModal(false); setOcrStatus('idle'); }}
+        >
+          <div
+            style={{
+              width: '100%', maxWidth: 500, maxHeight: 'calc(100% - 24px)',
+              display: 'flex', flexDirection: 'column',
+              background: 'var(--bg-card)', color: 'var(--text-primary)',
+              borderRadius: '28px 28px 0 0',
+              border: '1px solid var(--border-strong)', borderBottom: 'none',
+              boxShadow: '0 -10px 50px rgba(0,0,0,0.55)',
+              overflowY: 'auto', WebkitOverflowScrolling: 'touch',
+              padding: '0 20px calc(36px + env(safe-area-inset-bottom, 16px))',
+              animation: 'slideUpSheet 0.28s cubic-bezier(0.16, 1, 0.3, 1)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Grab Handle */}
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border-strong)', margin: '12px auto 16px auto', flexShrink: 0 }} />
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <div>
@@ -2365,33 +2387,41 @@ export default function InvestmentsPage() {
         </div>
       )}
 
-      {/* ── Custom Delete Confirmation Modal ── */}
+      {/* ── Custom Delete Confirmation (Bottom Sheet) ── */}
       {holdingToDelete && (
         <div
           style={{
             position: 'fixed', inset: 0, zIndex: 1100,
-            background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+            background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+            display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center',
+            animation: 'fadeIn 0.2s ease-out',
           }}
           onClick={() => !isDeleting && setHoldingToDelete(null)}
         >
           <div
             style={{
-              background: 'var(--bg-card)', border: '1px solid var(--border)',
-              borderRadius: 20, padding: 22, width: '100%', maxWidth: 360,
-              boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+              width: '100%', maxWidth: 440,
+              background: 'var(--bg-card)', color: 'var(--text-primary)',
+              borderRadius: '28px 28px 0 0',
+              border: '1px solid var(--border-strong)', borderBottom: 'none',
+              boxShadow: '0 -10px 50px rgba(0,0,0,0.55)',
+              padding: '0 22px calc(34px + env(safe-area-inset-bottom, 16px))',
+              animation: 'slideUpSheet 0.28s cubic-bezier(0.16, 1, 0.3, 1)',
             }}
             onClick={(e) => e.stopPropagation()}
           >
+            {/* Grab Handle */}
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border-strong)', margin: '12px auto 18px auto' }} />
+
             <div style={{
               width: 44, height: 44, borderRadius: 12,
               background: 'rgba(239,68,68,0.12)', color: 'var(--danger)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              marginBottom: 14,
+              marginBottom: 12,
             }}>
               <Trash2 size={22} />
             </div>
-            <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 6px' }}>
+            <h3 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 6px' }}>
               Delete Holding?
             </h3>
             <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 20px', lineHeight: 1.4 }}>
@@ -2402,7 +2432,7 @@ export default function InvestmentsPage() {
                 onClick={() => setHoldingToDelete(null)}
                 disabled={isDeleting}
                 style={{
-                  padding: '11px', borderRadius: 12, border: '1px solid var(--border)',
+                  padding: '12px', borderRadius: 14, border: '1px solid var(--border)',
                   background: 'var(--bg-elevated)', color: 'var(--text-primary)',
                   fontWeight: 700, fontSize: 14, cursor: 'pointer',
                 }}
@@ -2413,7 +2443,7 @@ export default function InvestmentsPage() {
                 onClick={confirmDelete}
                 disabled={isDeleting}
                 style={{
-                  padding: '11px', borderRadius: 12, border: 'none',
+                  padding: '12px', borderRadius: 14, border: 'none',
                   background: 'var(--danger)', color: '#fff',
                   fontWeight: 800, fontSize: 14, cursor: 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
@@ -2426,25 +2456,33 @@ export default function InvestmentsPage() {
         </div>
       )}
 
-      {/* ── Custom Edit Holding Modal ── */}
+      {/* ── Custom Edit Holding (Bottom Sheet) ── */}
       {editingHolding && (
         <div
           style={{
             position: 'fixed', inset: 0, zIndex: 1100,
-            background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+            background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+            display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center',
+            animation: 'fadeIn 0.2s ease-out',
           }}
           onClick={() => !isSavingEdit && setEditingHolding(null)}
         >
           <div
             style={{
-              background: 'var(--bg-card)', border: '1px solid var(--border)',
-              borderRadius: 20, padding: 22, width: '100%', maxWidth: 420,
-              boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+              width: '100%', maxWidth: 500, maxHeight: 'calc(100% - 24px)',
               display: 'flex', flexDirection: 'column', gap: 14,
+              background: 'var(--bg-card)', color: 'var(--text-primary)',
+              borderRadius: '28px 28px 0 0',
+              border: '1px solid var(--border-strong)', borderBottom: 'none',
+              boxShadow: '0 -10px 50px rgba(0,0,0,0.55)',
+              overflowY: 'auto', WebkitOverflowScrolling: 'touch',
+              padding: '0 20px calc(36px + env(safe-area-inset-bottom, 16px))',
+              animation: 'slideUpSheet 0.28s cubic-bezier(0.16, 1, 0.3, 1)',
             }}
             onClick={(e) => e.stopPropagation()}
           >
+            {/* Grab Handle */}
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border-strong)', margin: '12px auto 8px auto', flexShrink: 0 }} />
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{
@@ -2706,28 +2744,33 @@ export default function InvestmentsPage() {
         </div>
       )}
 
-      {/* ── Add SIP Modal (Ultra-Premium Fintech Design) ── */}
+      {/* ── Add SIP Modal (Bottom Sheet) ── */}
       {showAddSipModal && (
         <div
           style={{
             position: 'fixed', inset: 0, zIndex: 1100,
-            background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+            background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+            display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center',
+            animation: 'fadeIn 0.2s ease-out',
           }}
           onClick={() => !isSavingSip && setShowAddSipModal(false)}
         >
           <div
             style={{
-              background: 'linear-gradient(160deg, #111827 0%, #0d131f 100%)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: 24, padding: '24px 20px', width: '100%', maxWidth: 430,
-              maxHeight: '92vh', overflowY: 'auto',
-              boxShadow: '0 24px 64px rgba(0,0,0,0.7)',
-              display: 'flex', flexDirection: 'column', gap: 16,
-              color: 'var(--text-primary)',
+              width: '100%', maxWidth: 500, maxHeight: 'calc(100% - 24px)',
+              display: 'flex', flexDirection: 'column', gap: 14,
+              background: 'var(--bg-card)', color: 'var(--text-primary)',
+              borderRadius: '28px 28px 0 0',
+              border: '1px solid var(--border-strong)', borderBottom: 'none',
+              boxShadow: '0 -10px 50px rgba(0,0,0,0.55)',
+              overflowY: 'auto', WebkitOverflowScrolling: 'touch',
+              padding: '0 20px calc(36px + env(safe-area-inset-bottom, 16px))',
+              animation: 'slideUpSheet 0.28s cubic-bezier(0.16, 1, 0.3, 1)',
             }}
             onClick={(e) => e.stopPropagation()}
           >
+            {/* Grab Handle */}
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border-strong)', margin: '12px auto 8px auto', flexShrink: 0 }} />
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -3033,26 +3076,33 @@ export default function InvestmentsPage() {
         </div>
       )}
 
-      {/* ── Manual Add Holding Modal ── */}
+      {/* ── Manual Add Holding (Bottom Sheet) ── */}
       {showManualModal && (
         <div
           style={{
             position: 'fixed', inset: 0, zIndex: 1100,
-            background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+            background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+            display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center',
+            animation: 'fadeIn 0.2s ease-out',
           }}
           onClick={() => !isSavingManual && setShowManualModal(false)}
         >
           <div
             style={{
-              background: 'var(--bg-card)', border: '1px solid var(--border)',
-              borderRadius: 22, padding: 22, width: '100%', maxWidth: 440,
-              maxHeight: '92vh', overflowY: 'auto',
-              boxShadow: '0 12px 48px rgba(0,0,0,0.5)',
+              width: '100%', maxWidth: 500, maxHeight: 'calc(100% - 24px)',
               display: 'flex', flexDirection: 'column', gap: 14,
+              background: 'var(--bg-card)', color: 'var(--text-primary)',
+              borderRadius: '28px 28px 0 0',
+              border: '1px solid var(--border-strong)', borderBottom: 'none',
+              boxShadow: '0 -10px 50px rgba(0,0,0,0.55)',
+              overflowY: 'auto', WebkitOverflowScrolling: 'touch',
+              padding: '0 20px calc(36px + env(safe-area-inset-bottom, 16px))',
+              animation: 'slideUpSheet 0.28s cubic-bezier(0.16, 1, 0.3, 1)',
             }}
             onClick={(e) => e.stopPropagation()}
           >
+            {/* Grab Handle */}
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border-strong)', margin: '12px auto 8px auto', flexShrink: 0 }} />
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
