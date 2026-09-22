@@ -9,10 +9,12 @@ import {
   X, Cpu, Layers, Tag, Globe, Sparkles, Pencil,
   Repeat, Plus, Calendar, CheckCircle2, Eye, EyeOff,
   SlidersHorizontal, BarChart2, PieChart as PieIcon,
+  ShieldCheck, Brain, Target, Info, Flame, ChevronRight,
+  Coins, LineChart as LineIcon, ArrowDown, ArrowUp,
 } from 'lucide-react';
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
-  PieChart, Pie, Cell,
+  PieChart, Pie, Cell, AreaChart, Area,
 } from 'recharts';
 
 import { formatINR, InvestmentFund, Expense, Settings, SHORT_MONTHS, PortfolioType, RecurringExpense } from '@/lib/types';
@@ -164,11 +166,13 @@ export default function InvestmentsPage() {
     });
   };
 
-  // ── Filter, Sort & Chart state ──
+  // ── Segmented Navigation, Filter & Projection state ──
+  const [activeView, setActiveView] = useState<'holdings' | 'analytics' | 'sip'>('holdings');
   const [activeFilter, setActiveFilter] = useState<'all' | 'mutual_funds' | 'stocks' | 'gold'>('all');
   const [sortBy, setSortBy] = useState<'invested' | 'returns' | 'name' | 'gainPct'>('invested');
-  const [showCharts, setShowCharts] = useState(true);
-  const [activeChartTab, setActiveChartTab] = useState<'allocation' | 'returns'>('allocation');
+  const [projectionHorizon, setProjectionHorizon] = useState<'1Y' | '3Y' | '5Y' | '10Y'>('5Y');
+  const [projectionCagr, setProjectionCagr] = useState<number>(13); // 13% CAGR moderate default
+  const [activeAnalyticsSection, setActiveAnalyticsSection] = useState<'projection' | 'allocation' | 'returns'>('projection');
 
   const fetchLiveGold = async () => {
     setIsLoadingLiveGold(true);
@@ -414,6 +418,136 @@ export default function InvestmentsPage() {
       .sort((a, b) => b.gainPct - a.gainPct)
       .slice(0, 8);
   }, [distinctHoldings]);
+
+  // Monthly active SIP sum
+  const monthlySipTotal = useMemo(() => {
+    return investmentSips.filter((s) => s.isActive).reduce((sum, s) => sum + (s.amount || 0), 0);
+  }, [investmentSips]);
+
+  // 100% On-Device AI Compounding Projections (FV of lump sum + FV of monthly SIP annuity)
+  const projectionCurves = useMemo(() => {
+    const P = totalCurrentValue || 0;
+    const PMT = monthlySipTotal || 0;
+    const r = projectionCagr / 100;
+    const monthlyRate = r / 12;
+
+    const maxYears = projectionHorizon === '1Y' ? 1 : projectionHorizon === '3Y' ? 3 : projectionHorizon === '5Y' ? 5 : 10;
+    const steps = maxYears === 1 ? 12 : maxYears * 4;
+    const points: { label: string; year: number; projected: number; invested: number; gains: number }[] = [];
+
+    for (let i = 0; i <= steps; i++) {
+      const tMonths = maxYears === 1 ? i : (i * (maxYears * 12)) / steps;
+      const tYears = tMonths / 12;
+      const fvLump = P * Math.pow(1 + r, tYears);
+      const fvSip = monthlyRate > 0 && tMonths > 0
+        ? PMT * ((Math.pow(1 + monthlyRate, tMonths) - 1) / monthlyRate) * (1 + monthlyRate)
+        : PMT * tMonths;
+
+      const totalProjected = Math.round(fvLump + fvSip);
+      const totalInvestedPrincipal = Math.round(totalInvested + (PMT * tMonths));
+      const gains = Math.max(0, totalProjected - totalInvestedPrincipal);
+
+      const label = maxYears === 1
+        ? `M${Math.round(tMonths)}`
+        : `Y${tYears.toFixed(tYears % 1 === 0 ? 0 : 1)}`;
+
+      points.push({
+        label,
+        year: tYears,
+        projected: totalProjected,
+        invested: totalInvestedPrincipal,
+        gains,
+      });
+    }
+
+    const endPoint = points[points.length - 1];
+    const multiplier = endPoint && endPoint.invested > 0 ? (endPoint.projected / endPoint.invested).toFixed(1) : '1.0';
+
+    return {
+      points,
+      endProjected: endPoint?.projected || P,
+      endInvested: endPoint?.invested || totalInvested,
+      endGains: endPoint?.gains || 0,
+      multiplier,
+    };
+  }, [totalCurrentValue, totalInvested, monthlySipTotal, projectionCagr, projectionHorizon]);
+
+  // 100% On-Device Portfolio Health Score & Diversification Engine
+  const portfolioHealth = useMemo(() => {
+    const total = totalCurrentValue || 1;
+    const mfVal = mfHoldings.reduce((s, h) => s + (h.currentValue || 0), 0);
+    const stockVal = stockHoldings.reduce((s, h) => s + (h.currentValue || 0), 0);
+    const goldVal = goldHoldings.reduce((s, h) => s + (h.currentValue || 0), 0);
+
+    const equityVal = mfVal + stockVal;
+    const equityPct = Math.round((equityVal / total) * 100);
+    const goldPct = Math.round((goldVal / total) * 100);
+    const otherPct = Math.max(0, 100 - equityPct - goldPct);
+
+    let score = 70;
+    const insights: { title: string; desc: string; type: 'success' | 'info' | 'warning' }[] = [];
+
+    if (goldPct >= 8 && goldPct <= 25) {
+      score += 15;
+      insights.push({
+        title: 'Balanced Inflation Hedge',
+        desc: `Gold makes up ${goldPct}% of your portfolio, acting as a strong risk cushion against equity swings.`,
+        type: 'success',
+      });
+    } else if (goldPct > 25) {
+      score += 6;
+      insights.push({
+        title: 'High Defensive Weight',
+        desc: `Gold is ${goldPct}%. Consider routing upcoming SIPs into broad-market index/flexicap funds.`,
+        type: 'info',
+      });
+    } else {
+      score += 5;
+      insights.push({
+        title: 'Light Gold Exposure',
+        desc: `Gold is ${goldPct}%. Retaining 10-15% in Digital Gold/Gold ETFs offers optimal stability.`,
+        type: 'info',
+      });
+    }
+
+    if (equityPct >= 60 && equityPct <= 85) {
+      score += 15;
+      insights.push({
+        title: 'Prime Growth Allocation',
+        desc: `Equity allocation (${equityPct}%) provides compound growth targeting 12-15% long-term CAGR.`,
+        type: 'success',
+      });
+    }
+
+    const hasElss = distinctHoldings.some(
+      (h) => (h.holdingName || '').toLowerCase().includes('elss') || (h.holdingName || '').toLowerCase().includes('tax')
+    );
+    if (hasElss) {
+      insights.push({
+        title: 'Tax-Advantaged Compounding',
+        desc: 'ELSS tax-saver schemes detected, optimizing 80C exemptions while compounding in diversified equities.',
+        type: 'success',
+      });
+    }
+
+    if (monthlySipTotal > 0) {
+      insights.push({
+        title: 'Active SIP Momentum',
+        desc: `Deploying ₹${monthlySipTotal.toLocaleString('en-IN')}/month will dollar-cost-average across market corrections.`,
+        type: 'success',
+      });
+    }
+
+    return {
+      score: Math.min(98, score),
+      equityPct,
+      goldPct,
+      otherPct,
+      equityVal,
+      goldVal,
+      insights,
+    };
+  }, [totalCurrentValue, mfHoldings, stockHoldings, goldHoldings, distinctHoldings, monthlySipTotal]);
 
 
   // ── Live Internet Sync ────────────────────────────────────────────────
@@ -896,528 +1030,1160 @@ export default function InvestmentsPage() {
   const typeCfg = getTypeCfg(reviewData.portfolioType);
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)', paddingBottom: 90 }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg)', paddingBottom: 100, color: 'var(--text-primary)' }}>
       <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
 
+      {/* ── Global Styles & Animations ────────────────────────────── */}
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes pulseGlow { 0%,100%{opacity:1} 50%{opacity:0.4} }
-        @keyframes slideUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
-        .inv-filter-tab { padding:7px 14px; border-radius:20px; font-size:12.5px; font-weight:700; cursor:pointer; border:1.5px solid transparent; transition:all 0.18s ease; white-space:nowrap; display:flex; align-items:center; gap:5px; }
-        .inv-sort-btn { padding:6px 11px; border-radius:10px; font-size:11.5px; font-weight:700; cursor:pointer; border:1.5px solid var(--border); background:var(--bg-elevated); color:var(--text-secondary); transition:all 0.15s ease; white-space:nowrap; }
-        .inv-sort-btn.active { background:rgba(139,92,246,0.15); border-color:rgba(139,92,246,0.4); color:#8B5CF6; }
-        .inv-holding-card { animation:slideUp 0.22s ease both; }
-        .inv-holding-card:hover { transform:translateY(-1px); box-shadow:0 6px 20px rgba(0,0,0,0.2) !important; }
-        .inv-chart-tab { padding:6px 13px; border-radius:10px; font-size:12px; font-weight:700; cursor:pointer; border:1.5px solid var(--border); transition:all 0.15s; }
+        @keyframes pulseGlow { 0%,100%{opacity:1} 50%{opacity:0.35} }
+        @keyframes slideInUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes shimmer { 0%{background-position: -200% 0;} 100%{background-position: 200% 0;} }
+
+        .inv-seg-tab {
+          flex: 1;
+          padding: 9px 12px;
+          border-radius: 12px;
+          font-size: 12px;
+          font-weight: 700;
+          cursor: pointer;
+          border: 1px solid transparent;
+          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          color: var(--text-muted);
+          background: transparent;
+        }
+        .inv-seg-tab.active {
+          background: var(--bg-card);
+          color: var(--text-primary);
+          border-color: rgba(255,255,255,0.08);
+          box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+        }
+
+        .inv-filter-chip {
+          padding: 6px 13px;
+          border-radius: 999px;
+          font-size: 12px;
+          font-weight: 700;
+          cursor: pointer;
+          border: 1px solid transparent;
+          transition: all 0.15s ease;
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          white-space: nowrap;
+        }
+
+        .inv-card-hover {
+          transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+        }
+        .inv-card-hover:hover {
+          transform: translateY(-2px);
+          border-color: rgba(139,92,246,0.3) !important;
+          box-shadow: 0 8px 24px rgba(0,0,0,0.25) !important;
+        }
       `}</style>
 
-      {/* Toast */}
+      {/* ── Toast Notification ───────────────────────────────────────── */}
       {syncToast && (
-        <div style={{ position:'fixed', top:20, left:'50%', transform:'translateX(-50%)', zIndex:2000, background:'rgba(16,185,129,0.95)', backdropFilter:'blur(10px)', color:'#fff', padding:'10px 20px', borderRadius:12, fontWeight:700, fontSize:13, display:'flex', alignItems:'center', gap:8, boxShadow:'0 8px 30px rgba(0,0,0,0.3)' }}>
-          <Sparkles size={16} /><span>{syncToast}</span>
+        <div style={{
+          position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 2000, background: 'rgba(16,185,129,0.95)', backdropFilter: 'blur(12px)',
+          color: '#fff', padding: '10px 20px', borderRadius: 14, fontWeight: 700,
+          fontSize: 13, display: 'flex', alignItems: 'center', gap: 8,
+          boxShadow: '0 10px 32px rgba(0,0,0,0.35)',
+        }}>
+          <Sparkles size={16} />
+          <span>{syncToast}</span>
         </div>
       )}
 
-      {/* ══ STICKY HEADER ══════════════════════════════════════════ */}
-      <div style={{ background:'var(--bg-card)', borderBottom:'1px solid var(--border)', position:'sticky', top:0, zIndex:100 }}>
-        {/* Row 1 */}
-        <div style={{ padding:'14px 16px 8px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-            <button onClick={() => router.push('/reports')} style={{ background:'var(--bg-elevated)', border:'1px solid var(--border)', color:'var(--text-primary)', width:34, height:34, borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0 }}>
-              <ArrowLeft size={17} />
+      {/* ══ ULTRA-PREMIUM HEADER ════════════════════════════════════════ */}
+      <header style={{
+        position: 'sticky', top: 0, zIndex: 120,
+        background: 'rgba(11, 15, 25, 0.85)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        borderBottom: '1px solid rgba(255,255,255,0.07)',
+      }}>
+        {/* Row 1: Back + Title + Live Market Status + Action Controls */}
+        <div style={{
+          padding: '12px 16px 8px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button
+              onClick={() => router.push('/reports')}
+              style={{
+                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)',
+                color: 'var(--text-primary)', width: 36, height: 36, borderRadius: 10,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0,
+              }}
+              title="Back to Reports"
+            >
+              <ArrowLeft size={18} />
             </button>
             <div>
-              <h1 style={{ fontSize:18, fontWeight:800, color:'var(--text-primary)', margin:0, lineHeight:1.2 }}>My Portfolio</h1>
-              <p style={{ fontSize:11, color:'var(--text-muted)', margin:0 }}>AMFI · NSE · Live Gold</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <h1 style={{ fontSize: 18, fontWeight: 800, margin: 0, letterSpacing: '-0.3px' }}>
+                  Portfolio
+                </h1>
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 4,
+                  padding: '2px 7px', borderRadius: 20,
+                  background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.25)',
+                }}>
+                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10B981', boxShadow: '0 0 6px #10B981', animation: 'pulseGlow 2s infinite' }} />
+                  <span style={{ fontSize: 10, fontWeight: 800, color: '#10B981', letterSpacing: '0.4px' }}>LIVE</span>
+                </div>
+              </div>
+              <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0 0' }}>
+                AMFI · NSE · Gold {liveGoldRate ? `₹${liveGoldRate.ratePerGram.toLocaleString('en-IN')}/g` : 'Domestic Retail'}
+              </p>
             </div>
           </div>
-          <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-            <button onClick={toggleMask} title={isMasked ? 'Show amounts' : 'Hide amounts'} style={{ display:'flex', alignItems:'center', gap:5, background:isMasked?'rgba(139,92,246,0.18)':'var(--bg-elevated)', color:isMasked?'#8B5CF6':'var(--text-secondary)', border:`1.5px solid ${isMasked?'rgba(139,92,246,0.4)':'var(--border)'}`, padding:'7px 10px', borderRadius:10, fontWeight:700, fontSize:12, cursor:'pointer', transition:'all 0.18s ease' }}>
+
+          {/* Quick Action controls on Header */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {/* Privacy mask toggle button */}
+            <button
+              onClick={toggleMask}
+              title={isMasked ? 'Show amounts' : 'Hide / Mask portfolio'}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 5,
+                background: isMasked ? 'rgba(139,92,246,0.18)' : 'rgba(255,255,255,0.06)',
+                color: isMasked ? '#A78BFA' : 'var(--text-secondary)',
+                border: `1px solid ${isMasked ? 'rgba(139,92,246,0.45)' : 'rgba(255,255,255,0.09)'}`,
+                padding: '7px 11px', borderRadius: 10, fontWeight: 700, fontSize: 12,
+                cursor: 'pointer', transition: 'all 0.18s ease',
+              }}
+            >
               {isMasked ? <EyeOff size={14} /> : <Eye size={14} />}
-              <span style={{ fontSize:11 }}>{isMasked ? 'Show' : 'Hide'}</span>
+              <span>{isMasked ? 'Hidden' : 'Hide'}</span>
             </button>
-            <button onClick={handleSyncLive} disabled={isSyncingLive || distinctHoldings.length === 0} style={{ display:'flex', alignItems:'center', gap:5, background:'rgba(16,185,129,0.1)', color:'#10B981', border:'1.5px solid rgba(16,185,129,0.3)', padding:'7px 10px', borderRadius:10, fontWeight:700, fontSize:12, cursor:isSyncingLive?'not-allowed':'pointer' }}>
-              {isSyncingLive ? <RefreshCw size={13} style={{ animation:'spin 1s linear infinite' }} /> : <Globe size={13} />}
-              <span style={{ fontSize:11 }}>{isSyncingLive ? '…' : 'Sync'}</span>
+
+            {/* Live Sync button */}
+            <button
+              onClick={handleSyncLive}
+              disabled={isSyncingLive || distinctHoldings.length === 0}
+              title="Sync latest live NAVs & stock prices"
+              style={{
+                display: 'flex', alignItems: 'center', gap: 5,
+                background: 'rgba(16,185,129,0.12)', color: '#10B981',
+                border: '1px solid rgba(16,185,129,0.28)',
+                padding: '7px 11px', borderRadius: 10, fontWeight: 700, fontSize: 12,
+                cursor: isSyncingLive ? 'not-allowed' : 'pointer',
+              }}
+            >
+              <RefreshCw size={13} style={{ animation: isSyncingLive ? 'spin 1s linear infinite' : 'none' }} />
+              <span>{isSyncingLive ? 'Syncing…' : 'Sync'}</span>
             </button>
           </div>
         </div>
-        {/* Row 2: action chips */}
-        <div style={{ padding:'0 16px 12px', display:'flex', alignItems:'center', gap:8, overflowX:'auto' }}>
-          <button onClick={() => { setManualType('gold'); setManualName('24K Digital Gold'); setManualUnits(''); setManualBuyPrice(''); setManualInvested(''); setManualCurrent(''); setManualDate(new Date().toISOString().split('T')[0]); setManualTime(new Date().toTimeString().slice(0,5)); setShowManualModal(true); fetchLiveGold(); }} style={{ display:'flex', alignItems:'center', gap:5, flexShrink:0, background:'rgba(245,158,11,0.12)', color:'#F59E0B', border:'1.5px solid rgba(245,158,11,0.3)', padding:'7px 12px', borderRadius:10, fontWeight:700, fontSize:12, cursor:'pointer' }}>
-            <Plus size={13} /><span>Add</span>
+
+        {/* Row 2: Header Quick Action Buttons (No overflow!) */}
+        <div style={{
+          padding: '0 16px 12px',
+          display: 'flex', alignItems: 'center', gap: 8, overflowX: 'auto',
+        }}>
+          {/* + Add Manual */}
+          <button
+            onClick={() => {
+              setManualType('gold');
+              setManualName('24K Digital Gold');
+              setManualUnits(''); setManualBuyPrice('');
+              setManualInvested(''); setManualCurrent('');
+              setManualDate(new Date().toISOString().split('T')[0]);
+              setManualTime(new Date().toTimeString().slice(0, 5));
+              setShowManualModal(true);
+              fetchLiveGold();
+            }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0,
+              background: 'rgba(245,158,11,0.12)', color: '#F59E0B',
+              border: '1px solid rgba(245,158,11,0.3)',
+              padding: '6px 12px', borderRadius: 10, fontWeight: 700, fontSize: 12,
+              cursor: 'pointer',
+            }}
+          >
+            <Plus size={13} />
+            <span>+ Add Holding</span>
           </button>
-          <button onClick={() => fileInputRef.current?.click()} disabled={isOcrRunning} style={{ display:'flex', alignItems:'center', gap:5, flexShrink:0, background:isOcrRunning?'var(--bg-elevated)':'var(--accent-grad)', color:isOcrRunning?'var(--text-muted)':'#fff', border:isOcrRunning?'1px solid var(--border)':'none', padding:'7px 12px', borderRadius:10, fontWeight:700, fontSize:12, cursor:isOcrRunning?'not-allowed':'pointer', boxShadow:isOcrRunning?'none':'0 3px 12px rgba(124,92,252,0.3)' }}>
-            {isOcrRunning ? <><RefreshCw size={13} style={{ animation:'spin 1s linear infinite' }} /><span style={{ fontSize:10 }}>{ocrStatusLabel[ocrStatus]}</span></> : <><Camera size={13} /><span>Upload Groww</span></>}
+
+          {/* Upload Groww Screenshot */}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isOcrRunning}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0,
+              background: isOcrRunning ? 'var(--bg-elevated)' : 'var(--accent-grad)',
+              color: isOcrRunning ? 'var(--text-muted)' : '#fff',
+              border: isOcrRunning ? '1px solid var(--border)' : 'none',
+              padding: '6px 12px', borderRadius: 10, fontWeight: 700, fontSize: 12,
+              cursor: isOcrRunning ? 'not-allowed' : 'pointer',
+              boxShadow: isOcrRunning ? 'none' : '0 3px 12px rgba(124,92,252,0.3)',
+            }}
+          >
+            {isOcrRunning ? (
+              <>
+                <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} />
+                <span>{ocrStatusLabel[ocrStatus]}</span>
+              </>
+            ) : (
+              <>
+                <Camera size={13} />
+                <span>Upload Groww</span>
+              </>
+            )}
           </button>
-          <button onClick={() => openSipModal()} style={{ display:'flex', alignItems:'center', gap:5, flexShrink:0, background:'rgba(139,92,246,0.1)', color:'#8B5CF6', border:'1.5px solid rgba(139,92,246,0.3)', padding:'7px 12px', borderRadius:10, fontWeight:700, fontSize:12, cursor:'pointer' }}>
-            <Repeat size={13} /><span>Add SIP</span>
-          </button>
-          <button onClick={() => setShowCharts(p => !p)} style={{ display:'flex', alignItems:'center', gap:5, flexShrink:0, background:showCharts?'rgba(59,130,246,0.1)':'var(--bg-elevated)', color:showCharts?'#3B82F6':'var(--text-secondary)', border:`1.5px solid ${showCharts?'rgba(59,130,246,0.3)':'var(--border)'}`, padding:'7px 12px', borderRadius:10, fontWeight:700, fontSize:12, cursor:'pointer' }}>
-            <PieIcon size={13} /><span>Charts</span>
+
+          {/* Add SIP */}
+          <button
+            onClick={() => openSipModal()}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0,
+              background: 'rgba(139,92,246,0.12)', color: '#A78BFA',
+              border: '1px solid rgba(139,92,246,0.3)',
+              padding: '6px 12px', borderRadius: 10, fontWeight: 700, fontSize: 12,
+              cursor: 'pointer',
+            }}
+          >
+            <Repeat size={13} />
+            <span>Add SIP</span>
           </button>
         </div>
-      </div>
+      </header>
 
-      <div style={{ padding:'14px 14px 0', display:'flex', flexDirection:'column', gap:14 }}>
+      {/* ══ MAIN BODY WRAPPER ════════════════════════════════════════ */}
+      <main style={{ padding: '16px 16px 0', display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-        {/* ── Live Banner ── */}
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 14px', borderRadius:12, background:'rgba(16,185,129,0.07)', border:'1px solid rgba(16,185,129,0.18)' }}>
-          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-            <div style={{ width:7, height:7, borderRadius:'50%', background:'#10B981', boxShadow:'0 0 8px #10B981', animation:'pulseGlow 2s ease-in-out infinite' }} />
-            <span style={{ fontSize:11.5, fontWeight:700, color:'#10B981' }}>Live Market Sync · AMFI, NSE &amp; Gold</span>
-          </div>
-          <button onClick={handleSyncLive} disabled={isSyncingLive} style={{ background:'none', border:'none', color:'#10B981', fontSize:11.5, fontWeight:800, cursor:'pointer', padding:0 }}>Refresh Now</button>
-        </div>
+        {/* ══ FLAGSHIP HERO CARD ════════════════════════════════════ */}
+        <div style={{
+          background: 'linear-gradient(145deg, #090e1a 0%, #101726 50%, #151e36 100%)',
+          borderRadius: 24, padding: '24px 20px 20px', position: 'relative',
+          overflow: 'hidden', boxShadow: '0 16px 44px rgba(0,0,0,0.45)',
+          border: '1px solid rgba(255,255,255,0.08)',
+        }}>
+          {/* Subtle Ambient Radial Glow */}
+          <div style={{
+            position: 'absolute', top: -50, right: -40, width: 200, height: 200, borderRadius: '50%',
+            background: isPositive
+              ? 'radial-gradient(circle, rgba(16,185,129,0.2) 0%, transparent 70%)'
+              : 'radial-gradient(circle, rgba(239,68,68,0.2) 0%, transparent 70%)',
+            pointerEvents: 'none',
+          }} />
+          <div style={{
+            position: 'absolute', bottom: -50, left: -40, width: 160, height: 160, borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(139,92,246,0.18) 0%, transparent 70%)',
+            pointerEvents: 'none',
+          }} />
 
-        {/* ══ HERO CARD ════════════════════════════════════════════ */}
-        <div style={{ background:'linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%)', borderRadius:22, padding:'22px 20px', position:'relative', overflow:'hidden', boxShadow:'0 12px 40px rgba(0,0,0,0.4)', border:'1px solid rgba(139,92,246,0.2)' }}>
-          <div style={{ position:'absolute', top:-50, right:-30, width:160, height:160, borderRadius:'50%', background:isPositive?'radial-gradient(circle,rgba(16,185,129,0.25) 0%,transparent 70%)':'radial-gradient(circle,rgba(239,68,68,0.25) 0%,transparent 70%)', pointerEvents:'none' }} />
-          <div style={{ position:'absolute', bottom:-30, left:-20, width:120, height:120, borderRadius:'50%', background:'radial-gradient(circle,rgba(139,92,246,0.2) 0%,transparent 70%)', pointerEvents:'none' }} />
-
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:9 }}>
-              <div style={{ width:36, height:36, borderRadius:12, background:'rgba(139,92,246,0.2)', color:'#a78bfa', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 0 12px rgba(139,92,246,0.3)' }}><Layers size={18} /></div>
+          {/* Top Label & Overall Return Badge */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{
+                width: 32, height: 32, borderRadius: 10,
+                background: 'rgba(139,92,246,0.2)', color: '#A78BFA',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: '0 0 12px rgba(139,92,246,0.25)',
+              }}>
+                <Layers size={16} />
+              </div>
               <div>
-                <div style={{ fontSize:11, fontWeight:700, color:'rgba(255,255,255,0.5)', textTransform:'uppercase', letterSpacing:'0.8px' }}>Total Portfolio</div>
-                <div style={{ fontSize:11, color:'rgba(255,255,255,0.35)', marginTop:1 }}>{distinctHoldings.length} holdings</div>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+                  Total Portfolio Value
+                </span>
               </div>
             </div>
-            <span style={{ fontSize:11, fontWeight:700, background:isPositive?'rgba(16,185,129,0.2)':'rgba(239,68,68,0.2)', color:isPositive?'#34d399':'#f87171', border:`1px solid ${isPositive?'rgba(16,185,129,0.35)':'rgba(239,68,68,0.35)'}`, padding:'3px 9px', borderRadius:20 }}>
-              {isPositive ? '▲' : '▼'} {Math.abs(totalGainPct)}% Overall
-            </span>
+
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              padding: '4px 10px', borderRadius: 999, fontSize: 11.5, fontWeight: 800,
+              background: isPositive ? 'rgba(16,185,129,0.18)' : 'rgba(239,68,68,0.18)',
+              color: isPositive ? '#34D399' : '#F87171',
+              border: `1px solid ${isPositive ? 'rgba(16,185,129,0.35)' : 'rgba(239,68,68,0.35)'}`,
+            }}>
+              {isPositive ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
+              <span>{isPositive ? '+' : ''}{totalGainPct}% Overall</span>
+            </div>
           </div>
 
-          <div style={{ fontSize:36, fontWeight:900, color:'#fff', letterSpacing:'-1px', lineHeight:1, marginBottom:10, textShadow:'0 2px 20px rgba(255,255,255,0.15)' }}>
+          {/* Primary Amount Display */}
+          <div style={{
+            fontSize: 38, fontWeight: 900, color: '#FFFFFF',
+            letterSpacing: '-1.2px', lineHeight: 1.1, marginBottom: 12,
+            textShadow: '0 2px 24px rgba(255,255,255,0.12)',
+          }}>
             {isMasked ? '₹ ••••••••' : formatINR(totalCurrentValue)}
           </div>
 
-          <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', marginBottom:18 }}>
-            <div style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'4px 10px', borderRadius:20, fontWeight:700, fontSize:12, background:isPositive?'rgba(16,185,129,0.15)':'rgba(239,68,68,0.15)', color:isPositive?'#34d399':'#f87171', border:`1px solid ${isPositive?'rgba(16,185,129,0.3)':'rgba(239,68,68,0.3)'}` }}>
-              {isMasked ? <span>•••••• P&amp;L</span> : <>{isPositive?<ArrowUpRight size={13}/>:<ArrowDownRight size={13}/>}{isPositive?'+':''}{formatINR(totalGain)} P&amp;L</>}
+          {/* P&L Badges: Total Return & Today's 1D */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              padding: '4px 11px', borderRadius: 20, fontWeight: 700, fontSize: 12,
+              background: isPositive ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
+              color: isPositive ? '#34D399' : '#F87171',
+              border: `1px solid ${isPositive ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`,
+            }}>
+              {isMasked ? (
+                <span>•••••• Total Gain</span>
+              ) : (
+                <>
+                  <span>Total P&amp;L:</span>
+                  <strong>{isPositive ? '+' : ''}{formatINR(totalGain)}</strong>
+                </>
+              )}
             </div>
+
             {(latest1D.gain !== 0 || latest1D.percent !== 0) && (
-              <div style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'4px 10px', borderRadius:20, fontWeight:700, fontSize:12, background:latest1D.gain>=0?'rgba(16,185,129,0.12)':'rgba(239,68,68,0.12)', color:latest1D.gain>=0?'#34d399':'#f87171', border:`1px solid ${latest1D.gain>=0?'rgba(16,185,129,0.25)':'rgba(239,68,68,0.25)'}` }}>
-                {isMasked ? <span>•••••• 1D</span> : <>{latest1D.gain>=0?<ArrowUpRight size={13}/>:<ArrowDownRight size={13}/>}{latest1D.gain>=0?'+':''}{latest1D.gain?formatINR(latest1D.gain)+' ':''} ({latest1D.gain>=0?'+':''}{latest1D.percent}%) 1D</>}
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                padding: '4px 11px', borderRadius: 20, fontWeight: 700, fontSize: 12,
+                background: latest1D.gain >= 0 ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
+                color: latest1D.gain >= 0 ? '#34D399' : '#F87171',
+                border: `1px solid ${latest1D.gain >= 0 ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)'}`,
+              }}>
+                {isMasked ? (
+                  <span>•••••• 1D</span>
+                ) : (
+                  <>
+                    <span>1D Today:</span>
+                    <strong>{latest1D.gain >= 0 ? '+' : ''}{formatINR(latest1D.gain)} ({latest1D.gain >= 0 ? '+' : ''}{latest1D.percent}%)</strong>
+                  </>
+                )}
               </div>
             )}
           </div>
 
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', background:'rgba(255,255,255,0.05)', borderRadius:14, overflow:'hidden' }}>
+          {/* 4-Cell Portfolio Breakdown Grid */}
+          <div style={{
+            display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
+            background: 'rgba(255,255,255,0.04)', borderRadius: 16,
+            border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden',
+          }}>
             {[
-              { label:'Invested', val:isMasked?'₹••••':formatINR(totalInvested), color:'#c4b5fd' },
-              { label:'MF', val:mfHoldings.length, color:'#8B5CF6' },
-              { label:'Stocks', val:stockHoldings.length, color:'#10B981' },
-              { label:'Gold', val:goldHoldings.length, color:'#F59E0B' },
-            ].map((item,i) => (
-              <div key={i} style={{ padding:'10px 8px', textAlign:'center', borderLeft:i>0?'1px solid rgba(255,255,255,0.06)':'none' }}>
-                <div style={{ fontSize:10, color:'rgba(255,255,255,0.4)', marginBottom:3, textTransform:'uppercase', letterSpacing:'0.4px' }}>{item.label}</div>
-                <div style={{ fontSize:14, fontWeight:800, color:item.color }}>{item.val}</div>
+              { label: 'Invested', val: isMasked ? '₹••••' : formatINR(totalInvested), color: '#DDD6FE' },
+              { label: 'Mutual Funds', val: `${mfHoldings.length}`, color: '#A78BFA' },
+              { label: 'Stocks', val: `${stockHoldings.length}`, color: '#34D399' },
+              { label: 'Gold', val: `${goldHoldings.length}`, color: '#FBBF24' },
+            ].map((item, idx) => (
+              <div
+                key={idx}
+                style={{
+                  padding: '12px 8px', textAlign: 'center',
+                  borderLeft: idx > 0 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                }}
+              >
+                <div style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 4 }}>
+                  {item.label}
+                </div>
+                <div style={{ fontSize: 13.5, fontWeight: 800, color: item.color, lineHeight: 1.2 }}>
+                  {item.val}
+                </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* ══ CHARTS ════════════════════════════════════════════════ */}
-        {showCharts && allocationChartData.length > 0 && (
-          <div style={{ background:'var(--bg-card)', border:'1px solid var(--border)', borderRadius:18, padding:'16px', overflow:'hidden' }}>
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
-              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                <div style={{ width:28, height:28, borderRadius:8, background:'rgba(59,130,246,0.15)', color:'#3B82F6', display:'flex', alignItems:'center', justifyContent:'center' }}><BarChart2 size={15} /></div>
-                <span style={{ fontSize:14, fontWeight:800, color:'var(--text-primary)' }}>Analytics</span>
+        {/* ══ SEGMENTED CONTROLLER (Holdings vs Analytics & Projections vs SIP) ═══════════════════════ */}
+        <div style={{
+          background: 'rgba(255,255,255,0.04)',
+          borderRadius: 16, padding: 4,
+          border: '1px solid rgba(255,255,255,0.06)',
+          display: 'flex', alignItems: 'center', gap: 4,
+        }}>
+          <button
+            className={`inv-seg-tab${activeView === 'holdings' ? ' active' : ''}`}
+            onClick={() => { setActiveView('holdings'); lightTap(); }}
+          >
+            <Tag size={14} />
+            <span>Holdings ({distinctHoldings.length})</span>
+          </button>
+          <button
+            className={`inv-seg-tab${activeView === 'analytics' ? ' active' : ''}`}
+            onClick={() => { setActiveView('analytics'); lightTap(); }}
+          >
+            <Brain size={14} />
+            <span>AI Analytics</span>
+          </button>
+          <button
+            className={`inv-seg-tab${activeView === 'sip' ? ' active' : ''}`}
+            onClick={() => { setActiveView('sip'); lightTap(); }}
+          >
+            <Repeat size={14} />
+            <span>SIP Plan ({investmentSips.length})</span>
+          </button>
+        </div>
+
+        {/* ════════════════════════════════════════════════════════════
+            VIEW 1: HOLDINGS LIST WITH FILTER & SORT
+        ════════════════════════════════════════════════════════════ */}
+        {activeView === 'holdings' && (
+          <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {/* Filter Tabs & Count Badges */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflowX: 'auto', paddingBottom: 2 }}>
+              {([
+                { key: 'all', label: 'All', icon: '🗂️', count: distinctHoldings.length, col: '#3B82F6' },
+                { key: 'mutual_funds', label: 'Mutual Funds', icon: '📊', count: mfHoldings.length, col: '#8B5CF6' },
+                { key: 'stocks', label: 'Stocks', icon: '📈', count: stockHoldings.length, col: '#10B981' },
+                { key: 'gold', label: 'Gold', icon: '🪙', count: goldHoldings.length, col: '#F59E0B' },
+              ] as const).map((tab) => {
+                const isSelected = activeFilter === tab.key;
+                return (
+                  <button
+                    key={tab.key}
+                    className="inv-filter-chip"
+                    onClick={() => { setActiveFilter(tab.key); lightTap(); }}
+                    style={{
+                      background: isSelected ? `${tab.col}22` : 'var(--bg-card)',
+                      color: isSelected ? tab.col : 'var(--text-secondary)',
+                      border: `1.5px solid ${isSelected ? `${tab.col}66` : 'var(--border)'}`,
+                    }}
+                  >
+                    <span>{tab.icon}</span>
+                    <span>{tab.label}</span>
+                    <span style={{
+                      fontSize: 10, fontWeight: 800, padding: '1px 6px', borderRadius: 8,
+                      background: isSelected ? `${tab.col}33` : 'var(--bg-elevated)',
+                      color: isSelected ? tab.col : 'var(--text-muted)',
+                    }}>
+                      {tab.count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Sort Dropdown / Bar */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflowX: 'auto' }}>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <SlidersHorizontal size={12} /> Sort:
+                </span>
+                {([
+                  { key: 'invested', label: 'Invested' },
+                  { key: 'returns', label: 'Returns ₹' },
+                  { key: 'gainPct', label: 'Returns %' },
+                  { key: 'name', label: 'Name' },
+                ] as const).map((opt) => (
+                  <button
+                    key={opt.key}
+                    onClick={() => { setSortBy(opt.key); lightTap(); }}
+                    style={{
+                      padding: '5px 10px', borderRadius: 8, fontSize: 11, fontWeight: 700,
+                      cursor: 'pointer',
+                      border: `1px solid ${sortBy === opt.key ? 'rgba(139,92,246,0.45)' : 'var(--border)'}`,
+                      background: sortBy === opt.key ? 'rgba(139,92,246,0.15)' : 'var(--bg-elevated)',
+                      color: sortBy === opt.key ? '#A78BFA' : 'var(--text-secondary)',
+                    }}
+                  >
+                    {opt.label}{sortBy === opt.key ? ' ▾' : ''}
+                  </button>
+                ))}
               </div>
-              <div style={{ display:'flex', gap:6 }}>
-                <button className="inv-chart-tab" onClick={() => setActiveChartTab('allocation')} style={{ background:activeChartTab==='allocation'?'rgba(139,92,246,0.15)':'var(--bg-elevated)', color:activeChartTab==='allocation'?'#8B5CF6':'var(--text-secondary)', border:`1.5px solid ${activeChartTab==='allocation'?'rgba(139,92,246,0.35)':'var(--border)'}` }}>🥧 Allocation</button>
-                <button className="inv-chart-tab" onClick={() => setActiveChartTab('returns')} style={{ background:activeChartTab==='returns'?'rgba(16,185,129,0.15)':'var(--bg-elevated)', color:activeChartTab==='returns'?'#10B981':'var(--text-secondary)', border:`1.5px solid ${activeChartTab==='returns'?'rgba(16,185,129,0.35)':'var(--border)'}` }}>📊 Returns %</button>
+
+              {distinctHoldings.length > 0 && (
+                <button
+                  onClick={handleClearAll}
+                  style={{
+                    background: 'none', border: 'none', color: 'var(--danger)',
+                    fontSize: 11, fontWeight: 700, cursor: 'pointer', padding: 0,
+                  }}
+                >
+                  Clear All
+                </button>
+              )}
+            </div>
+
+            {/* Holdings Cards List */}
+            {distinctHoldings.length === 0 ? (
+              <div style={{
+                padding: '40px 20px', textAlign: 'center',
+                background: 'var(--bg-card)', borderRadius: 20,
+                border: '1.5px dashed var(--border)',
+              }}>
+                <div style={{ fontSize: 36, marginBottom: 12 }}>🪙</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 6 }}>
+                  No Investments Added Yet
+                </div>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 auto 16px', maxWidth: 280 }}>
+                  Upload a Groww portfolio screenshot or manually add Digital Gold, Mutual Funds, or Stocks.
+                </p>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 10 }}>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{
+                      padding: '10px 18px', borderRadius: 12, border: 'none',
+                      background: 'var(--accent-grad)', color: '#fff',
+                      fontSize: 13, fontWeight: 800, cursor: 'pointer',
+                    }}
+                  >
+                    Upload Groww
+                  </button>
+                </div>
+              </div>
+            ) : displayHoldings.length === 0 ? (
+              <div style={{ padding: 30, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+                No holdings match the selected filter.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {displayHoldings.map((h, idx) => {
+                  const pos = (h.totalGain || 0) >= 0;
+                  const isStock = h.portfolioType === 'stocks';
+                  const isGold = h.portfolioType === 'gold';
+                  const typeCfg = PORTFOLIO_TYPES.find((t) => t.value === h.portfolioType) || PORTFOLIO_TYPES[0];
+                  const unitLabel = isGold ? 'g' : isStock ? 'shares' : 'units';
+                  const gainPct = Number((h.gainPercent || 0).toFixed(2));
+
+                  return (
+                    <div
+                      key={h.holdingName || h._id}
+                      className="inv-card-hover"
+                      style={{
+                        borderRadius: 18,
+                        background: 'var(--bg-card)',
+                        border: '1px solid rgba(255,255,255,0.07)',
+                        borderLeft: `4px solid ${typeCfg.color}`,
+                        overflow: 'hidden',
+                        boxShadow: '0 4px 18px rgba(0,0,0,0.18)',
+                        animation: 'slideInUp 0.25s ease both',
+                        animationDelay: `${idx * 0.03}s`,
+                      }}
+                    >
+                      {/* Top Row: Tag, Name, Actions */}
+                      <div style={{ padding: '14px 16px 12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            {/* Type Pill */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+                              <span style={{
+                                fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 6,
+                                background: `${typeCfg.color}18`,
+                                color: typeCfg.color,
+                                border: `1px solid ${typeCfg.color}35`,
+                                textTransform: 'uppercase', letterSpacing: '0.5px',
+                              }}>
+                                {typeCfg.icon} {typeCfg.label}
+                              </span>
+                              {h.units && h.units > 0 && (
+                                <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>
+                                  {h.units} {unitLabel}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Fund Name */}
+                            <div style={{
+                              fontSize: 14.5, fontWeight: 800, color: 'var(--text-primary)',
+                              lineHeight: 1.35, wordBreak: 'break-word',
+                            }}>
+                              {h.holdingName || (isStock ? 'Stock Holding' : isGold ? 'Gold Investment' : 'Mutual Fund')}
+                            </div>
+
+                            {/* Details: Purchase time / Buy rate */}
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                              {h.buyPrice && h.buyPrice > 0 && (
+                                <span>
+                                  Avg: {isMasked ? '₹•••' : formatINR(h.buyPrice)}{isGold ? '/g' : '/NAV'}
+                                </span>
+                              )}
+                              {h.purchaseTime && <span>· {h.purchaseTime}</span>}
+                              {!h.purchaseTime && h.date && <span>· Synced {h.date}</span>}
+                            </div>
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+                            <button
+                              onClick={() => setEditingHolding({
+                                id: h._id,
+                                originalName: h.holdingName || '',
+                                holdingName: h.holdingName || '',
+                                fundName: h.fundName,
+                                totalInvested: h.totalInvested || 0,
+                                currentValue: h.currentValue || 0,
+                                portfolioType: h.portfolioType || 'mutual_funds',
+                                units: h.units,
+                                buyPrice: h.buyPrice,
+                                purchaseTime: h.purchaseTime,
+                              })}
+                              style={{
+                                background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
+                                color: 'var(--text-secondary)', padding: '7px 8px', cursor: 'pointer',
+                                borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              }}
+                              title="Edit holding"
+                            >
+                              <Pencil size={13} />
+                            </button>
+                            <button
+                              onClick={() => setHoldingToDelete({ id: h._id, name: h.holdingName || 'Holding', fundName: h.fundName })}
+                              style={{
+                                background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
+                                color: 'var(--danger)', padding: '7px 8px', cursor: 'pointer',
+                                borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              }}
+                              title="Delete holding"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Bottom Metrics Bar */}
+                      <div style={{
+                        display: 'grid', gridTemplateColumns: '1.1fr 1.1fr 1.2fr',
+                        borderTop: '1px solid rgba(255,255,255,0.06)',
+                        background: 'rgba(0,0,0,0.22)',
+                      }}>
+                        <div style={{ padding: '10px 14px' }}>
+                          <div style={{ fontSize: 9.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>
+                            Invested
+                          </div>
+                          <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-primary)' }}>
+                            {isMasked ? '₹••••••' : formatINR(h.totalInvested)}
+                          </div>
+                        </div>
+
+                        <div style={{ padding: '10px 14px', borderLeft: '1px solid rgba(255,255,255,0.04)' }}>
+                          <div style={{ fontSize: 9.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>
+                            Current Value
+                          </div>
+                          <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-primary)' }}>
+                            {isMasked ? '₹••••••' : formatINR(h.currentValue)}
+                          </div>
+                        </div>
+
+                        <div style={{ padding: '10px 14px', borderLeft: '1px solid rgba(255,255,255,0.04)' }}>
+                          <div style={{ fontSize: 9.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>
+                            Returns
+                          </div>
+                          <div style={{ fontSize: 13, fontWeight: 800, color: pos ? 'var(--success)' : 'var(--danger)' }}>
+                            {isMasked ? (
+                              <span>••••••</span>
+                            ) : (
+                              <>
+                                {pos ? '+' : ''}{formatINR(h.totalGain)}
+                                <span style={{ fontSize: 11, opacity: 0.85, marginLeft: 3 }}>
+                                  ({pos ? '+' : ''}{gainPct}%)
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* ════════════════════════════════════════════════════════════
+            VIEW 2: AI ANALYTICS, CHARTS & PROJECTIONS (100% ON-DEVICE)
+        ════════════════════════════════════════════════════════════ */}
+        {activeView === 'analytics' && (
+          <section style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+            {/* ── 1. On-Device Portfolio Health Scorecard ──────────── */}
+            <div style={{
+              background: 'var(--bg-card)', border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: 20, padding: 18, boxShadow: '0 8px 30px rgba(0,0,0,0.22)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{
+                    width: 32, height: 32, borderRadius: 10,
+                    background: 'rgba(16,185,129,0.15)', color: '#10B981',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <ShieldCheck size={18} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 800 }}>Portfolio Health &amp; Diversification</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Computed locally on your device</div>
+                  </div>
+                </div>
+
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '4px 10px', borderRadius: 12,
+                  background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)',
+                }}>
+                  <span style={{ fontSize: 16, fontWeight: 900, color: '#10B981' }}>{portfolioHealth.score}</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>/100</span>
+                </div>
+              </div>
+
+              {/* Progress Distribution Bar */}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{
+                  height: 10, borderRadius: 8, background: 'rgba(255,255,255,0.06)',
+                  display: 'flex', overflow: 'hidden', gap: 2,
+                }}>
+                  <div style={{ width: `${portfolioHealth.equityPct}%`, background: '#8B5CF6', borderRadius: 4 }} title={`Equity: ${portfolioHealth.equityPct}%`} />
+                  <div style={{ width: `${portfolioHealth.goldPct}%`, background: '#F59E0B', borderRadius: 4 }} title={`Gold: ${portfolioHealth.goldPct}%`} />
+                  {portfolioHealth.otherPct > 0 && (
+                    <div style={{ width: `${portfolioHealth.otherPct}%`, background: '#3B82F6', borderRadius: 4 }} title={`Others: ${portfolioHealth.otherPct}%`} />
+                  )}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
+                  <span style={{ color: '#A78BFA', fontWeight: 700 }}>📊 Equity {portfolioHealth.equityPct}%</span>
+                  <span style={{ color: '#FBBF24', fontWeight: 700 }}>🪙 Gold {portfolioHealth.goldPct}%</span>
+                  {portfolioHealth.otherPct > 0 && (
+                    <span style={{ color: '#60A5FA', fontWeight: 700 }}>🗂️ Other {portfolioHealth.otherPct}%</span>
+                  )}
+                </div>
+              </div>
+
+              {/* On-Device Actionable Smart Insights */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {portfolioHealth.insights.map((ins, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      padding: '10px 12px', borderRadius: 12,
+                      background: ins.type === 'success' ? 'rgba(16,185,129,0.06)' : 'rgba(59,130,246,0.06)',
+                      border: `1px solid ${ins.type === 'success' ? 'rgba(16,185,129,0.18)' : 'rgba(59,130,246,0.18)'}`,
+                      display: 'flex', alignItems: 'flex-start', gap: 8,
+                    }}
+                  >
+                    <div style={{
+                      color: ins.type === 'success' ? '#10B981' : '#3B82F6',
+                      marginTop: 2, flexShrink: 0,
+                    }}>
+                      {ins.type === 'success' ? <CheckCircle2 size={14} /> : <Info size={14} />}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-primary)' }}>{ins.title}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, lineHeight: 1.35 }}>{ins.desc}</div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-            {activeChartTab === 'allocation' ? (
-              <div>
+
+            {/* ── Sub-tabs for Analytics ───────────────────────────── */}
+            <div style={{ display: 'flex', gap: 8 }}>
+              {[
+                { key: 'projection', label: '📈 Wealth Projections' },
+                { key: 'allocation', label: '🥧 Asset Allocation' },
+                { key: 'returns', label: '📊 Holdings Returns' },
+              ].map((sub) => (
+                <button
+                  key={sub.key}
+                  onClick={() => setActiveAnalyticsSection(sub.key as any)}
+                  style={{
+                    flex: 1, padding: '8px 10px', borderRadius: 12, fontSize: 11.5, fontWeight: 700,
+                    border: `1px solid ${activeAnalyticsSection === sub.key ? 'rgba(139,92,246,0.45)' : 'rgba(255,255,255,0.07)'}`,
+                    background: activeAnalyticsSection === sub.key ? 'rgba(139,92,246,0.15)' : 'var(--bg-card)',
+                    color: activeAnalyticsSection === sub.key ? '#A78BFA' : 'var(--text-muted)',
+                    cursor: 'pointer', transition: 'all 0.15s ease',
+                  }}
+                >
+                  {sub.label}
+                </button>
+              ))}
+            </div>
+
+            {/* ── 2. AI Wealth Compounding Projection Chart ────────── */}
+            {activeAnalyticsSection === 'projection' && (
+              <div style={{
+                background: 'var(--bg-card)', border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: 20, padding: 18, boxShadow: '0 8px 30px rgba(0,0,0,0.22)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 800 }}>Simulated Wealth Compounding</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                      Current portfolio + ₹{monthlySipTotal.toLocaleString('en-IN')}/mo SIP
+                    </div>
+                  </div>
+
+                  {/* Horizon Pill Switcher */}
+                  <div style={{ display: 'flex', gap: 4, background: 'var(--bg-elevated)', padding: 3, borderRadius: 10 }}>
+                    {(['1Y', '3Y', '5Y', '10Y'] as const).map((h) => (
+                      <button
+                        key={h}
+                        onClick={() => setProjectionHorizon(h)}
+                        style={{
+                          padding: '3px 8px', borderRadius: 7, border: 'none',
+                          fontSize: 11, fontWeight: 800, cursor: 'pointer',
+                          background: projectionHorizon === h ? 'var(--accent)' : 'transparent',
+                          color: projectionHorizon === h ? '#fff' : 'var(--text-muted)',
+                        }}
+                      >
+                        {h}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Scenario CAGR Switcher */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, overflowX: 'auto' }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 700 }}>Expected CAGR:</span>
+                  {[
+                    { cagr: 10, label: 'Conservative (10%)' },
+                    { cagr: 13, label: 'Moderate (13%)' },
+                    { cagr: 16, label: 'Aggressive (16%)' },
+                  ].map((sc) => (
+                    <button
+                      key={sc.cagr}
+                      onClick={() => setProjectionCagr(sc.cagr)}
+                      style={{
+                        padding: '4px 9px', borderRadius: 8, fontSize: 10.5, fontWeight: 700, cursor: 'pointer',
+                        border: `1px solid ${projectionCagr === sc.cagr ? '#10B981' : 'rgba(255,255,255,0.08)'}`,
+                        background: projectionCagr === sc.cagr ? 'rgba(16,185,129,0.15)' : 'transparent',
+                        color: projectionCagr === sc.cagr ? '#34D399' : 'var(--text-muted)',
+                      }}
+                    >
+                      {sc.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Metric Highlights in Chart */}
+                <div style={{
+                  display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8,
+                  padding: '10px 12px', borderRadius: 14, background: 'rgba(0,0,0,0.22)',
+                  marginBottom: 14, border: '1px solid rgba(255,255,255,0.05)',
+                }}>
+                  <div>
+                    <div style={{ fontSize: 9.5, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Projected Value</div>
+                    <div style={{ fontSize: 14, fontWeight: 900, color: '#10B981', marginTop: 2 }}>
+                      {isMasked ? '₹••••••' : formatINR(projectionCurves.endProjected)}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 9.5, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Principal Invested</div>
+                    <div style={{ fontSize: 14, fontWeight: 900, color: 'var(--text-primary)', marginTop: 2 }}>
+                      {isMasked ? '₹••••••' : formatINR(projectionCurves.endInvested)}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 9.5, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Growth Multiplier</div>
+                    <div style={{ fontSize: 14, fontWeight: 900, color: '#A78BFA', marginTop: 2 }}>
+                      {projectionCurves.multiplier}x Return
+                    </div>
+                  </div>
+                </div>
+
+                {/* Area Compounding Chart */}
+                <div style={{ height: 210, width: '100%' }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={projectionCurves.points} margin={{ top: 8, right: 10, left: -20, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="projGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10B981" stopOpacity={0.4} />
+                          <stop offset="95%" stopColor="#10B981" stopOpacity={0.0} />
+                        </linearGradient>
+                        <linearGradient id="invGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.25} />
+                          <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0.0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                      <XAxis dataKey="label" stroke="var(--text-muted)" fontSize={10} tickLine={false} />
+                      <YAxis stroke="var(--text-muted)" fontSize={9} tickLine={false} tickFormatter={(v) => `₹${Math.round(v / 1000)}k`} />
+                      <Tooltip
+                        formatter={(val: any, name: any) => [
+                          isMasked ? '₹••••••' : formatINR(Number(val)),
+                          name === 'projected' ? 'Projected Total' : 'Principal Invested',
+                        ]}
+                        contentStyle={{
+                          background: 'rgba(15,20,32,0.95)', border: '1px solid rgba(255,255,255,0.1)',
+                          borderRadius: 10, fontSize: 12, color: '#fff',
+                        }}
+                      />
+                      <Area type="monotone" dataKey="projected" stroke="#10B981" strokeWidth={2.5} fillOpacity={1} fill="url(#projGrad)" />
+                      <Area type="monotone" dataKey="invested" stroke="#8B5CF6" strokeWidth={1.5} strokeDasharray="4 4" fillOpacity={1} fill="url(#invGrad)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+
+            {/* ── 3. Asset Allocation Donut ────────────────────────── */}
+            {activeAnalyticsSection === 'allocation' && (
+              <div style={{
+                background: 'var(--bg-card)', border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: 20, padding: 18, boxShadow: '0 8px 30px rgba(0,0,0,0.22)',
+              }}>
+                <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>Asset Allocation Breakdown</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 12 }}>
+                  Portfolio split across asset classes
+                </div>
+
                 <ResponsiveContainer width="100%" height={190}>
                   <PieChart>
-                    <Pie data={allocationChartData} cx="50%" cy="50%" innerRadius={52} outerRadius={82} paddingAngle={3} dataKey="value">
-                      {allocationChartData.map((entry, index) => <Cell key={`c-${index}`} fill={entry.color} stroke="transparent" />)}
+                    <Pie data={allocationChartData} cx="50%" cy="50%" innerRadius={54} outerRadius={82} paddingAngle={4} dataKey="value">
+                      {allocationChartData.map((entry, index) => (
+                        <Cell key={`c-${index}`} fill={entry.color} stroke="transparent" />
+                      ))}
                     </Pie>
-                    <Tooltip formatter={(value: any) => [isMasked ? '₹••••••' : formatINR(Number(value)), '']} contentStyle={{ background:'var(--bg-card)', border:'1px solid var(--border)', borderRadius:10, fontSize:12, color:'var(--text-primary)' }} />
+                    <Tooltip
+                      formatter={(value: any) => [isMasked ? '₹••••••' : formatINR(Number(value)), '']}
+                      contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, fontSize: 12 }}
+                    />
                   </PieChart>
                 </ResponsiveContainer>
-                <div style={{ display:'flex', justifyContent:'center', gap:16, flexWrap:'wrap', marginTop:4 }}>
-                  {allocationChartData.map(entry => {
-                    const total = allocationChartData.reduce((s,e) => s+e.value, 0);
-                    const pct = total > 0 ? ((entry.value/total)*100).toFixed(1) : '0';
-                    return <div key={entry.name} style={{ display:'flex', alignItems:'center', gap:6 }}><div style={{ width:10, height:10, borderRadius:3, background:entry.color, flexShrink:0 }} /><span style={{ fontSize:11.5, color:'var(--text-secondary)', fontWeight:600 }}>{entry.name} · {pct}%</span></div>;
+
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 16, flexWrap: 'wrap', marginTop: 6 }}>
+                  {allocationChartData.map((entry) => {
+                    const total = allocationChartData.reduce((s, e) => s + e.value, 0);
+                    const pct = total > 0 ? ((entry.value / total) * 100).toFixed(1) : '0';
+                    return (
+                      <div key={entry.name} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div style={{ width: 10, height: 10, borderRadius: 3, background: entry.color, flexShrink: 0 }} />
+                        <span style={{ fontSize: 11.5, color: 'var(--text-secondary)', fontWeight: 600 }}>
+                          {entry.name} · {pct}% ({isMasked ? '₹•••' : formatINR(entry.value)})
+                        </span>
+                      </div>
+                    );
                   })}
                 </div>
               </div>
-            ) : (
-              <div>
-                <div style={{ fontSize:11.5, color:'var(--text-muted)', marginBottom:10, fontWeight:600 }}>Returns % per holding (top 8)</div>
-                <ResponsiveContainer width="100%" height={Math.max(160, returnsChartData.length * 38)}>
-                  <BarChart data={returnsChartData} layout="vertical" margin={{ left:0, right:16, top:0, bottom:0 }}>
+            )}
+
+            {/* ── 4. Holdings Returns Distribution ─────────────────── */}
+            {activeAnalyticsSection === 'returns' && (
+              <div style={{
+                background: 'var(--bg-card)', border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: 20, padding: 18, boxShadow: '0 8px 30px rgba(0,0,0,0.22)',
+              }}>
+                <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>Top Holdings Performance (% Gain)</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 14 }}>
+                  Compare returns across individual schemes &amp; stocks
+                </div>
+
+                <ResponsiveContainer width="100%" height={Math.max(160, returnsChartData.length * 36)}>
+                  <BarChart data={returnsChartData} layout="vertical" margin={{ left: 0, right: 16, top: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" horizontal={false} />
-                    <XAxis type="number" tick={{ fontSize:10, fill:'var(--text-muted)' }} tickFormatter={v => `${v}%`} axisLine={false} tickLine={false} />
-                    <YAxis type="category" dataKey="name" width={70} tick={{ fontSize:10, fill:'var(--text-muted)' }} axisLine={false} tickLine={false} />
-                    <Tooltip formatter={(val: any, _n: any, props: any) => [`${val>0?'+':''}${val}%`, props.payload?.fullName||props.payload?.name]} contentStyle={{ background:'var(--bg-card)', border:'1px solid var(--border)', borderRadius:10, fontSize:12, color:'var(--text-primary)' }} />
-                    <Bar dataKey="gainPct" radius={[0,6,6,0]} maxBarSize={18}>
-                      {returnsChartData.map((entry, index) => <Cell key={`c-${index}`} fill={entry.color} />)}
+                    <XAxis type="number" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} tickFormatter={(v) => `${v}%`} axisLine={false} tickLine={false} />
+                    <YAxis type="category" dataKey="name" width={75} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
+                    <Tooltip
+                      formatter={(val: any, _n: any, props: any) => [
+                        `${val > 0 ? '+' : ''}${val}%`,
+                        props.payload?.fullName || props.payload?.name,
+                      ]}
+                      contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, fontSize: 12 }}
+                    />
+                    <Bar dataKey="gainPct" radius={[0, 6, 6, 0]} maxBarSize={18}>
+                      {returnsChartData.map((entry, index) => (
+                        <Cell key={`c-${index}`} fill={entry.color} />
+                      ))}
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             )}
-          </div>
+          </section>
         )}
 
-        {/* ── Quick Action Bar ──────────────────────────────────── */}
-        <div style={{ display:'grid', gridTemplateColumns:'1.2fr 1fr', gap:10 }}>
-          <div onClick={() => !isOcrRunning && fileInputRef.current?.click()} style={{ background:'var(--bg-card)', border:'1.5px dashed var(--accent)', borderRadius:16, padding:'12px 14px', display:'flex', alignItems:'center', gap:10, cursor:isOcrRunning?'not-allowed':'pointer' }}>
-            <div style={{ width:36, height:36, borderRadius:10, background:'var(--accent-dim)', color:'var(--accent)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-              {isOcrRunning ? <RefreshCw size={18} style={{ animation:'spin 1s linear infinite' }} /> : <Camera size={18} />}
-            </div>
-            <div style={{ flex:1, minWidth:0 }}>
-              <div style={{ fontSize:13, fontWeight:800, color:'var(--text-primary)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{isOcrRunning ? ocrStatusLabel[ocrStatus] : 'Upload Groww'}</div>
-              <div style={{ fontSize:11, color:'var(--text-muted)' }}>Scan screenshot</div>
-            </div>
-          </div>
-          <button onClick={() => { setManualType('gold'); setManualName('24K Digital Gold'); setManualUnits(''); setManualBuyPrice(''); setManualInvested(''); setManualCurrent(''); setManualDate(new Date().toISOString().split('T')[0]); setManualTime(new Date().toTimeString().slice(0,5)); setShowManualModal(true); fetchLiveGold(); }} style={{ background:'rgba(245,158,11,0.08)', border:'1px solid rgba(245,158,11,0.25)', borderRadius:16, padding:'12px 14px', display:'flex', alignItems:'center', gap:10, cursor:'pointer', textAlign:'left' }}>
-            <div style={{ width:36, height:36, borderRadius:10, background:'rgba(245,158,11,0.18)', color:'#F59E0B', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, fontSize:18 }}>🪙</div>
-            <div style={{ flex:1, minWidth:0 }}>
-              <div style={{ fontSize:13, fontWeight:800, color:'var(--text-primary)' }}>+ Add Manual</div>
-              <div style={{ fontSize:11, color:'var(--text-muted)' }}>Gold, MF, Stock</div>
-            </div>
-          </button>
-        </div>
-
-        {/* ══ HOLDINGS ═════════════════════════════════════════════ */}
-        <div>
-          {/* Section header */}
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-              <div style={{ width:28, height:28, borderRadius:8, background:'rgba(139,92,246,0.15)', color:'#8B5CF6', display:'flex', alignItems:'center', justifyContent:'center' }}><Tag size={14} /></div>
-              <div>
-                <div style={{ fontSize:15, fontWeight:800, color:'var(--text-primary)' }}>Holdings</div>
-                <div style={{ fontSize:11, color:'var(--text-muted)' }}>{displayHoldings.length} of {distinctHoldings.length}</div>
-              </div>
-            </div>
-            {distinctHoldings.length > 0 && <button onClick={handleClearAll} style={{ background:'none', border:'none', color:'var(--danger)', fontSize:11.5, fontWeight:700, cursor:'pointer', padding:0 }}>Clear All</button>}
-          </div>
-
-          {/* Filter tabs */}
-          <div style={{ display:'flex', gap:8, overflowX:'auto', paddingBottom:4, marginBottom:10 }}>
-            {([
-              { key:'all', label:'All', icon:'🗂️', count:distinctHoldings.length },
-              { key:'mutual_funds', label:'MF', icon:'📊', count:mfHoldings.length },
-              { key:'stocks', label:'Stocks', icon:'📈', count:stockHoldings.length },
-              { key:'gold', label:'Gold', icon:'🪙', count:goldHoldings.length },
-            ] as const).map(tab => {
-              const isActive = activeFilter === tab.key;
-              const colorMap: Record<string,string> = { all:'#3B82F6', mutual_funds:'#8B5CF6', stocks:'#10B981', gold:'#F59E0B' };
-              const col = colorMap[tab.key];
-              return (
-                <button key={tab.key} className="inv-filter-tab" onClick={() => { setActiveFilter(tab.key); lightTap(); }} style={{ background:isActive?`${col}22`:'var(--bg-card)', color:isActive?col:'var(--text-secondary)', border:`1.5px solid ${isActive?col+'66':'var(--border)'}` }}>
-                  <span>{tab.icon}</span><span>{tab.label}</span>
-                  {tab.count > 0 && <span style={{ fontSize:10, fontWeight:800, padding:'1px 6px', borderRadius:10, background:isActive?`${col}33`:'var(--bg-elevated)', color:isActive?col:'var(--text-muted)' }}>{tab.count}</span>}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Sort controls */}
-          <div style={{ display:'flex', alignItems:'center', gap:6, overflowX:'auto', paddingBottom:4, marginBottom:12 }}>
-            <span style={{ fontSize:11, color:'var(--text-muted)', fontWeight:700, flexShrink:0, display:'flex', alignItems:'center', gap:4 }}><SlidersHorizontal size={12} /> Sort:</span>
-            {([
-              { key:'invested', label:'Invested' },
-              { key:'returns', label:'Returns ₹' },
-              { key:'gainPct', label:'Returns %' },
-              { key:'name', label:'Name' },
-            ] as const).map(opt => (
-              <button key={opt.key} className={`inv-sort-btn${sortBy===opt.key?' active':''}`} onClick={() => { setSortBy(opt.key); lightTap(); }}>{opt.label}{sortBy===opt.key?' ▾':''}</button>
-            ))}
-          </div>
-
-          {/* Holdings list */}
-          {distinctHoldings.length === 0 ? (
-            <div style={{ padding:'36px 24px', textAlign:'center', background:'var(--bg-card)', borderRadius:18, border:'1.5px dashed var(--border)' }}>
-              <div style={{ fontSize:32, marginBottom:10 }}>📭</div>
-              <div style={{ fontSize:14, fontWeight:700, color:'var(--text-primary)', marginBottom:4 }}>No holdings yet</div>
-              <div style={{ fontSize:12, color:'var(--text-muted)' }}>Tap &quot;Add&quot; or &quot;Upload Groww&quot; to start tracking</div>
-            </div>
-          ) : displayHoldings.length === 0 ? (
-            <div style={{ padding:'24px', textAlign:'center', color:'var(--text-muted)', fontSize:13 }}>No holdings match this filter.</div>
-          ) : (
-            <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-              {displayHoldings.map((h, idx) => {
-                const pos = (h.totalGain || 0) >= 0;
-                const isStock = h.portfolioType === 'stocks';
-                const isGold = h.portfolioType === 'gold';
-                const typeCfg = PORTFOLIO_TYPES.find(t => t.value === h.portfolioType) || PORTFOLIO_TYPES[0];
-                const unitLabel = isGold ? 'g' : isStock ? 'shares' : 'units';
-                const gainPct = Number((h.gainPercent || 0).toFixed(2));
-                return (
-                  <div key={h.holdingName || h._id} className="inv-holding-card" style={{ borderRadius:16, background:'var(--bg-card)', border:'1px solid var(--border)', borderLeft:`4px solid ${typeCfg.color}`, overflow:'hidden', transition:'box-shadow 0.2s ease, transform 0.2s ease', animationDelay:`${idx*0.04}s` }}>
-                    <div style={{ padding:'14px 14px 10px' }}>
-                      <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:8 }}>
-                        <div style={{ flex:1, minWidth:0 }}>
-                          <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:5 }}>
-                            <span style={{ fontSize:10, fontWeight:800, padding:'2px 7px', borderRadius:8, background:`${typeCfg.color}20`, color:typeCfg.color, border:`1px solid ${typeCfg.color}40`, textTransform:'uppercase', letterSpacing:'0.5px' }}>{typeCfg.icon} {typeCfg.label}</span>
-                            {h.units && h.units > 0 && <span style={{ fontSize:10.5, color:'var(--text-muted)', fontWeight:600 }}>{h.units} {unitLabel}</span>}
-                          </div>
-                          <div style={{ fontSize:14, fontWeight:800, color:'var(--text-primary)', lineHeight:1.3, wordBreak:'break-word' }}>
-                            {h.holdingName || (isStock ? 'Stock Holding' : isGold ? 'Gold Investment' : 'Mutual Fund')}
-                          </div>
-                          <div style={{ fontSize:10.5, color:'var(--text-muted)', marginTop:3, display:'flex', alignItems:'center', gap:5, flexWrap:'wrap' }}>
-                            {h.buyPrice && h.buyPrice > 0 && <span>@ {isMasked ? '₹•••' : formatINR(h.buyPrice)}{isGold?'/g':'/NAV'}</span>}
-                            {h.purchaseTime && <span>· {h.purchaseTime}</span>}
-                            {!h.purchaseTime && h.date && <span>· {h.date}</span>}
-                          </div>
-                        </div>
-                        <div style={{ display:'flex', alignItems:'center', gap:4, flexShrink:0 }}>
-                          <button onClick={() => setEditingHolding({ id:h._id, originalName:h.holdingName||'', holdingName:h.holdingName||'', fundName:h.fundName, totalInvested:h.totalInvested||0, currentValue:h.currentValue||0, portfolioType:h.portfolioType||'mutual_funds', units:h.units, buyPrice:h.buyPrice, purchaseTime:h.purchaseTime })} style={{ background:'var(--bg-elevated)', border:'1px solid var(--border)', color:'var(--text-secondary)', padding:'6px 8px', cursor:'pointer', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center' }} title="Edit"><Pencil size={14} /></button>
-                          <button onClick={() => setHoldingToDelete({ id:h._id, name:h.holdingName||'Holding', fundName:h.fundName })} style={{ background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.2)', color:'var(--danger)', padding:'6px 8px', cursor:'pointer', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center' }} title="Delete"><Trash2 size={14} /></button>
-                        </div>
-                      </div>
-                    </div>
-                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', borderTop:'1px solid rgba(255,255,255,0.05)', background:'rgba(0,0,0,0.15)' }}>
-                      {[
-                        { label:'Invested', val:isMasked?'₹••••••':formatINR(h.totalInvested), color:'var(--text-primary)', sub:'' },
-                        { label:'Current',  val:isMasked?'₹••••••':formatINR(h.currentValue),  color:'var(--text-primary)', sub:'' },
-                        { label:'Returns',  val:isMasked?'••••••':`${pos?'+':''}${formatINR(h.totalGain)}`, color:pos?'var(--success)':'var(--danger)', sub:isMasked?'':`(${pos?'+':''}${gainPct}%)` },
-                      ].map((item,i) => (
-                        <div key={i} style={{ padding:'10px 12px', borderLeft:i>0?'1px solid rgba(255,255,255,0.04)':'none' }}>
-                          <div style={{ fontSize:9.5, color:'var(--text-muted)', marginBottom:3, textTransform:'uppercase', letterSpacing:'0.4px' }}>{item.label}</div>
-                          <div style={{ fontSize:12.5, fontWeight:800, color:item.color, lineHeight:1.2 }}>{item.val}</div>
-                          {item.sub && <div style={{ fontSize:10, color:pos?'var(--success)':'var(--danger)', opacity:0.8 }}>{item.sub}</div>}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-
-        {/* ── Monthly SIP & Auto-Deduct Section ─────────────────────────── */}
-        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 18, padding: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{
-                width: 36, height: 36, borderRadius: 10,
-                background: 'rgba(139,92,246,0.15)', color: '#8B5CF6',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                <Repeat size={18} />
-              </div>
-              <div>
-                <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)' }}>
-                  Monthly SIP Plan &amp; Auto-Log
-                </div>
-                <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
-                  {investmentCategory?.budget
-                    ? `Fixed budget: ${formatINR(investmentCategory.budget)}/month`
-                    : 'Track recurring SIP deductions in history'}
-                </div>
-              </div>
-            </div>
-            <button
-              onClick={() => openSipModal()}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 4,
-                padding: '7px 12px', borderRadius: 10,
-                background: 'var(--accent)', color: '#fff', border: 'none',
-                fontSize: 12, fontWeight: 700, cursor: 'pointer',
-              }}
-            >
-              <Plus size={14} />
-              <span>Add SIP</span>
-            </button>
-          </div>
-
-          {/* Prompt if any SIP is due this month */}
-          {(() => {
-            const dueSips = investmentSips.filter(s => s.isActive && s.lastLoggedMonth !== currentYM);
-            if (dueSips.length === 0) return null;
-            return (
-              <div style={{
-                marginBottom: 12, padding: '12px 14px', borderRadius: 12,
-                background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
-              }}>
-                <div>
-                  <div style={{ fontSize: 12.5, fontWeight: 700, color: '#F59E0B' }}>
-                    ⚡ Money deducted this month?
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>
-                    {dueSips.length} SIP{dueSips.length > 1 ? 's' : ''} ready to log into expense history
-                  </div>
-                </div>
-                {dueSips.length === 1 && (
-                  <button
-                    onClick={() => handleLogSip(dueSips[0])}
-                    disabled={loggingSipId === dueSips[0].id}
-                    style={{
-                      padding: '6px 12px', borderRadius: 8,
-                      background: '#F59E0B', color: '#000', border: 'none',
-                      fontWeight: 800, fontSize: 12, cursor: 'pointer', flexShrink: 0,
-                      display: 'flex', alignItems: 'center', gap: 5,
-                    }}
-                  >
-                    {loggingSipId === dueSips[0].id ? <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={13} />}
-                    <span>Log {formatINR(dueSips[0].amount)}</span>
-                  </button>
-                )}
-              </div>
-            );
-          })()}
-
-          {/* SIP list */}
-          {investmentSips.length === 0 ? (
+        {/* ════════════════════════════════════════════════════════════
+            VIEW 3: MONTHLY SIP & AUTO-DEDUCTION PLAN
+        ════════════════════════════════════════════════════════════ */}
+        {activeView === 'sip' && (
+          <section style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {/* Header / Add Button */}
             <div style={{
-              padding: '18px 14px', textAlign: 'center', background: 'var(--bg-elevated)',
-              borderRadius: 14, color: 'var(--text-muted)', fontSize: 12.5,
+              background: 'var(--bg-card)', border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: 20, padding: 18,
             }}>
-              <p style={{ margin: '0 0 10px' }}>
-                No recurring SIPs added yet. Set your fixed monthly SIP (e.g. ₹25,000) so you can record it in expense history with 1 tap once money deducts.
-              </p>
-              <button
-                onClick={() => openSipModal()}
-                style={{
-                  padding: '8px 14px', borderRadius: 10, border: '1px solid var(--accent)',
-                  background: 'rgba(139,92,246,0.12)', color: 'var(--accent-2)',
-                  fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                }}
-              >
-                + Set Up ₹{investmentCategory?.budget ? investmentCategory.budget.toLocaleString('en-IN') : '25,000'} Monthly SIP
-              </button>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {investmentSips.map((sip) => {
-                const isLoggedThisMonth = sip.lastLoggedMonth === currentYM;
-                const isLogging = loggingSipId === sip.id;
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <div>
+                  <div style={{ fontSize: 15, fontWeight: 800 }}>Monthly SIP Planner</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+                    Total active SIP: <strong>₹{monthlySipTotal.toLocaleString('en-IN')}/month</strong>
+                  </div>
+                </div>
+                <button
+                  onClick={() => openSipModal()}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 5,
+                    padding: '7px 13px', borderRadius: 10,
+                    background: 'var(--accent)', color: '#fff', border: 'none',
+                    fontSize: 12, fontWeight: 800, cursor: 'pointer',
+                  }}
+                >
+                  <Plus size={14} />
+                  <span>Add SIP</span>
+                </button>
+              </div>
+
+              {/* Due SIP notification */}
+              {(() => {
+                const dueSips = investmentSips.filter((s) => s.isActive && s.lastLoggedMonth !== currentYM);
+                if (dueSips.length === 0) return null;
                 return (
-                  <div key={sip.id} style={{
-                    padding: '11px 14px', borderRadius: 12,
-                    background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                  <div style={{
+                    marginBottom: 12, padding: '12px 14px', borderRadius: 12,
+                    background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)',
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
                   }}>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {sip.name}
+                    <div>
+                      <div style={{ fontSize: 12.5, fontWeight: 700, color: '#F59E0B' }}>
+                        ⚡ SIP Deducted this month?
                       </div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span>Deducts on Day {sip.dayOfMonth}</span>
-                        <span>•</span>
-                        {isLoggedThisMonth ? (
-                          <span style={{ color: 'var(--success)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}>
-                            <CheckCircle2 size={12} /> Logged this month
-                          </span>
-                        ) : (
-                          <span style={{ color: '#F59E0B', fontWeight: 600 }}>
-                            Due this month
-                          </span>
-                        )}
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>
+                        {dueSips.length} SIP{dueSips.length > 1 ? 's' : ''} ready to log with 1-tap
                       </div>
                     </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                      <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>
-                        {isMasked ? '₹••••••' : formatINR(sip.amount)}
-                      </span>
-                      {!isLoggedThisMonth ? (
-                        <button
-                          onClick={() => handleLogSip(sip)}
-                          disabled={isLogging}
-                          title="Record deduction to history"
-                          style={{
-                            padding: '6px 10px', borderRadius: 8,
-                            background: 'var(--accent-grad)', color: '#fff', border: 'none',
-                            fontSize: 11.5, fontWeight: 700, cursor: isLogging ? 'not-allowed' : 'pointer',
-                            display: 'flex', alignItems: 'center', gap: 4,
-                          }}
-                        >
-                          {isLogging ? (
-                            <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} />
-                          ) : (
-                            <Check size={13} />
-                          )}
-                          <span>Log</span>
-                        </button>
-                      ) : (
-                        <span style={{ fontSize: 11, color: 'var(--success)', padding: '4px 8px', borderRadius: 6, background: 'rgba(16,185,129,0.1)' }}>
-                          Done
-                        </span>
-                      )}
+                    {dueSips.length === 1 && (
                       <button
-                        onClick={() => handleDeleteSip(sip.id)}
-                        style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: 4, cursor: 'pointer' }}
-                        title="Remove SIP"
+                        onClick={() => handleLogSip(dueSips[0])}
+                        disabled={loggingSipId === dueSips[0].id}
+                        style={{
+                          padding: '6px 12px', borderRadius: 8,
+                          background: '#F59E0B', color: '#000', border: 'none',
+                          fontWeight: 800, fontSize: 12, cursor: 'pointer', flexShrink: 0,
+                          display: 'flex', alignItems: 'center', gap: 5,
+                        }}
                       >
-                        <Trash2 size={14} />
+                        {loggingSipId === dueSips[0].id ? <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={13} />}
+                        <span>Log {formatINR(dueSips[0].amount)}</span>
                       </button>
-                    </div>
+                    )}
                   </div>
                 );
-              })}
-            </div>
-          )}
-        </div>
+              })()}
 
-        {/* ── Monthly SIP Chart ─────────────────────────────────────── */}
-        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 18, padding: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-            <div>
-              <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)' }}>Monthly SIP Debits</div>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>From your Investment expense category</div>
-            </div>
-            <Link href="/expenses" style={{ fontSize: 12, color: 'var(--accent-2)', textDecoration: 'none', fontWeight: 600 }}>View Log →</Link>
-          </div>
-          {monthlySipData.length > 0 ? (
-            <div style={{ height: 150, width: '100%' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={monthlySipData} margin={{ top: 8, right: 8, left: -22, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                  <XAxis dataKey="label" stroke="var(--text-muted)" fontSize={11} tickLine={false} />
-                  <YAxis stroke="var(--text-muted)" fontSize={10} tickLine={false} tickFormatter={(v) => `₹${v / 1000}k`} />
-                  <Tooltip content={({ active, payload, label }) => {
-                    if (!active || !payload?.length) return null;
+              {/* SIP List */}
+              {investmentSips.length === 0 ? (
+                <div style={{
+                  padding: '24px 16px', textAlign: 'center', background: 'var(--bg-elevated)',
+                  borderRadius: 14, color: 'var(--text-muted)', fontSize: 12.5,
+                }}>
+                  No recurring SIPs set up yet. Add your monthly mutual fund or stock SIPs to log them in 1 tap.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {investmentSips.map((sip) => {
+                    const isLoggedThisMonth = sip.lastLoggedMonth === currentYM;
+                    const isLogging = loggingSipId === sip.id;
                     return (
-                      <div style={{ background: 'rgba(20,20,30,0.95)', border: '1px solid var(--border)', borderRadius: 10, padding: '8px 12px', fontSize: 12 }}>
-                        <div style={{ fontWeight: 600, color: 'var(--text-muted)' }}>{label}</div>
-                        <div style={{ fontWeight: 800, color: 'var(--accent-2)', fontSize: 14 }}>{formatINR(Number(payload[0].value))}</div>
+                      <div
+                        key={sip.id}
+                        style={{
+                          padding: '12px 14px', borderRadius: 14,
+                          background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+                        }}
+                      >
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {sip.name}
+                          </div>
+                          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span>Deducts on Day {sip.dayOfMonth}</span>
+                            <span>•</span>
+                            {isLoggedThisMonth ? (
+                              <span style={{ color: 'var(--success)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}>
+                                <CheckCircle2 size={12} /> Logged this month
+                              </span>
+                            ) : (
+                              <span style={{ color: '#F59E0B', fontWeight: 600 }}>Due this month</span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                          <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>
+                            {isMasked ? '₹••••••' : formatINR(sip.amount)}
+                          </span>
+                          {!isLoggedThisMonth ? (
+                            <button
+                              onClick={() => handleLogSip(sip)}
+                              disabled={isLogging}
+                              title="Record deduction and increment portfolio holding"
+                              style={{
+                                padding: '6px 10px', borderRadius: 8,
+                                background: 'var(--accent-grad)', color: '#fff', border: 'none',
+                                fontSize: 11.5, fontWeight: 700, cursor: isLogging ? 'not-allowed' : 'pointer',
+                                display: 'flex', alignItems: 'center', gap: 4,
+                              }}
+                            >
+                              {isLogging ? (
+                                <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} />
+                              ) : (
+                                <Check size={13} />
+                              )}
+                              <span>Log</span>
+                            </button>
+                          ) : (
+                            <span style={{ fontSize: 11, color: 'var(--success)', padding: '4px 8px', borderRadius: 6, background: 'rgba(16,185,129,0.1)' }}>
+                              Done
+                            </span>
+                          )}
+                          <button
+                            onClick={() => handleDeleteSip(sip.id)}
+                            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: 4, cursor: 'pointer' }}
+                            title="Remove SIP"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </div>
                     );
-                  }} />
-                  <Bar dataKey="amount" fill="#8B5CF6" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          ) : (
-            <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
-              No investment expenses logged yet.
-            </div>
-          )}
-        </div>
-
-        {/* ── Recent Logged SIPs ────────────────────────────────────── */}
-        {investmentExpenses.length > 0 && (
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 18, padding: '16px' }}>
-            <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 12 }}>Recent Investment Debits</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {investmentExpenses.slice(0, 5).map((exp) => (
-                <div key={exp._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderRadius: 12, background: 'var(--bg-elevated)', borderLeft: '3.5px solid #8B5CF6' }}>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{exp.note || 'Mutual Fund / SIP'}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{exp.date}</div>
-                  </div>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>{formatINR(exp.amount)}</div>
+                  })}
                 </div>
-              ))}
+              )}
             </div>
-          </div>
+
+            {/* Monthly SIP Debits Chart */}
+            <div style={{
+              background: 'var(--bg-card)', border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: 20, padding: 18,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 800 }}>Historical SIP Deductions</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>From your Investment expense category</div>
+                </div>
+                <Link href="/expenses" style={{ fontSize: 12, color: 'var(--accent-2)', textDecoration: 'none', fontWeight: 600 }}>
+                  View All Log →
+                </Link>
+              </div>
+
+              {monthlySipData.length > 0 ? (
+                <div style={{ height: 160, width: '100%' }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={monthlySipData} margin={{ top: 8, right: 8, left: -22, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                      <XAxis dataKey="label" stroke="var(--text-muted)" fontSize={11} tickLine={false} />
+                      <YAxis stroke="var(--text-muted)" fontSize={10} tickLine={false} tickFormatter={(v) => `₹${v / 1000}k`} />
+                      <Tooltip
+                        content={({ active, payload, label }) => {
+                          if (!active || !payload?.length) return null;
+                          return (
+                            <div style={{ background: 'rgba(20,20,30,0.95)', border: '1px solid var(--border)', borderRadius: 10, padding: '8px 12px', fontSize: 12 }}>
+                              <div style={{ fontWeight: 600, color: 'var(--text-muted)' }}>{label}</div>
+                              <div style={{ fontWeight: 800, color: 'var(--accent-2)', fontSize: 14 }}>{formatINR(Number(payload[0].value))}</div>
+                            </div>
+                          );
+                        }}
+                      />
+                      <Bar dataKey="amount" fill="#8B5CF6" radius={[6, 6, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+                  No investment expenses logged yet.
+                </div>
+              )}
+            </div>
+          </section>
         )}
-      </div>
+
+      </main>
 
       {/* ── Review Modal ──────────────────────────────────────────────────── */}
       {showReviewModal && (
