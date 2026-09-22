@@ -24,6 +24,8 @@ type ReviewData = {
   portfolioType: PortfolioType;
   oneDayGain: number;
   oneDayGainPercent: number;
+  units?: number;
+  buyPrice?: number;
   funds: InvestmentFund[];
 };
 
@@ -608,9 +610,53 @@ export default function InvestmentsPage() {
     mediumTap();
     setOcrError(null);
     setOcrStatus('preprocessing');
-    setOcrProgress(0);
+    setOcrProgress(15);
 
     try {
+      // 1. Try Cloud Vision API first (if API key configured on server)
+      try {
+        const reader = new FileReader();
+        const base64Promise = new Promise<string>((resolve) => {
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(file);
+        });
+        const dataUri = await base64Promise;
+
+        setOcrStatus('ocr');
+        setOcrProgress(40);
+
+        const apiRes = await fetch('/api/investments/parse-screenshot', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: dataUri }),
+        });
+
+        if (apiRes.ok) {
+          const json = await apiRes.json();
+          if (json.success && json.data && (json.data.currentValue > 0 || json.data.totalInvested > 0)) {
+            setReviewData({
+              holdingName: json.data.holdingName || json.data.funds?.[0]?.name || '',
+              date: new Date().toISOString().split('T')[0],
+              totalInvested: json.data.totalInvested || accumulatedFromExpenses,
+              currentValue: json.data.currentValue || 0,
+              portfolioType: json.data.portfolioType || 'mutual_funds',
+              oneDayGain: json.data.totalGain || 0,
+              oneDayGainPercent: json.data.gainPercent || 0,
+              units: json.data.units,
+              buyPrice: json.data.buyPrice,
+              funds: json.data.funds || [],
+            });
+            setOcrStatus('done');
+            setShowReviewModal(true);
+            successBuzz();
+            return;
+          }
+        }
+      } catch (cloudErr) {
+        console.warn('Cloud Vision parsing unavailable, falling back to local OCR:', cloudErr);
+      }
+
+      // 2. Fallback to On-Device Tesseract OCR
       const processedBlob = await preprocessImageForOcr(file);
 
       setOcrStatus('loading-worker');
@@ -639,6 +685,8 @@ export default function InvestmentsPage() {
         portfolioType: parsed.portfolioType,
         oneDayGain: parsed.oneDayGain || 0,
         oneDayGainPercent: parsed.oneDayGainPercent || 0,
+        units: parsed.units,
+        buyPrice: parsed.buyPrice,
         funds: parsed.funds || [],
       });
 
@@ -650,7 +698,7 @@ export default function InvestmentsPage() {
       setShowReviewModal(true);
       successBuzz();
     } catch (err: any) {
-      console.error('Tesseract OCR failed:', err);
+      console.error('OCR processing failed:', err);
       setOcrError('OCR encountered an issue. Enter portfolio values manually:');
       setReviewData({
         holdingName: '',
@@ -694,6 +742,8 @@ export default function InvestmentsPage() {
           source: 'groww',
           portfolioType: reviewData.portfolioType,
           funds: reviewData.funds,
+          units: reviewData.units,
+          buyPrice: reviewData.buyPrice,
           syncNetWorth,
         }),
       });

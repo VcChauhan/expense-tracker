@@ -4,40 +4,41 @@ import OpenAI from 'openai';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30; // 30s timeout on Vercel
 
-const EXTRACTION_PROMPT = `You are an expert financial assistant analyzing a screenshot of an investment portfolio dashboard from Groww (Indian mutual funds and stocks app).
-Extract the following information:
-- totalInvested: The total amount invested by the user in INR (number only, strip ₹ and commas).
-- currentValue: The current value of the portfolio in INR (number only, strip ₹ and commas).
-- totalGain: Total returns / profit or loss amount in INR (can be positive or negative, number only). If not directly stated, compute currentValue - totalInvested.
-- gainPercent: Returns percentage as a number (e.g. 14.5 or -2.3).
-- funds: Array of any mutual funds or stocks visible in the list:
-  [
-    {
-      "name": "Name of fund or stock",
-      "invested": number,
-      "current": number,
-      "gain": number,
-      "gainPercent": number
-    }
-  ]
+const EXTRACTION_PROMPT = `You are an expert financial assistant analyzing a screenshot of an investment holding or dashboard from Groww or Indian broker apps.
+Extract the exact values:
+1. holdingName: The full name of the mutual fund scheme, stock, or gold asset (e.g. "SBI ELSS Tax Saver Fund Direct Growth"). DO NOT split multi-line names into separate funds. If this is a single holding screen, there is only ONE holding.
+2. totalInvested: The total amount invested in INR (number only). Look for the "Invested" label amount (e.g. 29999). NEVER use Folio numbers (e.g. 49251872) or NAV decimals.
+3. currentValue: The current value in INR (number only). Look for the "Current" label amount (e.g. 30365). NEVER use Current NAV (e.g. 458.52) as current value.
+4. totalGain: Returns / gain in INR (number only, can be positive or negative, e.g. 367).
+5. gainPercent: Returns percentage as a number (e.g. 1.22).
+6. units: Balanced units or shares (number, e.g. 66.224).
+7. buyPrice: Current NAV or buy price (number, e.g. 458.52).
+8. portfolioType: "mutual_funds" | "stocks" | "gold".
+9. funds: Array of funds/stocks. If single holding screen, include exactly 1 item with the holding details. If a multi-holding dashboard, include all items.
 
-Respond ONLY with a valid JSON object:
+Respond ONLY with valid parseable JSON:
 {
+  "holdingName": string,
   "totalInvested": number,
   "currentValue": number,
   "totalGain": number,
   "gainPercent": number,
+  "units": number,
+  "buyPrice": number,
+  "portfolioType": "mutual_funds" | "stocks" | "gold",
   "funds": [
     {
       "name": string,
       "invested": number,
       "current": number,
       "gain": number,
-      "gainPercent": number
+      "gainPercent": number,
+      "units": number,
+      "buyPrice": number
     }
   ]
 }
-Do not wrap in markdown or backticks if possible, or wrap in \`\`\`json. Return valid parseable JSON.`;
+Return raw JSON only without commentary.`;
 
 export async function POST(request: Request) {
   try {
@@ -74,7 +75,7 @@ export async function POST(request: Request) {
     if (geminiKey) {
       try {
         const geminiRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -104,8 +105,29 @@ export async function POST(request: Request) {
           const data = await geminiRes.json();
           rawJsonText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
         } else {
-          const errText = await geminiRes.text();
-          console.warn('Gemini Vision API error response:', errText);
+          // Try fallback to gemini-1.5-flash
+          const gemini15Res = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [
+                  {
+                    parts: [
+                      { text: EXTRACTION_PROMPT },
+                      { inline_data: { mime_type: detectedMime, data: base64Clean } },
+                    ],
+                  },
+                ],
+                generationConfig: { temperature: 0.1, response_mime_type: 'application/json' },
+              }),
+            }
+          );
+          if (gemini15Res.ok) {
+            const d15 = await gemini15Res.json();
+            rawJsonText = d15.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          }
         }
       } catch (geminiErr) {
         console.warn('Gemini Vision API call failed, falling back if possible:', geminiErr);

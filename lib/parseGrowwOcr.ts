@@ -17,18 +17,22 @@ export interface ParsedPortfolio {
   oneDayGain?: number;
   oneDayGainPercent?: number;
   portfolioType: PortfolioType;
+  units?: number;
+  buyPrice?: number;
   funds: {
     name: string;
     invested: number;
     current: number;
     gain: number;
     gainPercent: number;
+    units?: number;
+    buyPrice?: number;
   }[];
 }
 
 /** Clean and parse a numeric string into a float */
 function cleanNumber(raw: string): number {
-  const cleaned = raw.replace(/[₹$¥£,\s+]/g, '').trim();
+  const cleaned = raw.replace(/[%₹$¥£,\s+]/g, '').trim();
   return parseFloat(cleaned) || 0;
 }
 
@@ -62,11 +66,26 @@ export function detectPortfolioType(ocrText: string): PortfolioType {
   return 'mutual_funds';
 }
 
+/** Check if the screen is a dashboard table with multiple holdings vs a single holding screen */
+export function isDashboardScreen(lines: string[]): boolean {
+  const hasDashboardHeader = lines.some((l) =>
+    /investments\s*\(\d+\)|holdings\s*\(\d+\)|mutual\s*funds\s*\(\d+\)/i.test(l)
+  );
+
+  const hasSingleHoldingSignals = lines.some((l) =>
+    /folio\s*(?:no\.?|number)?|current\s*nav|avg\s*nav|balanced\s*units|redeem|invest\s*more/i.test(l) ||
+    /\b\d{7,12}\b/.test(l)
+  );
+
+  if (hasSingleHoldingSignals && !hasDashboardHeader) {
+    return false;
+  }
+  return hasDashboardHeader;
+}
+
 /** Extract scheme or stock name from an individual holding screen */
 export function extractHoldingName(lines: string[]): string {
-  const isDashboard = lines.some((l) => /investments\s*\(\d+\)|holdings\s*\(\d+\)/i.test(l));
-  if (isDashboard) {
-    // It is a dashboard containing multiple holdings, not a single holding
+  if (isDashboardScreen(lines)) {
     return '';
   }
 
@@ -83,12 +102,15 @@ export function extractHoldingName(lines: string[]): string {
     /units/i,
     /redeem/i,
     /invest more/i,
+    /completed/i,
+    /ransaction/i,
   ];
 
   for (let i = 0; i < Math.min(lines.length, 12); i++) {
     const line = lines[i].trim();
     if (line.length < 3) continue;
     if (ignorePatterns.some((p) => p.test(line))) continue;
+    if (/^\d+/.test(line)) continue;
 
     const isFundMatch = /(?:Fund|Growth|Direct|ELSS|Index|ETF|Equity|Tax Saver|Bluechip|Cap|Hybrid|Liquid|Debt|Plan)/i.test(line);
     const isStockMatch = /(?:Ltd|Limited|Industries|Bank|Motors|Enterprises|Corp|Steel|Power|Finance)/i.test(line);
@@ -99,7 +121,7 @@ export function extractHoldingName(lines: string[]): string {
         const nextLine = lines[i + 1].trim();
         if (
           nextLine.length > 0 &&
-          nextLine.length < 30 &&
+          nextLine.length < 35 &&
           /^(?:Growth|Direct|Regular|IDCW|Plan|Fund|Limited|Ltd)/i.test(nextLine) &&
           !ignorePatterns.some((p) => p.test(nextLine))
         ) {
@@ -115,22 +137,23 @@ export function extractHoldingName(lines: string[]): string {
 
 /** Extract multiple fund/stock items if this is a dashboard table */
 export function extractDashboardFunds(lines: string[]): ParsedPortfolio['funds'] {
+  if (!isDashboardScreen(lines)) {
+    return [];
+  }
+
   const funds: ParsedPortfolio['funds'] = [];
   const knownFundWords = /(?:Fund|Growth|Plan|Cap|ELSS|Index|ETF|Bank|Gold|Tata|Hdfc|Sbi|Reliance|Infosys|Aditya Birla|Parag Parikh)/i;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
     if (knownFundWords.test(line) && line.length > 5 && line.length < 80) {
-      // Don't match header lines
       if (/^(?:Fund name|Company|Investments|Holdings)/i.test(line)) continue;
 
       let name = line.replace(/^[^\w]+|[^\w)]+$/g, '').trim();
-      // Check if next line continues the name (e.g. "Growth")
       if (i + 1 < lines.length && /^(?:Growth|Direct|Regular|Plan)/i.test(lines[i + 1])) {
         name += ' ' + lines[i + 1].trim();
       }
 
-      // Check next 1-4 lines for numbers (Current and Invested amounts)
       let current = 0;
       let invested = 0;
       for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
@@ -166,6 +189,7 @@ export function extractDashboardFunds(lines: string[]): ParsedPortfolio['funds']
 export function parseGrowwOcrText(ocrText: string): ParsedPortfolio {
   const rawLines = ocrText.split('\n').map((l) => l.trim()).filter(Boolean);
   const portfolioType = detectPortfolioType(ocrText);
+  const isDashboard = isDashboardScreen(rawLines);
   const holdingName = extractHoldingName(rawLines);
   const dashboardFunds = extractDashboardFunds(rawLines);
 
@@ -175,6 +199,8 @@ export function parseGrowwOcrText(ocrText: string): ParsedPortfolio {
   let gainPercent = 0;
   let oneDayGain = 0;
   let oneDayGainPercent = 0;
+  let units = 0;
+  let buyPrice = 0;
 
   // 1. Isolate summary section (strip out TRANSACTION HISTORY so past transactions don't pollute totals)
   let summaryEndIdx = -1;
@@ -182,7 +208,7 @@ export function parseGrowwOcrText(ocrText: string): ParsedPortfolio {
     const l = rawLines[i].toLowerCase();
     if (
       l.includes('transaction history') ||
-      l.includes('g t tory') ||
+      l.includes('ransaction history') ||
       l.includes('transactions') ||
       l.includes('redeem') ||
       l.includes('invest more') ||
@@ -194,114 +220,124 @@ export function parseGrowwOcrText(ocrText: string): ParsedPortfolio {
   }
   const summaryLines = summaryEndIdx !== -1 ? rawLines.slice(0, summaryEndIdx) : rawLines;
 
-  // ── Strategy 1: Look for explicit Groww summary labels in summaryLines ──
-  for (let i = 0; i < summaryLines.length; i++) {
-    const l = summaryLines[i].toLowerCase();
+  // 2. Identify 7-12 digit Folio numbers to blacklist from amounts
+  const folioBlacklist = new Set<string>();
+  summaryLines.forEach((l) => {
+    (l.match(/\b\d{7,12}\b/g) || []).forEach((f) => folioBlacklist.add(f));
+  });
 
-    // Matching "Current value" or exact "Current"
-    if (!currentValue && (l.includes('current value') || l === 'current')) {
-      for (let j = i; j < Math.min(i + 4, summaryLines.length); j++) {
-        if (/folio|nav|units/i.test(summaryLines[j])) continue;
-        const m = summaryLines[j].match(/[₹$¥£]?\s*([0-9,]+(?:\.[0-9]+)?)/);
-        if (m) {
-          const v = cleanNumber(m[1]);
-          if (v > 100 && v < 10000000) { currentValue = v; break; }
-        }
+  // 3. Extract Units & NAV
+  for (const l of summaryLines) {
+    if (Array.from(folioBlacklist).some((f) => l.includes(f))) {
+      // e.g. "\ 458.52 49251872" -> 458.52 is Current Nav
+      const decMatch = l.match(/\b\d+\.\d{1,4}\b/);
+      if (decMatch) {
+        buyPrice = parseFloat(decMatch[0]);
+      }
+    } else {
+      const decs = (l.match(/\b\d+\.\d{1,4}\b/g) || []).map(Number);
+      if (decs.length >= 2) {
+        // e.g. "452.99 66.224" -> 452.99 is Avg Nav, 66.224 is Balanced Units
+        if (!buyPrice) buyPrice = decs[0];
+        units = decs[1];
+      } else if (decs.length === 1 && decs[0] < 500 && !units) {
+        units = decs[0];
       }
     }
+  }
 
-    // Matching "Invested value" or exact "Invested"
-    if (!totalInvested && (l.includes('invested value') || l === 'invested')) {
-      for (let j = i; j < Math.min(i + 4, summaryLines.length); j++) {
-        if (/folio|nav|units/i.test(summaryLines[j])) continue;
-        const m = summaryLines[j].match(/[₹$¥£]?\s*([0-9,]+(?:\.[0-9]+)?)/);
-        if (m) {
-          const v = cleanNumber(m[1]);
-          if (v > 100 && v < 10000000) { totalInvested = v; break; }
+  // 4. Strategy 1: Mathematical consistency check (Invested + Returns ~= Current)
+  for (const line of summaryLines) {
+    if (/^\d{1,2}:\d{2}/.test(line)) continue; // ignore time headers
+    if (Array.from(folioBlacklist).some((f) => line.includes(f))) continue;
+
+    const rawTokens = line.match(/[+\-]?[%₹$¥£]?[0-9,]+(?:\.[0-9]+)?/g) || [];
+    const cleanTokens = rawTokens
+      .map((t) => {
+        const isNegative = t.includes('-');
+        const clean = t.replace(/[+\-%₹$¥£,\s]/g, '');
+        const val = parseFloat(clean) || 0;
+        return { raw: t, val, isNegative };
+      })
+      .filter((t) => t.val >= 100 && !folioBlacklist.has(t.val.toString()));
+
+    if (cleanTokens.length >= 2) {
+      let n1 = cleanTokens[0].val;
+      let n2 = cleanTokens[1].val;
+      let n3 = cleanTokens[2] ? cleanTokens[2].val : n2 - n1;
+
+      // Fix ₹ symbol read as 3 in return (e.g. +3367 -> 367)
+      if (n3 > 1000 && Math.abs(n2 - n1) < 1000) {
+        const stripped = n3 % 1000;
+        if (Math.abs(Math.abs(n2 - n1) - stripped) <= 15) {
+          n3 = cleanTokens[2]?.isNegative ? -stripped : stripped;
         }
       }
-    }
 
-    // Matching "1D returns"
-    if (l.includes('1d return') || l.includes('1d')) {
-      for (let j = i; j < Math.min(i + 4, summaryLines.length); j++) {
-        const pctMatch = summaryLines[j].match(/([+\-]?\d+(?:\.\d+)?)\s*%/);
-        if (pctMatch && !oneDayGainPercent) {
-          oneDayGainPercent = parseFloat(pctMatch[1]);
-        }
-        const signedAmt = summaryLines[j].match(/([+\-])[₹$¥£]?\s*([0-9,]+(?:\.[0-9]+)?)/);
-        if (signedAmt && !oneDayGain) {
-          const sign = signedAmt[1] === '-' ? -1 : 1;
-          oneDayGain = cleanNumber(signedAmt[2]) * sign;
-        }
+      // Check mathematical equality: n1 + n3 ~= n2
+      if (Math.abs(n1 + n3 - n2) <= 15) {
+        totalInvested = n1;
+        currentValue = n2;
+        totalGain = n3;
+        break;
       }
     }
+  }
 
-    // Matching "Total returns"
-    if (l.includes('total return') || (l.includes('returns') && !l.includes('1d'))) {
-      for (let j = i; j < Math.min(i + 4, summaryLines.length); j++) {
-        const pctMatch = summaryLines[j].match(/([+\-]?\d+(?:\.\d+)?)\s*%/);
-        if (pctMatch && !gainPercent) {
-          gainPercent = parseFloat(pctMatch[1]);
+  // 5. Strategy 2: Label-based matching if mathematical check didn't trigger
+  if (!currentValue || !totalInvested) {
+    for (let i = 0; i < summaryLines.length; i++) {
+      const l = summaryLines[i].toLowerCase();
+
+      if (!currentValue && (l.includes('current value') || l === 'current')) {
+        for (let j = i; j < Math.min(i + 4, summaryLines.length); j++) {
+          if (/folio|nav|units/i.test(summaryLines[j])) continue;
+          const m = summaryLines[j].match(/[%₹$¥£]?\s*([0-9,]+(?:\.[0-9]+)?)/);
+          if (m) {
+            const v = cleanNumber(m[1]);
+            if (v >= 100 && !folioBlacklist.has(v.toString())) {
+              currentValue = v;
+              break;
+            }
+          }
         }
-        const signedAmt = summaryLines[j].match(/([+\-])[₹$¥£]?\s*([0-9,]+(?:\.[0-9]+)?)/);
-        if (signedAmt && !totalGain) {
-          const sign = signedAmt[1] === '-' ? -1 : 1;
-          totalGain = cleanNumber(signedAmt[2]) * sign;
+      }
+
+      if (!totalInvested && (l.includes('invested value') || l === 'invested')) {
+        for (let j = i; j < Math.min(i + 4, summaryLines.length); j++) {
+          if (/folio|nav|units/i.test(summaryLines[j])) continue;
+          const m = summaryLines[j].match(/[%₹$¥£]?\s*([0-9,]+(?:\.[0-9]+)?)/);
+          if (m) {
+            const v = cleanNumber(m[1]);
+            if (v >= 100 && !folioBlacklist.has(v.toString())) {
+              totalInvested = v;
+              break;
+            }
+          }
         }
       }
     }
   }
 
-  // ── Strategy 2: Multi-number summary row (e.g. "29,999  30,365  +3367") ──
+  // 6. Strategy 3: Multi-number summary row fallback
   if (!currentValue || !totalInvested) {
     for (const line of summaryLines) {
-      if (/folio/i.test(line)) continue;
+      if (/folio/i.test(line) || Array.from(folioBlacklist).some((f) => line.includes(f))) continue;
 
-      const tokens = line.match(/[+\-]?[₹$¥£]?[0-9,]+(?:\.[0-9]+)?/g) || [];
+      const tokens = line.match(/[+\-]?[%₹$¥£]?[0-9,]+(?:\.[0-9]+)?/g) || [];
       const validTokens = tokens
         .map((t) => {
           const isNegative = t.includes('-');
-          const clean = t.replace(/[+\-₹$¥£,\s]/g, '');
+          const clean = t.replace(/[+\-%₹$¥£,\s]/g, '');
           const val = parseFloat(clean) || 0;
           return { raw: t, val, isNegative };
         })
-        .filter((t) => t.val > 0 && t.val < 10000000); // Filter out folio numbers (4.9 crore)
+        .filter((t) => t.val >= 100 && !folioBlacklist.has(t.val.toString()));
 
       if (validTokens.length >= 2) {
         let n1 = validTokens[0].val;
         let n2 = validTokens[1].val;
-        let n3 = validTokens[2] ? validTokens[2].val : 0;
-
-        // Skip lines that look like NAV & Units (e.g. 452.99 and 66.224)
-        const isNavLine = (n1 < 1000 && n1 % 1 !== 0) && (n2 < 1000 && n2 % 1 !== 0);
-        if (isNavLine) continue;
-
-        // Fix Tesseract reading ₹ as leading '3' or '2' (e.g. ₹29,999 -> 329,999 or 229,999)
-        if (n1 > 100000 && n2 < 100000) {
-          const candidate1 = parseFloat(n1.toString().slice(1));
-          if (candidate1 > 100 && Math.abs(n2 - candidate1) < candidate1) {
-            n1 = candidate1;
-          }
-        } else if (n2 > 100000 && n1 < 100000) {
-          const candidate2 = parseFloat(n2.toString().slice(1));
-          if (candidate2 > 100 && Math.abs(candidate2 - n1) < n1) {
-            n2 = candidate2;
-          }
-        }
-
-        // Fix returns n3 if ₹ read as '3' (e.g. +₹367 -> +3367)
-        if (n3 > 0) {
-          const diff = n2 - n1;
-          if (n3 > 1000 && Math.abs(diff) < 1000) {
-            const stripped3 = n3 % 1000;
-            if (Math.abs(diff - stripped3) <= 10) {
-              n3 = validTokens[2].isNegative ? -stripped3 : stripped3;
-            }
-          }
-        } else {
-          n3 = n2 - n1;
-        }
+        let n3 = validTokens[2] ? validTokens[2].val : n2 - n1;
 
         totalInvested = n1;
         currentValue = n2;
@@ -311,26 +347,7 @@ export function parseGrowwOcrText(ocrText: string): ParsedPortfolio {
     }
   }
 
-  // ── Strategy 3: Safe Fallback from summary lines only (never scan transaction history) ──
-  if (!currentValue || !totalInvested) {
-    const summaryCandidates: number[] = [];
-    for (const l of summaryLines) {
-      if (/folio|nav|units|balanced/i.test(l)) continue;
-      const m = l.match(/\b\d{1,3}(?:,\d{3})+(?:\.\d+)?\b/g);
-      if (m) {
-        m.forEach((str) => {
-          const num = cleanNumber(str);
-          if (num >= 500 && num < 10000000) summaryCandidates.push(num);
-        });
-      }
-    }
-    if (summaryCandidates.length >= 2) {
-      if (!totalInvested) totalInvested = summaryCandidates[0];
-      if (!currentValue) currentValue = summaryCandidates[1];
-    }
-  }
-
-  // ── Compute derived values ────────────────────────────────────────────
+  // 7. Compute derived returns
   if (!totalGain && currentValue && totalInvested) {
     totalGain = currentValue - totalInvested;
   }
@@ -338,18 +355,20 @@ export function parseGrowwOcrText(ocrText: string): ParsedPortfolio {
     gainPercent = Number(((totalGain / totalInvested) * 100).toFixed(2));
   }
 
-  // Build funds array
+  // Build funds array: if dashboard, return dashboardFunds; if single holding, return 1 clean fund item
   let funds: ParsedPortfolio['funds'] = [];
-  if (dashboardFunds.length > 0) {
+  if (isDashboard && dashboardFunds.length > 0) {
     funds = dashboardFunds;
-  } else if (holdingName) {
+  } else if (holdingName || currentValue > 0) {
     funds = [
       {
-        name: holdingName,
+        name: holdingName || (portfolioType === 'stocks' ? 'Stock Holding' : 'Mutual Fund Scheme'),
         invested: totalInvested,
         current: currentValue,
         gain: totalGain,
         gainPercent,
+        units: units || undefined,
+        buyPrice: buyPrice || undefined,
       },
     ];
   }
@@ -363,6 +382,8 @@ export function parseGrowwOcrText(ocrText: string): ParsedPortfolio {
     oneDayGain,
     oneDayGainPercent,
     portfolioType,
+    units: units || undefined,
+    buyPrice: buyPrice || undefined,
     funds,
   };
 }
