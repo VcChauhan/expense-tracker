@@ -7,7 +7,6 @@ import { computeSalaryBreakdown } from '@/lib/taxUtils';
 import { TrendingUp, Wallet, Folder, RefreshCw, Check, History, CheckCircle2, XCircle } from 'lucide-react';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { CategoryIcon } from '@/components/CategoryIcon';
-import AiInsights from '@/components/AiInsights';
 
 interface HikeCategory {
   id: string;
@@ -301,9 +300,6 @@ export default function HikePage() {
           </div>
         </div>
       </div>
-
-      {/* AI Advice Banner */}
-      <AiInsights year={hikeYear} context="hike" hikePercent={pct} />
 
       {/* ── Category Budget Proportional Distribution ── */}
       <div className="card mb-24" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', marginTop: 24 }}>

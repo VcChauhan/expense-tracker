@@ -9,14 +9,12 @@ import {
 import { formatINR, SHORT_MONTHS, MONTHS, Settings, AnnualAnalytics, InvestmentSnapshot } from '@/lib/types';
 import { Wallet, CreditCard, PiggyBank, CalendarDays, ChevronLeft, ChevronRight, TrendingUp, Store, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { CategoryIcon } from '@/components/CategoryIcon';
-import AiInsights from '@/components/AiInsights';
 import { SubscriptionAudit } from '@/components/SubscriptionAudit';
 import { PredictiveCashflowCard } from '@/components/PredictiveCashflowCard';
 import { PaymentMethodBreakdownCard } from '@/components/PaymentMethodBreakdownCard';
 import { NetWorthTracker } from '@/components/NetWorthTracker';
 import { CategoryDonutChart } from '@/components/CategoryDonutChart';
 import { CashFlowSankey } from '@/components/CashFlowSankey';
-import { SpendClockChart } from '@/components/SpendClockChart';
 
 type ViewMode = 'monthly' | 'annual';
 
@@ -402,9 +400,6 @@ export default function ReportsPage() {
             />
           </div>
 
-          <div style={{ padding: '0 16px 24px' }}>
-            <AiInsights month={selectedMonth} year={selectedYear} scope="monthly" context="reports" />
-          </div>
 
           <div style={{ padding: '0 16px 24px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
@@ -453,9 +448,6 @@ export default function ReportsPage() {
         </>
       ) : (
         <>
-          <div style={{ padding: '0 16px 24px' }}>
-            <AiInsights scope="annual" year={selectedYear} context="reports" />
-          </div>
 
           <div style={{ padding: '0 16px 24px' }}>
             <div style={{ background: 'var(--bg-card)', borderRadius: 20, padding: '20px 16px', border: '1px solid var(--border)' }}>
@@ -631,10 +623,6 @@ export default function ReportsPage() {
         </div>
       )}
 
-      {/* ── When You Spend (time-of-day clock) ── */}
-      <div style={{ padding: '0 16px 32px' }}>
-        <SpendClockChart expenses={expenses} />
-      </div>
     </div>
   );
 }

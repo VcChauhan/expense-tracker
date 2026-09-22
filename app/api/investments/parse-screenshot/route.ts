@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import OpenAI from 'openai';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30; // 30s timeout on Vercel
@@ -137,30 +136,35 @@ export async function POST(request: Request) {
     // 2. Fallback to Groq Vision if Gemini not used or failed
     if (!rawJsonText && groqKey) {
       try {
-        const groq = new OpenAI({
-          apiKey: groqKey,
-          baseURL: 'https://api.groq.com/openai/v1',
-        });
-
         const dataUri = `data:${detectedMime};base64,${base64Clean}`;
-        const completion = await groq.chat.completions.create({
-          model: 'llama-3.2-11b-vision-preview',
-          messages: [
-            {
-              role: 'user',
-              content: [
-                { type: 'text', text: EXTRACTION_PROMPT },
-                {
-                  type: 'image_url',
-                  image_url: { url: dataUri },
-                },
-              ],
-            },
-          ],
-          temperature: 0.1,
+        const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${groqKey}`,
+          },
+          body: JSON.stringify({
+            model: 'llama-3.2-11b-vision-preview',
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  { type: 'text', text: EXTRACTION_PROMPT },
+                  {
+                    type: 'image_url',
+                    image_url: { url: dataUri },
+                  },
+                ],
+              },
+            ],
+            temperature: 0.1,
+          }),
         });
 
-        rawJsonText = completion.choices[0]?.message?.content || '';
+        if (groqRes.ok) {
+          const completion = await groqRes.json();
+          rawJsonText = completion.choices?.[0]?.message?.content || '';
+        }
       } catch (groqErr) {
         console.warn('Groq Vision API call failed:', groqErr);
       }
