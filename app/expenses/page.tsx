@@ -10,6 +10,7 @@ import { ExpenseTimelineView } from '@/components/ExpenseTimelineView';
 import { ExpenseCalendarView } from '@/components/ExpenseCalendarView';
 import { PaymentMethodBadge, PaymentMethodSelector } from '@/components/PaymentMethodSelector';
 import { semanticFilterExpenses } from '@/lib/semanticSearch';
+import { ONE_OFF_TYPES } from '@/lib/onDeviceAi';
 
 type ViewMode = 'monthly' | 'annual';
 type SortField = 'date' | 'amount';
@@ -71,7 +72,7 @@ export default function ExpensesPage() {
   // Suggestions
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [reviewSuggestion, setReviewSuggestion] = useState<Suggestion | null>(null);
-  const [reviewForm, setReviewForm]     = useState({ date: today, categoryId: '', amount: '', note: '', tags: [] as string[] });
+  const [reviewForm, setReviewForm]     = useState<{ date: string; categoryId: string; amount: string; note: string; tags: string[]; paymentMethod: string }>({ date: today, categoryId: '', amount: '', note: '', tags: [], paymentMethod: 'upi' });
   const [reviewSplitWays, setReviewSplitWays] = useState<number>(1);
 
   useEffect(() => {
@@ -413,6 +414,19 @@ export default function ExpensesPage() {
             }}>
               {cat?.name}
             </span>
+            {exp.isOneOff && (
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 3,
+                padding: '1.5px 7px', borderRadius: 6,
+                background: 'rgba(234, 179, 8, 0.15)',
+                color: '#eab308',
+                border: '1px solid rgba(234, 179, 8, 0.3)',
+                fontSize: 10.5, fontWeight: 800,
+                letterSpacing: '0.2px'
+              }}>
+                ⚡ Anomaly
+              </span>
+            )}
             <span>•</span>
             <PaymentMethodBadge method={exp.paymentMethod || 'upi'} creditCards={settings?.creditCards || []} />
           </div>
@@ -1180,6 +1194,103 @@ export default function ExpensesPage() {
                 <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>Note</label>
                 <input type="text" style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '12px 16px', borderRadius: 12, fontSize: 16 }} value={editingExp.note || ''} onChange={e => setEditingExp({ ...editingExp, note: e.target.value })} />
               </div>
+
+              {/* ⚡ One-Off / Annual Anomaly Context */}
+              <div style={{
+                padding: '12px 14px',
+                borderRadius: 16,
+                background: editingExp.isOneOff ? 'var(--accent-dim)' : 'var(--bg)',
+                border: `1.5px solid ${editingExp.isOneOff ? 'var(--accent)' : 'var(--border)'}`,
+                transition: 'all 0.2s ease',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 16 }}>⚡</span>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>One-Off / Annual Anomaly</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Excludes from recurring budget calculations</div>
+                    </div>
+                  </div>
+                  <label style={{ position: 'relative', display: 'inline-block', width: 44, height: 24, cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(editingExp.isOneOff)}
+                      onChange={e => setEditingExp({
+                        ...editingExp,
+                        isOneOff: e.target.checked,
+                        oneOffType: e.target.checked ? (editingExp.oneOffType || 'annual') : ''
+                      })}
+                      style={{ opacity: 0, width: 0, height: 0 }}
+                    />
+                    <span style={{
+                      position: 'absolute', cursor: 'pointer', inset: 0,
+                      backgroundColor: editingExp.isOneOff ? 'var(--accent)' : 'var(--border-strong)',
+                      transition: '0.2s', borderRadius: 24,
+                    }}>
+                      <span style={{
+                        position: 'absolute', content: '""', height: 18, width: 18, left: editingExp.isOneOff ? 23 : 3, bottom: 3,
+                        backgroundColor: '#fff', transition: '0.2s', borderRadius: '50%',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                      }} />
+                    </span>
+                  </label>
+                </div>
+
+                {editingExp.isOneOff && (
+                  <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Anomaly Type (For AI Normalization)
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+                      {ONE_OFF_TYPES.map(t => {
+                        const isSelected = editingExp.oneOffType === t.type;
+                        return (
+                          <button
+                            key={t.type}
+                            type="button"
+                            onClick={() => setEditingExp({ ...editingExp, oneOffType: t.type })}
+                            style={{
+                              padding: '6px 12px',
+                              borderRadius: 9999,
+                              fontSize: 12,
+                              fontWeight: 700,
+                              background: isSelected ? 'var(--accent)' : 'var(--bg-elevated)',
+                              color: isSelected ? '#fff' : 'var(--text-secondary)',
+                              border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 5,
+                              transition: 'all 0.15s ease',
+                            }}
+                          >
+                            <span>{t.icon}</span>
+                            <span>{t.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Context note for AI (e.g. 365-day annual recharge)"
+                      value={editingExp.aiNote || ''}
+                      onChange={e => setEditingExp({ ...editingExp, aiNote: e.target.value })}
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        borderRadius: 10,
+                        background: 'var(--bg-card)',
+                        border: '1px solid var(--border)',
+                        color: 'var(--text-primary)',
+                        fontSize: 12.5,
+                        outline: 'none',
+                        fontFamily: "'DM Sans', sans-serif",
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+
               <div>
                 <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>Payment Method</label>
                 <PaymentMethodSelector 

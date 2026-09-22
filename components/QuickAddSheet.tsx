@@ -8,8 +8,9 @@ import { Sparkles, X, Mic, MicOff, ChevronRight, Zap } from 'lucide-react';
 import { TagSelector } from './TagSelector';
 import { QuickTemplates } from './QuickTemplates';
 import { PaymentMethodSelector } from './PaymentMethodSelector';
-import { PaymentMethod, PaymentMethodValue } from '@/lib/types';
+import { PaymentMethod, PaymentMethodValue, OneOffType } from '@/lib/types';
 import { QuickTemplate } from '@/lib/types';
+import { ONE_OFF_TYPES } from '@/lib/onDeviceAi';
 import { successBuzz, errorShake, warningPulse } from '@/lib/haptics';
 
 export default function QuickAddSheet() {
@@ -23,7 +24,27 @@ export default function QuickAddSheet() {
   const [voiceSuggestion, setVoiceSuggestion] = useState<{ transcript: string; amount: string; categoryId: string; note: string; } | null>(null);
 
   const today = new Date().toISOString().split('T')[0];
-  const [form, setForm] = useState<{ date: string, categoryId: string, amount: string, note: string, tags: string[], paymentMethod: PaymentMethodValue }>({ date: today, categoryId: '', amount: '', note: '', tags: [], paymentMethod: 'upi' });
+  const [form, setForm] = useState<{
+    date: string;
+    categoryId: string;
+    amount: string;
+    note: string;
+    tags: string[];
+    paymentMethod: PaymentMethodValue;
+    isOneOff: boolean;
+    oneOffType: OneOffType | '';
+    aiNote: string;
+  }>({
+    date: today,
+    categoryId: '',
+    amount: '',
+    note: '',
+    tags: [],
+    paymentMethod: 'upi',
+    isOneOff: false,
+    oneOffType: '',
+    aiNote: '',
+  });
   const [splitWays, setSplitWays] = useState<number>(1);
   const [categoryTotals, setCategoryTotals] = useState<{_id: string; total: number}[]>([]);
   const [recentTags, setRecentTags] = useState<string[]>([]);
@@ -140,7 +161,17 @@ export default function QuickAddSheet() {
         body: JSON.stringify({ ...form, amount: finalAmount, note: finalNote }),
       });
       successBuzz();
-      setForm({ date: today, categoryId: settings?.categories[0]?.id ?? '', amount: '', note: '', tags: [], paymentMethod: 'upi' });
+      setForm({
+        date: today,
+        categoryId: settings?.categories[0]?.id ?? '',
+        amount: '',
+        note: '',
+        tags: [],
+        paymentMethod: 'upi',
+        isOneOff: false,
+        oneOffType: '',
+        aiNote: '',
+      });
       setSplitWays(1);
       setIsOpen(false);
       router.refresh();
@@ -170,7 +201,17 @@ export default function QuickAddSheet() {
            note: finalNote
         }),
       });
-      setForm({ date: today, categoryId: settings?.categories[0]?.id ?? '', amount: '', note: '', tags: [], paymentMethod: 'upi' });
+      setForm({
+        date: today,
+        categoryId: settings?.categories[0]?.id ?? '',
+        amount: '',
+        note: '',
+        tags: [],
+        paymentMethod: 'upi',
+        isOneOff: false,
+        oneOffType: '',
+        aiNote: '',
+      });
       setSplitWays(1);
       setVoiceSuggestion(null);
       setIsOpen(false);
@@ -576,6 +617,99 @@ export default function QuickAddSheet() {
                   onFocus={e => { (e.target as HTMLInputElement).style.borderColor = 'var(--accent)'; }}
                   onBlur={e => { (e.target as HTMLInputElement).style.borderColor = 'var(--border)'; }}
                 />
+              </div>
+
+              {/* ⚡ One-Off / Annual Anomaly AI Context Toggle */}
+              <div style={{
+                marginBottom: 14,
+                padding: '12px 14px',
+                borderRadius: 16,
+                background: form.isOneOff ? 'var(--accent-dim)' : 'var(--bg-elevated)',
+                border: `1.5px solid ${form.isOneOff ? 'var(--accent)' : 'var(--border)'}`,
+                transition: 'all 0.2s ease',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 16 }}>⚡</span>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>One-Off / Annual Anomaly</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Excludes from recurring budget calculations</div>
+                    </div>
+                  </div>
+                  <label style={{ position: 'relative', display: 'inline-block', width: 44, height: 24, cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={form.isOneOff}
+                      onChange={e => setForm(f => ({ ...f, isOneOff: e.target.checked, oneOffType: e.target.checked ? (f.oneOffType || 'annual') : '' }))}
+                      style={{ opacity: 0, width: 0, height: 0 }}
+                    />
+                    <span style={{
+                      position: 'absolute', cursor: 'pointer', inset: 0,
+                      backgroundColor: form.isOneOff ? 'var(--accent)' : 'var(--border-strong)',
+                      transition: '0.2s', borderRadius: 24,
+                    }}>
+                      <span style={{
+                        position: 'absolute', content: '""', height: 18, width: 18, left: form.isOneOff ? 23 : 3, bottom: 3,
+                        backgroundColor: '#fff', transition: '0.2s', borderRadius: '50%',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                      }} />
+                    </span>
+                  </label>
+                </div>
+
+                {form.isOneOff && (
+                  <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Anomaly Type (For AI Normalization)
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+                      {ONE_OFF_TYPES.map(t => {
+                        const isSelected = form.oneOffType === t.type;
+                        return (
+                          <button
+                            key={t.type}
+                            type="button"
+                            onClick={() => setForm(f => ({ ...f, oneOffType: t.type }))}
+                            style={{
+                              padding: '6px 12px',
+                              borderRadius: 9999,
+                              fontSize: 12,
+                              fontWeight: 700,
+                              background: isSelected ? 'var(--accent)' : 'var(--bg-card)',
+                              color: isSelected ? '#fff' : 'var(--text-secondary)',
+                              border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 5,
+                              transition: 'all 0.15s ease',
+                            }}
+                          >
+                            <span>{t.icon}</span>
+                            <span>{t.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Context note for AI (e.g. 365-day annual recharge)"
+                      value={form.aiNote}
+                      onChange={e => setForm(f => ({ ...f, aiNote: e.target.value }))}
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        borderRadius: 10,
+                        background: 'var(--bg-card)',
+                        border: '1px solid var(--border)',
+                        color: 'var(--text-primary)',
+                        fontSize: 12.5,
+                        outline: 'none',
+                        fontFamily: "'DM Sans', sans-serif",
+                      }}
+                    />
+                  </div>
+                )}
               </div>
 
               <div style={{ marginBottom: 12 }}>

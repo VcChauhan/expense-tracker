@@ -69,7 +69,7 @@ export async function POST(request: Request) {
   try {
     await dbConnect();
     const body = await request.json();
-    const { date, categoryId, amount, note, tags, paymentMethod } = body;
+    const { date, categoryId, amount, note, tags, paymentMethod, isOneOff, oneOffType, aiNote } = body;
 
     let cleanPaymentMethod = paymentMethod || 'upi';
     if (cleanPaymentMethod.startsWith('credit_card:')) {
@@ -87,7 +87,10 @@ export async function POST(request: Request) {
       amount: parsedAmount, 
       note: note ?? '', 
       tags: tags ?? [],
-      paymentMethod: cleanPaymentMethod
+      paymentMethod: cleanPaymentMethod,
+      isOneOff: Boolean(isOneOff),
+      oneOffType: oneOffType || '',
+      aiNote: aiNote ?? '',
     });
 
     // Check category budget threshold for push alert asynchronously

@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Settings, Expense } from '@/lib/types';
+import { useState, useEffect, useMemo } from 'react';
+import { Settings, Expense, MONTHS } from '@/lib/types';
 import { BrainCircuit } from 'lucide-react';
 import FullAiInsights from '@/components/FullAiInsights';
 import { AiCoachCard } from '@/components/AiCoachCard';
+import { AiBudgetAnomalyCard } from '@/components/AiBudgetAnomalyCard';
 
 export default function InsightsPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -26,6 +27,11 @@ export default function InsightsPage() {
     }).catch(console.error);
   }, []);
 
+  const currentMonthExpenses = useMemo(() => {
+    const ym = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
+    return expenses.filter(e => e.date && e.date.startsWith(ym));
+  }, [expenses, currentMonth, currentYear]);
+
   if (loading) return <div className="page-container"><div className="loading-overlay"><div className="spinner" /></div></div>;
 
   return (
@@ -40,8 +46,18 @@ export default function InsightsPage() {
         <p className="page-subtitle" style={{ marginTop: 8 }}>Your personalized, 100% on-device AI financial report.</p>
       </div>
 
+      <AiBudgetAnomalyCard
+        expenses={currentMonthExpenses}
+        categories={settings?.categories || []}
+        selectedMonth={now.getMonth()}
+        selectedYear={currentYear}
+        monthName={MONTHS[now.getMonth()]}
+        settings={settings}
+        onSettingsUpdate={s => setSettings(s)}
+      />
+
       <AiCoachCard
-        salary={settings?.monthlyIncome || 0}
+        salary={settings?.monthlySalary || 0}
         expenses={expenses}
         categories={settings?.categories || []}
         savingsGoals={settings?.savingsGoals || []}

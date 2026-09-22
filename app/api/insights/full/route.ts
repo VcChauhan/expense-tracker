@@ -5,6 +5,7 @@ import Settings from '@/lib/models/Settings';
 import { generateLocalFullReport } from '@/lib/localInsights';
 
 export async function GET(req: Request) {
+  const headers = new Headers();
   try {
     const { searchParams } = new URL(req.url);
     const scope = searchParams.get('scope') || 'monthly'; // 'monthly' | 'annual'
@@ -21,7 +22,6 @@ export async function GET(req: Request) {
     const year = parseInt(yStr);
     const month = mStr ? parseInt(mStr) : new Date().getMonth() + 1;
     
-    const headers = new Headers();
     if (scope === 'annual') {
       headers.set('Cache-Control', 'private, max-age=86400');
     } else {

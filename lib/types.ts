@@ -89,6 +89,11 @@ export interface CreditCard {
   color: string;
 }
 
+export interface MonthNote {
+  month: string; // YYYY-MM
+  note: string;
+}
+
 export interface Settings {
   _id?: string;
   annualSalary: number;
@@ -109,6 +114,7 @@ export interface Settings {
   recurringExpenses?: RecurringExpense[];
   netWorthEntries?: NetWorthEntry[];
   creditCards?: CreditCard[];
+  monthNotes?: MonthNote[];
   expenseViewLayout?: 'list' | 'timeline' | 'calendar';
   updatedAt?: string;
 }
@@ -116,6 +122,8 @@ export interface Settings {
 export type PaymentMethod = 'upi' | 'credit_card' | 'debit_card' | 'netbanking' | 'cash' | 'other';
 /** A payment method value as actually stored — allows "credit_card:XX1234" to reference a specific saved card. */
 export type PaymentMethodValue = PaymentMethod | `credit_card:${string}`;
+
+export type OneOffType = 'annual' | 'festival' | 'travel' | 'medical' | 'emergency' | 'other';
 
 export interface Expense {
   _id: string;
@@ -125,6 +133,9 @@ export interface Expense {
   note: string;
   tags: string[];
   paymentMethod?: PaymentMethodValue;
+  isOneOff?: boolean;
+  oneOffType?: OneOffType | '';
+  aiNote?: string;
   createdAt: string;
 }
 

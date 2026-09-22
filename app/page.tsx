@@ -14,6 +14,7 @@ import { TimeTravelSlider } from '@/components/TimeTravelSlider';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { FocusWheel } from '@/components/FocusWheel';
 import { MonthlyRecapCard } from '@/components/MonthlyRecapCard';
+import { AiBudgetAnomalyCard } from '@/components/AiBudgetAnomalyCard';
 import { AffordabilityChecker } from '@/components/AffordabilityChecker';
 import { RebalanceModal } from '@/components/RebalanceModal';
 import { SubscriptionAudit } from '@/components/SubscriptionAudit';
@@ -204,6 +205,12 @@ export default function DashboardPage() {
     }),
   [monthTotals]);
 
+  // Expenses for the selected month (for On-Device Anomaly Analysis)
+  const selectedMonthExpenses = useMemo(() => {
+    const ym = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
+    return allExpenses.filter(e => e.date && e.date.startsWith(ym));
+  }, [allExpenses, selectedMonth, selectedYear]);
+
   function navigateMonth(dir: number) {
     let m = selectedMonth + dir, y = selectedYear;
     if (m < 0)  { m = 11; y--; }
@@ -384,6 +391,19 @@ export default function DashboardPage() {
           <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', margin: '4px 2px 10px' }}>
             {isAnnual ? `${selectedYear} Overview` : 'This Month'}
           </div>
+
+          {/* ── On-Device AI Budget Normalization & Anomaly Card ── */}
+          {!isAnnual && (
+            <AiBudgetAnomalyCard
+              expenses={selectedMonthExpenses}
+              categories={settings?.categories ?? []}
+              selectedMonth={selectedMonth}
+              selectedYear={selectedYear}
+              monthName={MONTHS[selectedMonth]}
+              settings={settings}
+              onSettingsUpdate={s => setSettings(s)}
+            />
+          )}
 
           {/* ── Monthly Recap Card ── */}
           {!isAnnual && monthlySalary > 0 && (

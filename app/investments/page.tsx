@@ -824,7 +824,7 @@ export default function InvestmentsPage() {
       setSelectedSipHoldingKey('custom');
       setNewSipName('Monthly SIP');
     }
-    setNewSipAmount(investmentCategory?.budget ? String(investmentCategory.budget) : '25000');
+    setNewSipAmount(investmentCategory?.monthlyBudget ? String(investmentCategory.monthlyBudget) : '25000');
     setShowAddSipModal(true);
   };
 

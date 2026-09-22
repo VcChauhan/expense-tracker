@@ -364,7 +364,7 @@ export default function ReportsPage() {
         <>
           <div style={{ padding: '0 16px' }}>
             <PredictiveCashflowCard
-              salary={settings?.monthlyIncome || 0}
+              salary={settings?.monthlySalary || 0}
               expenses={expenses}
               categories={settings?.categories || []}
             />

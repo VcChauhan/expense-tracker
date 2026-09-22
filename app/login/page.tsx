@@ -246,7 +246,7 @@ function LoginForm() {
             type="submit"
             disabled={loading || !canSubmit}
             style={{
-              width: '100%', justifyContent: 'center',
+              width: '100%',
               marginTop: 4, padding: '15px 0',
               fontSize: 15, fontWeight: 800,
               background: canSubmit ? 'var(--accent-grad)' : 'var(--bg-elevated)',

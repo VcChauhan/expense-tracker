@@ -57,6 +57,11 @@ export interface ICreditCard {
   color: string;
 }
 
+export interface IMonthNote {
+  month: string;
+  note: string;
+}
+
 export interface ISettings extends Document {
   annualSalary: number;
   monthlySalary: number;       // computed in-hand monthly
@@ -78,9 +83,15 @@ export interface ISettings extends Document {
   recurringExpenses?: IRecurringExpense[];
   netWorthEntries?: INetWorthEntry[];
   creditCards?: ICreditCard[];
+  monthNotes?: IMonthNote[];
   expenseViewLayout?: 'list' | 'timeline' | 'calendar';
   updatedAt: Date;
 }
+
+const MonthNoteSchema = new Schema<IMonthNote>({
+  month: { type: String, required: true },
+  note: { type: String, required: true },
+});
 
 const CategorySchema = new Schema<ICategory>({
   id: { type: String, required: true },
@@ -159,6 +170,7 @@ const SettingsSchema = new Schema<ISettings>(
     recurringExpenses: { type: [RecurringExpenseSchema], default: [] },
     netWorthEntries:  { type: [NetWorthEntrySchema], default: [] },
     creditCards:      { type: [CreditCardSchema], default: [] },
+    monthNotes:       { type: [MonthNoteSchema], default: [] },
     expenseViewLayout: { type: String, enum: ['list', 'timeline', 'calendar'], default: 'list' },
   },
   { timestamps: true }

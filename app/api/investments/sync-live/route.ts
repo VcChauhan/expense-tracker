@@ -157,7 +157,7 @@ export async function POST() {
     const processedHoldings = new Set<string>();
 
     for (const snap of snapshots) {
-      const holdingName = snap.holdingName?.trim();
+      const holdingName = snap.holdingName?.trim() || '';
       const isStock = snap.portfolioType === 'stocks';
       const isGold = snap.portfolioType === 'gold';
 

@@ -35,6 +35,7 @@ export async function POST(req: Request) {
 
     const suggestedCategory = data.suggestedCategory || 'general';
     const suggestedLabel = data.suggestedLabel || (data.smsBody ? 'UPI Payment' : 'On-Device Expense');
+    const suggestedTags = Array.isArray(data.suggestedTags) ? data.suggestedTags : [];
     let suggestedPaymentMethod = data.suggestedPaymentMethod || 'upi';
     if (suggestedPaymentMethod.startsWith('credit_card:')) {
       suggestedPaymentMethod = suggestedPaymentMethod.replace(/^credit_card:xx/i, 'credit_card:');

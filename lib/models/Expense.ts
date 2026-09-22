@@ -8,6 +8,9 @@ export interface IExpense extends Document {
   note: string;
   tags: string[];
   paymentMethod: string;
+  isOneOff?: boolean;
+  oneOffType?: 'annual' | 'festival' | 'travel' | 'medical' | 'emergency' | 'other' | '';
+  aiNote?: string;
   createdAt: Date;
 }
 
@@ -20,6 +23,9 @@ const ExpenseSchema = new Schema<IExpense>(
     note: { type: String, default: '' },
     tags: { type: [String], default: [] },
     paymentMethod: { type: String, default: 'upi' },
+    isOneOff: { type: Boolean, default: false },
+    oneOffType: { type: String, default: '' },
+    aiNote: { type: String, default: '' },
   },
   { timestamps: true }
 );
