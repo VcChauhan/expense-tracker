@@ -2706,137 +2706,182 @@ export default function InvestmentsPage() {
         </div>
       )}
 
-      {/* ── Add SIP Modal ── */}
+      {/* ── Add SIP Modal (Ultra-Premium Fintech Design) ── */}
       {showAddSipModal && (
         <div
           style={{
             position: 'fixed', inset: 0, zIndex: 1100,
-            background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+            background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
           }}
           onClick={() => !isSavingSip && setShowAddSipModal(false)}
         >
           <div
             style={{
-              background: 'var(--bg-card)', border: '1px solid var(--border)',
-              borderRadius: 20, padding: 22, width: '100%', maxWidth: 380,
-              boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
-              display: 'flex', flexDirection: 'column', gap: 14,
+              background: 'linear-gradient(160deg, #111827 0%, #0d131f 100%)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: 24, padding: '24px 20px', width: '100%', maxWidth: 430,
+              maxHeight: '92vh', overflowY: 'auto',
+              boxShadow: '0 24px 64px rgba(0,0,0,0.7)',
+              display: 'flex', flexDirection: 'column', gap: 16,
+              color: 'var(--text-primary)',
             }}
             onClick={(e) => e.stopPropagation()}
           >
+            {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{
-                  width: 36, height: 36, borderRadius: 10,
-                  background: 'rgba(139,92,246,0.15)', color: '#8B5CF6',
+                  width: 40, height: 40, borderRadius: 12,
+                  background: 'rgba(139,92,246,0.18)', color: '#A78BFA',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: '0 0 16px rgba(139,92,246,0.25)',
                 }}>
-                  <Repeat size={18} />
+                  <Repeat size={20} />
                 </div>
                 <div>
-                  <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
-                    Add Monthly SIP
+                  <h3 style={{ fontSize: 18, fontWeight: 800, margin: 0, letterSpacing: '-0.3px', color: '#fff' }}>
+                    Set Up Monthly SIP
                   </h3>
-                  <p style={{ fontSize: 11.5, color: 'var(--text-muted)', margin: 0 }}>
-                    Auto-tracked in Investment category
+                  <p style={{ fontSize: 11.5, color: 'var(--text-muted)', margin: '2px 0 0' }}>
+                    Auto-increments holding value when logged
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setShowAddSipModal(false)}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }}
+                style={{
+                  background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: 10, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: 'var(--text-secondary)', cursor: 'pointer',
+                }}
               >
-                <X size={18} />
+                <X size={16} />
               </button>
             </div>
 
-            <form onSubmit={handleCreateSip} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {/* Dropdown to pick from tracked Mutual Funds, Stocks, or Gold */}
+            <form onSubmit={handleCreateSip} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              
+              {/* Asset Selector */}
               <div>
-                <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 5 }}>
-                  LINK TO INVESTED ASSET (MUTUAL FUND / STOCK / GOLD)
+                <label style={{ fontSize: 11, fontWeight: 800, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.6px', display: 'block', marginBottom: 6 }}>
+                  Select Linked Investment Asset
                 </label>
-                <select
-                  value={selectedSipHoldingKey}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setSelectedSipHoldingKey(val);
-                    if (val === 'custom') {
-                      setNewSipName('');
-                    } else {
-                      const found = distinctHoldings.find((h) => (h._id || h.holdingName) === val);
-                      if (found) {
-                        setNewSipName(`${found.holdingName} SIP`);
-                      }
-                    }
-                  }}
-                  style={{
-                    width: '100%', padding: '10px 12px', borderRadius: 10,
-                    background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-                    color: 'var(--text-primary)', fontSize: 13.5, fontWeight: 700, outline: 'none',
-                    boxSizing: 'border-box', cursor: 'pointer',
-                  }}
-                >
-                  <option value="" disabled>-- Select a Mutual Fund, Stock, or Gold --</option>
-                  {mfHoldings.length > 0 && (
-                    <optgroup label="📊 Mutual Funds">
-                      {mfHoldings.map((h) => (
-                        <option key={h._id || h.holdingName} value={h._id || h.holdingName}>
-                          {h.holdingName} ({formatINR(h.currentValue || h.totalInvested)})
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                  {stockHoldings.length > 0 && (
-                    <optgroup label="📈 Stocks &amp; Equity">
-                      {stockHoldings.map((h) => (
-                        <option key={h._id || h.holdingName} value={h._id || h.holdingName}>
-                          {h.holdingName} ({formatINR(h.currentValue || h.totalInvested)})
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                  {goldHoldings.length > 0 && (
-                    <optgroup label="🪙 Gold">
-                      {goldHoldings.map((h) => (
-                        <option key={h._id || h.holdingName} value={h._id || h.holdingName}>
-                          {h.holdingName} ({formatINR(h.currentValue || h.totalInvested)})
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                  <option value="custom">✍️ Custom Name (Other / New SIP)</option>
-                </select>
+                
+                {/* Scrollable interactive asset cards */}
+                <div style={{
+                  display: 'flex', flexDirection: 'column', gap: 6,
+                  maxHeight: 145, overflowY: 'auto', paddingRight: 4,
+                }}>
+                  {distinctHoldings.map((h) => {
+                    const key = h._id || h.holdingName;
+                    const isSelected = selectedSipHoldingKey === key;
+                    const typeCfg = PORTFOLIO_TYPES.find((t) => t.value === h.portfolioType) || PORTFOLIO_TYPES[0];
+                    return (
+                      <div
+                        key={key}
+                        onClick={() => {
+                          setSelectedSipHoldingKey(key);
+                          setNewSipName(`${h.holdingName} SIP`);
+                          lightTap();
+                        }}
+                        style={{
+                          padding: '9px 12px', borderRadius: 12, cursor: 'pointer',
+                          background: isSelected ? 'rgba(139,92,246,0.18)' : 'rgba(255,255,255,0.04)',
+                          border: `1.5px solid ${isSelected ? '#8B5CF6' : 'rgba(255,255,255,0.06)'}`,
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                          <span style={{ fontSize: 14 }}>{typeCfg.icon}</span>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{
+                              fontSize: 12.5, fontWeight: isSelected ? 800 : 600,
+                              color: isSelected ? '#fff' : 'var(--text-secondary)',
+                              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                            }}>
+                              {h.holdingName}
+                            </div>
+                            <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                              {typeCfg.label} · {formatINR(h.currentValue || h.totalInvested)}
+                            </div>
+                          </div>
+                        </div>
+                        {isSelected && (
+                          <div style={{ width: 18, height: 18, borderRadius: '50%', background: '#8B5CF6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <Check size={11} color="#fff" />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {/* Custom Option */}
+                  <div
+                    onClick={() => {
+                      setSelectedSipHoldingKey('custom');
+                      setNewSipName('Monthly SIP');
+                      lightTap();
+                    }}
+                    style={{
+                      padding: '9px 12px', borderRadius: 12, cursor: 'pointer',
+                      background: selectedSipHoldingKey === 'custom' ? 'rgba(139,92,246,0.18)' : 'rgba(255,255,255,0.04)',
+                      border: `1.5px solid ${selectedSipHoldingKey === 'custom' ? '#8B5CF6' : 'rgba(255,255,255,0.06)'}`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 14 }}>✍️</span>
+                      <div>
+                        <div style={{ fontSize: 12.5, fontWeight: 700, color: selectedSipHoldingKey === 'custom' ? '#fff' : 'var(--text-secondary)' }}>
+                          Custom / Other Scheme
+                        </div>
+                        <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                          Specify a custom fund or recurring investment
+                        </div>
+                      </div>
+                    </div>
+                    {selectedSipHoldingKey === 'custom' && (
+                      <div style={{ width: 18, height: 18, borderRadius: '50%', background: '#8B5CF6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <Check size={11} color="#fff" />
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
 
+              {/* SIP Name Input (Compact) */}
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
-                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)' }}>
-                    SIP / SCHEME NAME
-                  </label>
-                  <span style={{ fontSize: 10, color: 'var(--accent-2)', fontWeight: 600 }}>Editable</span>
-                </div>
+                <label style={{ fontSize: 11, fontWeight: 800, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.6px', display: 'block', marginBottom: 5 }}>
+                  SIP Label / Name
+                </label>
                 <input
                   type="text"
                   value={newSipName}
                   onChange={(e) => setNewSipName(e.target.value)}
-                  placeholder="e.g. SBI ELSS SIP or Monthly SIP"
+                  placeholder="e.g. Parag Parikh Flexi Cap SIP"
                   required
                   style={{
-                    width: '100%', padding: '10px 12px', borderRadius: 10,
-                    background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-                    color: 'var(--text-primary)', fontSize: 13.5, fontWeight: 600, outline: 'none',
+                    width: '100%', padding: '10px 14px', borderRadius: 12,
+                    background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)',
+                    color: '#fff', fontSize: 13, fontWeight: 700, outline: 'none',
                     boxSizing: 'border-box',
                   }}
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 10 }}>
-                <div>
-                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 5 }}>
-                    MONTHLY AMOUNT (₹)
-                  </label>
+              {/* Monthly Amount with Hero Input & Quick Presets */}
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 800, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.6px', display: 'block', marginBottom: 6 }}>
+                  Monthly SIP Amount
+                </label>
+                <div style={{
+                  display: 'flex', alignItems: 'center',
+                  background: 'rgba(0,0,0,0.35)', border: '1.5px solid rgba(139,92,246,0.4)',
+                  borderRadius: 14, padding: '4px 14px',
+                }}>
+                  <span style={{ fontSize: 20, fontWeight: 900, color: '#A78BFA', marginRight: 8 }}>₹</span>
                   <input
                     type="number"
                     step="any"
@@ -2845,81 +2890,114 @@ export default function InvestmentsPage() {
                     placeholder="25000"
                     required
                     style={{
-                      width: '100%', padding: '10px 12px', borderRadius: 10,
-                      background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-                      color: 'var(--text-primary)', fontSize: 14, fontWeight: 700, outline: 'none',
-                      boxSizing: 'border-box',
+                      width: '100%', padding: '8px 0', background: 'transparent',
+                      border: 'none', color: '#fff', fontSize: 22, fontWeight: 900,
+                      outline: 'none', letterSpacing: '-0.5px',
                     }}
                   />
                 </div>
-                <div>
-                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 5 }}>
-                    DEDUCT DAY (1-31)
-                  </label>
+
+                {/* Quick Amount Chips */}
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                  {[2500, 5000, 10000, 25000, 50000].map((amt) => {
+                    const active = Number(newSipAmount) === amt;
+                    return (
+                      <button
+                        key={amt}
+                        type="button"
+                        onClick={() => { setNewSipAmount(String(amt)); lightTap(); }}
+                        style={{
+                          padding: '5px 10px', borderRadius: 8, fontSize: 11, fontWeight: 700,
+                          cursor: 'pointer',
+                          background: active ? '#8B5CF6' : 'rgba(255,255,255,0.06)',
+                          color: active ? '#fff' : 'var(--text-secondary)',
+                          border: `1px solid ${active ? '#8B5CF6' : 'rgba(255,255,255,0.08)'}`,
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        ₹{amt >= 1000 ? `${amt / 1000}k` : amt}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Day of Month Selector */}
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 800, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.6px', display: 'block', marginBottom: 6 }}>
+                  Debit Day of Month
+                </label>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 6 }}>
+                  {[1, 3, 5, 10, 15, 20, 28].map((day) => {
+                    const active = parseInt(newSipDay, 10) === day;
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        onClick={() => { setNewSipDay(String(day)); lightTap(); }}
+                        style={{
+                          flex: 1, minWidth: 42, padding: '7px 0', borderRadius: 10,
+                          fontSize: 11.5, fontWeight: 800, cursor: 'pointer', textAlign: 'center',
+                          background: active ? 'rgba(16,185,129,0.2)' : 'rgba(255,255,255,0.05)',
+                          color: active ? '#34D399' : 'var(--text-secondary)',
+                          border: `1.5px solid ${active ? '#10B981' : 'rgba(255,255,255,0.08)'}`,
+                        }}
+                      >
+                        {day}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Custom Day:</span>
                   <input
                     type="number"
                     min="1"
                     max="31"
                     value={newSipDay}
                     onChange={(e) => setNewSipDay(e.target.value)}
-                    placeholder="3"
-                    required
                     style={{
-                      width: '100%', padding: '10px 12px', borderRadius: 10,
-                      background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-                      color: 'var(--text-primary)', fontSize: 14, fontWeight: 700, outline: 'none',
-                      boxSizing: 'border-box',
+                      width: 54, padding: '4px 8px', borderRadius: 8,
+                      background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)',
+                      color: '#fff', fontSize: 12, fontWeight: 800, textAlign: 'center', outline: 'none',
                     }}
                   />
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>of every month</span>
                 </div>
               </div>
 
-              {/* Quick tap chips for all tracked holdings */}
-              {distinctHoldings.length > 0 && (
-                <div>
-                  <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginBottom: 5 }}>
-                    Or tap to select:
+              {/* Dynamic Compounding Micro-Preview (Fintech Delight) */}
+              {(() => {
+                const amt = parseFloat(newSipAmount) || 0;
+                if (amt <= 0) return null;
+                // 5-year compounding estimate at 13% CAGR
+                const r = 0.13 / 12;
+                const fv = Math.round(amt * ((Math.pow(1 + r, 60) - 1) / r) * (1 + r));
+                const totalInv = amt * 60;
+                const gains = fv - totalInv;
+                return (
+                  <div style={{
+                    padding: '10px 14px', borderRadius: 14,
+                    background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.22)',
+                    display: 'flex', alignItems: 'center', gap: 10,
+                  }}>
+                    <span style={{ fontSize: 18 }}>⚡</span>
+                    <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.85)', lineHeight: 1.35 }}>
+                      At 13% CAGR, this SIP will compound to <strong style={{ color: '#34D399' }}>{formatINR(fv)}</strong> in 5 years (<strong style={{ color: '#fff' }}>{formatINR(totalInv)}</strong> invested + <strong style={{ color: '#34D399' }}>+{formatINR(gains)}</strong> gains).
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 110, overflowY: 'auto', paddingBottom: 2 }}>
-                    {distinctHoldings.map((h) => {
-                      const isSelected = selectedSipHoldingKey === (h._id || h.holdingName);
-                      const icon = h.portfolioType === 'gold' ? '🪙' : h.portfolioType === 'stocks' ? '📈' : '📊';
-                      return (
-                        <button
-                          key={h.holdingName || h._id}
-                          type="button"
-                          onClick={() => {
-                            const key = h._id || h.holdingName;
-                            setSelectedSipHoldingKey(key);
-                            setNewSipName(`${h.holdingName} SIP`);
-                          }}
-                          style={{
-                            padding: '5px 9px', borderRadius: 8, fontSize: 11,
-                            fontWeight: isSelected ? 700 : 500,
-                            background: isSelected ? 'var(--accent)' : 'var(--bg-elevated)',
-                            color: isSelected ? '#fff' : 'var(--text-secondary)',
-                            border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
-                            cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4,
-                            transition: 'all 0.15s ease',
-                          }}
-                        >
-                          <span>{icon}</span>
-                          <span>{h.holdingName}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+                );
+              })()}
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.3fr', gap: 10, marginTop: 6 }}>
+              {/* Actions Footer */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: 10, marginTop: 4 }}>
                 <button
                   type="button"
                   onClick={() => setShowAddSipModal(false)}
                   disabled={isSavingSip}
                   style={{
-                    padding: '11px', borderRadius: 12, border: '1px solid var(--border)',
-                    background: 'var(--bg-elevated)', color: 'var(--text-primary)',
+                    padding: '12px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.1)',
+                    background: 'rgba(255,255,255,0.06)', color: 'var(--text-secondary)',
                     fontWeight: 700, fontSize: 13.5, cursor: 'pointer',
                   }}
                 >
@@ -2929,11 +3007,11 @@ export default function InvestmentsPage() {
                   type="submit"
                   disabled={isSavingSip || !newSipName.trim() || !newSipAmount}
                   style={{
-                    padding: '11px', borderRadius: 12, border: 'none',
+                    padding: '12px', borderRadius: 14, border: 'none',
                     background: 'var(--accent-grad)', color: '#fff',
                     fontWeight: 800, fontSize: 13.5, cursor: isSavingSip ? 'not-allowed' : 'pointer',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                    boxShadow: '0 4px 15px rgba(124,92,252,0.3)',
+                    boxShadow: '0 6px 20px rgba(124,92,252,0.4)',
                   }}
                 >
                   {isSavingSip ? (
@@ -2943,12 +3021,13 @@ export default function InvestmentsPage() {
                     </>
                   ) : (
                     <>
-                      <Check size={15} />
-                      <span>Save SIP</span>
+                      <Check size={16} />
+                      <span>Confirm SIP</span>
                     </>
                   )}
                 </button>
               </div>
+
             </form>
           </div>
         </div>
