@@ -7,7 +7,7 @@ import {
   TrendingUp, Camera, Trash2, ArrowLeft, Check,
   RefreshCw, AlertCircle, ArrowUpRight, ArrowDownRight,
   X, Cpu, Layers, Tag, Globe, Sparkles, Pencil,
-  Repeat, Plus, Calendar, CheckCircle2
+  Repeat, Plus, Calendar, CheckCircle2, Eye, EyeOff
 } from 'lucide-react';
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid
@@ -139,6 +139,27 @@ export default function InvestmentsPage() {
   const [isSavingManual, setIsSavingManual] = useState(false);
   const [liveGoldRate, setLiveGoldRate] = useState<{ ratePerGram: number; goldBeesPrice: number; prevClose: number } | null>(null);
   const [isLoadingLiveGold, setIsLoadingLiveGold] = useState(false);
+
+  // ── UI Masking / Privacy state (like Groww) ──
+  const [isMasked, setIsMasked] = useState(false);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('expenseiq_invest_masked');
+      if (stored === 'true') setIsMasked(true);
+    } catch (_) {}
+  }, []);
+
+  const toggleMask = () => {
+    setIsMasked((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('expenseiq_invest_masked', String(next));
+      } catch (_) {}
+      lightTap();
+      return next;
+    });
+  };
 
   const fetchLiveGold = async () => {
     setIsLoadingLiveGold(true);
@@ -880,6 +901,23 @@ export default function InvestmentsPage() {
             <span>+ Add</span>
           </button>
 
+          {/* Mask / Privacy Toggle Button (like Groww) */}
+          <button
+            onClick={toggleMask}
+            title={isMasked ? "Show amounts" : "Hide / Mask amounts"}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+              background: isMasked ? 'rgba(139,92,246,0.18)' : 'var(--bg-elevated)',
+              color: isMasked ? 'var(--accent-2)' : 'var(--text-secondary)',
+              border: `1px solid ${isMasked ? 'var(--accent)' : 'var(--border)'}`,
+              padding: '8px 11px', borderRadius: 12, fontWeight: 700, fontSize: 12.5,
+              cursor: 'pointer', transition: 'all 0.18s ease',
+            }}
+          >
+            {isMasked ? <EyeOff size={15} /> : <Eye size={15} />}
+            <span style={{ display: 'none', minWidth: 32 }}>{isMasked ? 'Show' : 'Hide'}</span>
+          </button>
+
           {/* Live Sync Button */}
           <button
             onClick={handleSyncLive}
@@ -960,13 +998,30 @@ export default function InvestmentsPage() {
               </div>
               <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Portfolio Value</span>
             </div>
-            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-2)', background: 'var(--accent-dim)', padding: '3px 8px', borderRadius: 8 }}>
-              {distinctHoldings.length} holding{distinctHoldings.length !== 1 ? 's' : ''}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button
+                onClick={toggleMask}
+                title={isMasked ? "Show amounts" : "Hide amounts"}
+                style={{
+                  background: isMasked ? 'rgba(139,92,246,0.2)' : 'rgba(255,255,255,0.06)',
+                  border: '1px solid var(--border)',
+                  color: isMasked ? 'var(--accent-2)' : 'var(--text-muted)',
+                  padding: '3px 8px', borderRadius: 8,
+                  display: 'flex', alignItems: 'center', gap: 4,
+                  fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                }}
+              >
+                {isMasked ? <EyeOff size={12} /> : <Eye size={12} />}
+                <span>{isMasked ? 'Hidden' : 'Hide'}</span>
+              </button>
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-2)', background: 'var(--accent-dim)', padding: '3px 8px', borderRadius: 8 }}>
+                {distinctHoldings.length} holding{distinctHoldings.length !== 1 ? 's' : ''}
+              </span>
+            </div>
           </div>
 
           <div style={{ fontSize: 32, fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.8px' }}>
-            {formatINR(totalCurrentValue)}
+            {isMasked ? '₹••••••••' : formatINR(totalCurrentValue)}
           </div>
 
           {/* Returns Badges (Total & Today's 1D) */}
@@ -978,8 +1033,14 @@ export default function InvestmentsPage() {
               color: isPositive ? 'var(--success)' : 'var(--danger)',
               border: `1px solid ${isPositive ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)'}`,
             }}>
-              {isPositive ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
-              {isPositive ? '+' : ''}{formatINR(totalGain)} ({isPositive ? '+' : ''}{totalGainPct}%) Total
+              {isMasked ? (
+                <span>•••••• Total</span>
+              ) : (
+                <>
+                  {isPositive ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
+                  {isPositive ? '+' : ''}{formatINR(totalGain)} ({isPositive ? '+' : ''}{totalGainPct}%) Total
+                </>
+              )}
             </div>
 
             {(latest1D.gain !== 0 || latest1D.percent !== 0) && (
@@ -990,9 +1051,15 @@ export default function InvestmentsPage() {
                 color: latest1D.gain >= 0 ? 'var(--success)' : 'var(--danger)',
                 border: `1px solid ${latest1D.gain >= 0 ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)'}`,
               }}>
-                {latest1D.gain >= 0 ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
-                {latest1D.gain >= 0 ? '+' : ''}{latest1D.gain ? formatINR(latest1D.gain) + ' ' : ''}
-                ({latest1D.gain >= 0 ? '+' : ''}{latest1D.percent}%) 1D Today
+                {isMasked ? (
+                  <span>•••••• 1D Today</span>
+                ) : (
+                  <>
+                    {latest1D.gain >= 0 ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
+                    {latest1D.gain >= 0 ? '+' : ''}{latest1D.gain ? formatINR(latest1D.gain) + ' ' : ''}
+                    ({latest1D.gain >= 0 ? '+' : ''}{latest1D.percent}%) 1D Today
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -1002,7 +1069,9 @@ export default function InvestmentsPage() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8 }}>
             <div>
               <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginBottom: 2 }}>Invested</div>
-              <div style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--text-primary)' }}>{formatINR(totalInvested)}</div>
+              <div style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--text-primary)' }}>
+                {isMasked ? '₹••••••' : formatINR(totalInvested)}
+              </div>
             </div>
             <div>
               <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginBottom: 2 }}>MF</div>
@@ -1126,7 +1195,7 @@ export default function InvestmentsPage() {
                             <span>• {h.units} {unitLabel}</span>
                           )}
                           {h.buyPrice && h.buyPrice > 0 && (
-                            <span>@ {formatINR(h.buyPrice)}{isGold ? '/g' : ''}</span>
+                            <span>@ {isMasked ? '₹•••' : formatINR(h.buyPrice)}{isGold ? '/g' : ''}</span>
                           )}
                           {h.purchaseTime && (
                             <span>• {h.purchaseTime}</span>
@@ -1177,17 +1246,27 @@ export default function InvestmentsPage() {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, paddingTop: 6, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
                       <div>
                         <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Invested</div>
-                        <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-primary)', marginTop: 1 }}>{formatINR(h.totalInvested)}</div>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-primary)', marginTop: 1 }}>
+                          {isMasked ? '₹••••••' : formatINR(h.totalInvested)}
+                        </div>
                       </div>
                       <div>
                         <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Current</div>
-                        <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-primary)', marginTop: 1 }}>{formatINR(h.currentValue)}</div>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-primary)', marginTop: 1 }}>
+                          {isMasked ? '₹••••••' : formatINR(h.currentValue)}
+                        </div>
                       </div>
                       <div>
                         <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Returns</div>
                         <div style={{ fontSize: 12.5, fontWeight: 800, color: pos ? 'var(--success)' : 'var(--danger)', marginTop: 1 }}>
-                          {pos ? '+' : ''}{formatINR(h.totalGain)}
-                          <span style={{ fontSize: 10.5, opacity: 0.85, marginLeft: 2 }}>({pos ? '+' : ''}{h.gainPercent}%)</span>
+                          {isMasked ? (
+                            <span>••••••</span>
+                          ) : (
+                            <>
+                              {pos ? '+' : ''}{formatINR(h.totalGain)}
+                              <span style={{ fontSize: 10.5, opacity: 0.85, marginLeft: 2 }}>({pos ? '+' : ''}{h.gainPercent}%)</span>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1323,7 +1402,7 @@ export default function InvestmentsPage() {
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                       <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>
-                        {formatINR(sip.amount)}
+                        {isMasked ? '₹••••••' : formatINR(sip.amount)}
                       </span>
                       {!isLoggedThisMonth ? (
                         <button
