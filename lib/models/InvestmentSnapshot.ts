@@ -6,6 +6,8 @@ export interface IInvestmentFund {
   current: number;
   gain: number;
   gainPercent: number;
+  units?: number;
+  buyPrice?: number;
 }
 
 export interface IInvestmentSnapshot extends Document {
@@ -18,8 +20,11 @@ export interface IInvestmentSnapshot extends Document {
   oneDayGain?: number;
   oneDayGainPercent?: number;
   source: string;
-  portfolioType: string; // 'mutual_funds' | 'stocks' | 'combined'
+  portfolioType: string; // 'mutual_funds' | 'stocks' | 'gold' | 'combined'
   funds: IInvestmentFund[];
+  units?: number;
+  buyPrice?: number;
+  purchaseTime?: string;
   screenshotUrl?: string;
   createdAt: Date;
 }
@@ -31,6 +36,8 @@ const InvestmentFundSchema = new Schema<IInvestmentFund>(
     current: { type: Number, required: true, default: 0 },
     gain: { type: Number, required: true, default: 0 },
     gainPercent: { type: Number, required: true, default: 0 },
+    units: { type: Number, default: 0 },
+    buyPrice: { type: Number, default: 0 },
   },
   { _id: false }
 );
@@ -48,6 +55,9 @@ const InvestmentSnapshotSchema = new Schema<IInvestmentSnapshot>(
     source: { type: String, default: 'groww' },
     portfolioType: { type: String, default: 'combined' },
     funds: { type: [InvestmentFundSchema], default: [] },
+    units: { type: Number, default: 0 },
+    buyPrice: { type: Number, default: 0 },
+    purchaseTime: { type: String, default: '' },
     screenshotUrl: { type: String, default: '' },
   },
   { timestamps: true }

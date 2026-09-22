@@ -32,6 +32,9 @@ export async function POST(request: Request) {
       source = 'groww',
       portfolioType = 'combined',
       funds = [],
+      units = 0,
+      buyPrice = 0,
+      purchaseTime = '',
       screenshotUrl = '',
       syncNetWorth = true,
     } = body;
@@ -58,6 +61,9 @@ export async function POST(request: Request) {
       source,
       portfolioType,
       funds: Array.isArray(funds) ? funds : [],
+      units: Number(units) || 0,
+      buyPrice: Number(buyPrice) || 0,
+      purchaseTime: purchaseTime || '',
       screenshotUrl,
     });
 
@@ -70,6 +76,7 @@ export async function POST(request: Request) {
           const todayStr = new Date().toISOString().split('T')[0];
           const isStocks = portfolioType === 'stocks';
           const isMF = portfolioType === 'mutual_funds';
+          const isGold = portfolioType === 'gold';
           const isCombined = portfolioType === 'combined';
 
           if (isMF || isCombined) {
@@ -120,6 +127,29 @@ export async function POST(request: Request) {
             }
           }
 
+          if (isGold) {
+            let goldIdx = entries.findIndex(
+              (e: any) =>
+                e.type === 'asset' &&
+                (e.category === 'Gold & Precious Metals' ||
+                  e.category === 'Gold' ||
+                  e.name.toLowerCase().includes('gold'))
+            );
+            if (goldIdx >= 0) {
+              entries[goldIdx].amount = cur;
+              entries[goldIdx].lastUpdated = todayStr;
+            } else {
+              entries.push({
+                id: 'nw_gold_' + Date.now(),
+                name: 'Gold Investments',
+                type: 'asset',
+                amount: cur,
+                category: 'Gold & Precious Metals',
+                lastUpdated: todayStr,
+              });
+            }
+          }
+
           settings.netWorthEntries = entries;
           await settings.save();
         }
@@ -147,6 +177,9 @@ export async function PATCH(request: Request) {
       currentValue,
       portfolioType,
       fundName,
+      units,
+      buyPrice,
+      purchaseTime,
     } = body;
 
     if (!id && !originalName) {
@@ -172,6 +205,9 @@ export async function PATCH(request: Request) {
         totalGain: gain,
         gainPercent: gainPct,
         ...(portfolioType ? { portfolioType } : {}),
+        ...(units !== undefined ? { units: Number(units) || 0 } : {}),
+        ...(buyPrice !== undefined ? { buyPrice: Number(buyPrice) || 0 } : {}),
+        ...(purchaseTime !== undefined ? { purchaseTime: String(purchaseTime) } : {}),
       },
     });
 
@@ -188,6 +224,8 @@ export async function PATCH(request: Request) {
             f.current = cur;
             f.gain = gain;
             f.gainPercent = gainPct;
+            if (units !== undefined) f.units = Number(units) || 0;
+            if (buyPrice !== undefined) f.buyPrice = Number(buyPrice) || 0;
             changed = true;
           }
         });
@@ -206,6 +244,9 @@ export async function PATCH(request: Request) {
       const totalStocks = allLatest
         .filter((s) => s.portfolioType === 'stocks')
         .reduce((sum, s) => sum + (s.currentValue || 0), 0);
+      const totalGold = allLatest
+        .filter((s) => s.portfolioType === 'gold')
+        .reduce((sum, s) => sum + (s.currentValue || 0), 0);
 
       const settings = await Settings.findOne();
       if (settings && settings.netWorthEntries) {
@@ -221,6 +262,23 @@ export async function PATCH(request: Request) {
             (e: any) => e.type === 'asset' && (e.category === 'Stocks & Equity' || e.name.toLowerCase().includes('stock'))
           );
           if (idx >= 0) entries[idx].amount = totalStocks;
+        }
+        if (totalGold > 0) {
+          const idx = entries.findIndex(
+            (e: any) => e.type === 'asset' && (e.category === 'Gold & Precious Metals' || e.category === 'Gold' || e.name.toLowerCase().includes('gold'))
+          );
+          if (idx >= 0) {
+            entries[idx].amount = totalGold;
+          } else {
+            entries.push({
+              id: 'nw_gold_' + Date.now(),
+              name: 'Gold Investments',
+              type: 'asset',
+              amount: totalGold,
+              category: 'Gold & Precious Metals',
+              lastUpdated: new Date().toISOString().split('T')[0],
+            });
+          }
         }
         settings.netWorthEntries = entries;
         await settings.save();
