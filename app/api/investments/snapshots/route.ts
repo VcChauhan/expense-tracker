@@ -194,10 +194,10 @@ export async function PATCH(request: Request) {
     const gainPct = inv > 0 ? Number(((gain / inv) * 100).toFixed(2)) : 0;
     const newName = (holdingName || '').trim();
 
-    // 1. Update standalone documents matching originalName or id
-    const filter = originalName
-      ? { holdingName: { $regex: new RegExp(`^${originalName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } }
-      : { _id: id };
+    // 1. Update standalone document by _id (if provided), or by originalName
+    const filter = id
+      ? { _id: id }
+      : { holdingName: { $regex: new RegExp(`^${(originalName || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } };
 
     await InvestmentSnapshot.updateMany(filter, {
       $set: {
@@ -311,15 +311,21 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ success: true, message: 'All snapshots deleted' });
     }
 
-    // 2. Delete by holdingName: removes ALL duplicates/historical snapshots of this holding
+    // 2. If specific document id is provided, delete ONLY this document
+    if (id && id !== 'all') {
+      let realId = id;
+      if (id.includes('_')) realId = id.split('_')[0];
+      await InvestmentSnapshot.findByIdAndDelete(realId);
+      return NextResponse.json({ success: true, message: 'Deleted holding snapshot' });
+    }
+
+    // 3. Fallback: Delete by holdingName
     const targetName = (holdingName || fundName || '').trim();
     if (targetName) {
-      // Remove any documents where holdingName matches
       await InvestmentSnapshot.deleteMany({
         holdingName: { $regex: new RegExp(`^${targetName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
       });
 
-      // Also remove from any documents where it exists inside funds[]
       const snapshotsWithFund = await InvestmentSnapshot.find({ 'funds.name': targetName });
       for (const s of snapshotsWithFund) {
         s.funds = (s.funds || []).filter((f) => f.name.toLowerCase() !== targetName.toLowerCase());

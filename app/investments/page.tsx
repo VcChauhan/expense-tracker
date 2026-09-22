@@ -307,7 +307,9 @@ export default function InvestmentsPage() {
           }
         });
       } else if (s.holdingName?.trim()) {
-        const key = s.holdingName.trim();
+        // For gold assets (or manual entries), each purchase lot/bar has its own ID and can share the same scheme name
+        const isGold = s.portfolioType === 'gold';
+        const key = isGold ? `gold_${s._id || s.holdingName + '_' + (s.purchaseTime || s.date || '') + '_' + s.totalInvested}` : s.holdingName.trim();
         if (!map.has(key)) {
           map.set(key, {
             ...s,
@@ -1560,7 +1562,7 @@ export default function InvestmentsPage() {
 
                   return (
                     <div
-                      key={h.holdingName || h._id}
+                      key={h._id ? String(h._id) : `${h.holdingName}_${idx}`}
                       className="inv-card-hover"
                       style={{
                         borderRadius: 18,
@@ -2592,23 +2594,34 @@ export default function InvestmentsPage() {
             </div>
 
             {/* MMTC-PAMP Tag Toggle if Gold */}
-            {editingHolding.portfolioType === 'gold' && (
+            {manualType === 'gold' && (
               <label style={{
                 display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
                 padding: '10px 14px', borderRadius: 12,
-                background: (editingHolding.tag === 'mmtc_pamp' || /mmt[cp]\s*pamp/i.test(editingHolding.holdingName)) ? 'rgba(234,179,8,0.14)' : 'var(--bg-elevated)',
-                border: `1.5px solid ${(editingHolding.tag === 'mmtc_pamp' || /mmt[cp]\s*pamp/i.test(editingHolding.holdingName)) ? '#EAB308' : 'var(--border)'}`,
+                background: isManualMmtc ? 'rgba(234,179,8,0.14)' : 'var(--bg-elevated)',
+                border: `1.5px solid ${isManualMmtc ? '#EAB308' : 'var(--border)'}`,
                 transition: 'all 0.15s ease',
               }}>
                 <input
                   type="checkbox"
-                  checked={editingHolding.tag === 'mmtc_pamp' || /mmt[cp]\s*pamp/i.test(editingHolding.holdingName)}
+                  checked={isManualMmtc}
                   onChange={(e) => {
                     const checked = e.target.checked;
-                    setEditingHolding({
-                      ...editingHolding,
-                      tag: checked ? 'mmtc_pamp' : '',
-                    });
+                    setIsManualMmtc(checked);
+                    if (checked) {
+                      if (!manualName || manualName === '24K Digital Gold') {
+                        setManualName('MMTC PAMP Physical Gold (24K)');
+                      }
+                      if (liveGoldRate?.mmtcPampRatePerGram) {
+                        setManualBuyPrice(String(liveGoldRate.mmtcPampRatePerGram));
+                        const u = parseFloat(manualUnits) || 0;
+                        if (u > 0) {
+                          const total = Math.round(u * liveGoldRate.mmtcPampRatePerGram);
+                          setManualInvested(String(total));
+                          setManualCurrent(String(total));
+                        }
+                      }
+                    }
                   }}
                   style={{ width: 17, height: 17, accentColor: '#EAB308', cursor: 'pointer' }}
                 />
@@ -2617,7 +2630,7 @@ export default function InvestmentsPage() {
                     <span>💎 MMTC-PAMP 999.9 CertiCard Purest Gold</span>
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                    Tracks live MMTC-PAMP retail rate ({liveGoldRate?.mmtcPampRatePerGram ? `₹${liveGoldRate.mmtcPampRatePerGram.toLocaleString('en-IN')}/g` : '~₹16,814/g'}) instead of standard raw bullion.
+                    Tracks live MMTC-PAMP retail rate ({liveGoldRate?.mmtcPampRatePerGram ? `₹${liveGoldRate.mmtcPampRatePerGram.toLocaleString('en-IN')}/g` : '~₹16,814/g'}) with minting charges.
                   </div>
                 </div>
               </label>
@@ -3315,23 +3328,34 @@ export default function InvestmentsPage() {
             </div>
 
             {/* MMTC-PAMP Tag Toggle if Gold */}
-            {editingHolding.portfolioType === 'gold' && (
+            {manualType === 'gold' && (
               <label style={{
                 display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
                 padding: '10px 14px', borderRadius: 12,
-                background: (editingHolding.tag === 'mmtc_pamp' || /mmt[cp]\s*pamp/i.test(editingHolding.holdingName)) ? 'rgba(234,179,8,0.14)' : 'var(--bg-elevated)',
-                border: `1.5px solid ${(editingHolding.tag === 'mmtc_pamp' || /mmt[cp]\s*pamp/i.test(editingHolding.holdingName)) ? '#EAB308' : 'var(--border)'}`,
+                background: isManualMmtc ? 'rgba(234,179,8,0.14)' : 'var(--bg-elevated)',
+                border: `1.5px solid ${isManualMmtc ? '#EAB308' : 'var(--border)'}`,
                 transition: 'all 0.15s ease',
               }}>
                 <input
                   type="checkbox"
-                  checked={editingHolding.tag === 'mmtc_pamp' || /mmt[cp]\s*pamp/i.test(editingHolding.holdingName)}
+                  checked={isManualMmtc}
                   onChange={(e) => {
                     const checked = e.target.checked;
-                    setEditingHolding({
-                      ...editingHolding,
-                      tag: checked ? 'mmtc_pamp' : '',
-                    });
+                    setIsManualMmtc(checked);
+                    if (checked) {
+                      if (!manualName || manualName === '24K Digital Gold') {
+                        setManualName('MMTC PAMP Physical Gold (24K)');
+                      }
+                      if (liveGoldRate?.mmtcPampRatePerGram) {
+                        setManualBuyPrice(String(liveGoldRate.mmtcPampRatePerGram));
+                        const u = parseFloat(manualUnits) || 0;
+                        if (u > 0) {
+                          const total = Math.round(u * liveGoldRate.mmtcPampRatePerGram);
+                          setManualInvested(String(total));
+                          setManualCurrent(String(total));
+                        }
+                      }
+                    }
                   }}
                   style={{ width: 17, height: 17, accentColor: '#EAB308', cursor: 'pointer' }}
                 />
@@ -3340,7 +3364,7 @@ export default function InvestmentsPage() {
                     <span>💎 MMTC-PAMP 999.9 CertiCard Purest Gold</span>
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                    Tracks live MMTC-PAMP retail rate ({liveGoldRate?.mmtcPampRatePerGram ? `₹${liveGoldRate.mmtcPampRatePerGram.toLocaleString('en-IN')}/g` : '~₹16,814/g'}) instead of standard raw bullion.
+                    Tracks live MMTC-PAMP retail rate ({liveGoldRate?.mmtcPampRatePerGram ? `₹${liveGoldRate.mmtcPampRatePerGram.toLocaleString('en-IN')}/g` : '~₹16,814/g'}) with minting charges.
                   </div>
                 </div>
               </label>

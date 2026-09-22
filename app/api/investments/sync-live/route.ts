@@ -161,9 +161,10 @@ export async function POST() {
       const isStock = snap.portfolioType === 'stocks';
       const isGold = snap.portfolioType === 'gold';
 
-      // ── Process Single Holding ─────────────────────────────────────────
-      if (holdingName && !processedHoldings.has(holdingName.toLowerCase())) {
-        processedHoldings.add(holdingName.toLowerCase());
+      // ── Process Holding (For gold, update every distinct lot by _id) ──
+      const syncKey = isGold ? `gold_${snap._id}` : (holdingName ? holdingName.toLowerCase() : `snap_${snap._id}`);
+      if (!processedHoldings.has(syncKey)) {
+        processedHoldings.add(syncKey);
 
         try {
           if (isGold) {
