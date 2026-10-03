@@ -4,16 +4,14 @@ import connectMongo from '@/lib/mongodb';
 import Expense from '@/lib/models/Expense';
 
 /**
- * GET /api/merchant-memory?merchant=vijetha
+ * GET /api/merchant-memory?merchant=vijetha&amount=15
  *
- * Queries the real Expense collection by the stored `merchant` field to return
- * historical context for a given merchant. This is separate from the user's `note`
- * (e.g. merchant="Vijeta Supermarket", note="banana") so lookups still work even
- * after the user has personalised their notes.
- *
- * Used by the Android companion to inject few-shot examples into Gemma's prompt:
- *   "Last 3 times at Vijeta: ₹12 banana, ₹15 banana, ₹18 banana — food/groceries"
- *   → Gemma confidently suggests banana/food/groceries without being explicitly told.
+ * Price-Bracket Aware Merchant Intelligence:
+ * Queries the Expense collection by `merchant` (and fallback `note`).
+ * When an `amount` is provided, clusters past transactions into price brackets
+ * so that:
+ *   - ₹15 at Vijetha -> matches previous ₹12-₹20 banana purchases
+ *   - ₹1,500 at Vijetha -> matches previous ₹1,200-₹2,000 monthly grocery purchases
  */
 export async function GET(req: Request) {
   const authHeader = req.headers.get('authorization');
@@ -23,6 +21,8 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const merchant = searchParams.get('merchant')?.trim();
+  const amountParam = searchParams.get('amount');
+  const targetAmount = amountParam ? parseFloat(amountParam) : null;
 
   if (!merchant || merchant.length < 2) {
     return NextResponse.json({ found: false, merchant: '', occurrences: 0 });
@@ -31,9 +31,7 @@ export async function GET(req: Request) {
   try {
     await connectMongo();
 
-    // Extract significant words from the merchant name for fuzzy matching.
-    // "VIJETHASUPERMARKETSP" → split by camelCase / caps runs → ["vijetha", "supermarket"]
-    // "Vijeta Supermarket" → ["vijeta", "supermarket"]
+    // Extract significant words from the merchant name for fuzzy matching
     const words = merchant
       .replace(/([a-z])([A-Z])/g, '$1 $2')   // camelCase split
       .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
@@ -60,14 +58,36 @@ export async function GET(req: Request) {
       { note: 1, merchant: 1, amount: 1, categoryId: 1, tags: 1, date: 1 }
     )
       .sort({ date: -1 })
-      .limit(20)
+      .limit(30)
       .lean();
 
     if (matches.length === 0) {
       return NextResponse.json({ found: false, merchant, occurrences: 0 });
     }
 
-    // Aggregate most common note, category, and tags across all matches
+    // ── Price Bracket Clustering ─────────────────────────────────────────────
+    // If targetAmount is provided, find transactions that closely match this price range
+    let bracketMatches: typeof matches = [];
+    let isBracketMatch = false;
+
+    if (targetAmount && targetAmount > 0) {
+      const minBracket = targetAmount < 100
+        ? Math.max(1, targetAmount - 40)
+        : targetAmount * 0.6;
+      const maxBracket = targetAmount < 100
+        ? targetAmount + 40
+        : targetAmount * 1.6;
+
+      bracketMatches = matches.filter(e => e.amount >= minBracket && e.amount <= maxBracket);
+      if (bracketMatches.length > 0) {
+        isBracketMatch = true;
+      }
+    }
+
+    // Use bracket matches if available, otherwise fallback to all matches
+    const primaryDataset = isBracketMatch ? bracketMatches : matches;
+
+    // Aggregate most common note, category, and tags
     const noteFreq: Record<string, number> = {};
     const catFreq: Record<string, number> = {};
     const tagFreq: Record<string, number> = {};
@@ -75,7 +95,7 @@ export async function GET(req: Request) {
     let minAmount = Infinity;
     let maxAmount = -Infinity;
 
-    for (const e of matches) {
+    for (const e of primaryDataset) {
       const note = (e.note || '').trim();
       if (note) noteFreq[note] = (noteFreq[note] || 0) + 1;
       if (e.categoryId) catFreq[e.categoryId] = (catFreq[e.categoryId] || 0) + 1;
@@ -92,8 +112,8 @@ export async function GET(req: Request) {
       .slice(0, 5)
       .map(([tag]) => tag);
 
-    // Return the 5 most recent examples for Gemma's few-shot context
-    const recentExamples = matches.slice(0, 5).map(e => ({
+    // Return the most relevant examples
+    const recentExamples = primaryDataset.slice(0, 5).map(e => ({
       note: e.note,
       amount: e.amount,
       date: e.date,
@@ -104,13 +124,16 @@ export async function GET(req: Request) {
     return NextResponse.json({
       found: true,
       merchant,
+      isBracketMatch,
+      targetAmount,
       topNote,
       topCategoryId,
       topTags,
-      avgAmount: Math.round((totalAmount / matches.length) * 100) / 100,
+      avgAmount: Math.round((totalAmount / primaryDataset.length) * 100) / 100,
       minAmount: minAmount === Infinity ? 0 : minAmount,
       maxAmount: maxAmount === -Infinity ? 0 : maxAmount,
       occurrences: matches.length,
+      bracketOccurrences: bracketMatches.length,
       recentExamples,
     });
 

@@ -1503,8 +1503,27 @@ export default function ExpensesPage() {
                 </div>
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>Note</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <label style={{ fontSize: 13, color: 'var(--text-muted)' }}>Note</label>
+                  {reviewSuggestion.suggestedLabel && (
+                    <span style={{ 
+                      fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 9999,
+                      background: 'var(--bg-elevated)', color: 'var(--text-secondary)',
+                      display: 'inline-flex', alignItems: 'center', gap: 4,
+                      border: '1px solid var(--border)'
+                    }}>
+                      <span>🏬</span>
+                      <span>Store: <strong style={{ color: 'var(--text-primary)' }}>{reviewSuggestion.suggestedLabel}</strong></span>
+                    </span>
+                  )}
+                </div>
                 <input type="text" style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '12px 16px', borderRadius: 12, fontSize: 16 }} value={reviewForm.note || ''} onChange={e => setReviewForm({ ...reviewForm, note: e.target.value })} />
+                {reviewSuggestion.suggestedNote && (
+                  <div style={{ fontSize: 11, color: 'var(--accent)', marginTop: 5, display: 'flex', alignItems: 'center', gap: 4, fontWeight: 500 }}>
+                    <Sparkles size={12} />
+                    <span>Inferred from your habitual purchase pattern</span>
+                  </div>
+                )}
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>Payment Method</label>
