@@ -49,6 +49,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ status: 'ignored', message: 'Promotional / Non-expense SMS ignored' });
     }
 
+    // Deduplication check: ignore if an identical pending suggestion already exists
+    const existing = await Suggestion.findOne({
+      status: 'pending',
+      amount: data.amount,
+      date: data.date,
+      suggestedLabel,
+    });
+    if (existing) {
+      return NextResponse.json({ status: 'duplicate', message: 'Duplicate suggestion ignored', id: existing._id }, { status: 200 });
+    }
+
     const suggestion = await Suggestion.create({
       smsBody: data.smsBody ? scrubSms(data.smsBody) : 'On-Device Private SMS',
       sender: data.sender || 'Bank SMS',

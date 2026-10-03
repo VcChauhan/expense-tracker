@@ -69,7 +69,7 @@ export async function POST(request: Request) {
   try {
     await dbConnect();
     const body = await request.json();
-    const { date, categoryId, amount, note, tags, paymentMethod, isOneOff, oneOffType, aiNote } = body;
+    const { date, categoryId, amount, note, tags, paymentMethod, isOneOff, oneOffType, aiNote, merchant } = body;
 
     let cleanPaymentMethod = paymentMethod || 'upi';
     if (cleanPaymentMethod.startsWith('credit_card:')) {
@@ -86,6 +86,7 @@ export async function POST(request: Request) {
       categoryId, 
       amount: parsedAmount, 
       note: note ?? '', 
+      merchant: merchant ?? '',
       tags: tags ?? [],
       paymentMethod: cleanPaymentMethod,
       isOneOff: Boolean(isOneOff),
