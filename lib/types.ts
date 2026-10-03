@@ -148,8 +148,10 @@ export interface Suggestion {
   status: 'pending' | 'approved' | 'rejected';
   suggestedCategory?: string;
   suggestedLabel?: string;
+  suggestedNote?: string;          // LLM-generated human-readable note
   suggestedTags?: string[];
   suggestedPaymentMethod?: PaymentMethod;
+  parsedBy?: 'llm' | 'regex' | 'memory'; // Which engine parsed this SMS
 }
 
 export interface MonthlyAnalytics {

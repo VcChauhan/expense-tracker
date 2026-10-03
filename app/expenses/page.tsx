@@ -331,7 +331,7 @@ export default function ExpensesPage() {
         date: sug.date || today, 
         categoryId: sug.suggestedCategory || settings?.categories[0]?.id || '', 
         amount: sug.amount ? String(sug.amount) : '', 
-        note: sug.suggestedLabel || '',
+        note: sug.suggestedNote || sug.suggestedLabel || '',
         tags: (sug as any).suggestedTags || [],
         paymentMethod: (sug as any).suggestedPaymentMethod || 'upi'
     });
@@ -540,37 +540,75 @@ export default function ExpensesPage() {
             <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
               AI Suggestions
             </h2>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 4 }}>
+              {suggestions.length} pending
+            </span>
           </div>
           <div style={{ display: 'flex', overflowX: 'auto', gap: 12, paddingBottom: 8, scrollbarWidth: 'none', margin: '0 -16px', paddingLeft: 16, paddingRight: 16 }}>
-            {suggestions.map(sug => (
-              <div key={sug._id} style={{ 
-                background: 'var(--bg-card)', borderRadius: 20, padding: 16, border: '1px solid var(--border)', 
-                minWidth: 280, maxWidth: 320, flexShrink: 0, boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-                display: 'flex', flexDirection: 'column'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--accent-dim)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Sparkles size={16} />
+            {suggestions.map(sug => {
+              const isLlm = sug.parsedBy === 'llm';
+              const isMemory = sug.parsedBy === 'memory';
+              return (
+                <div key={sug._id} style={{ 
+                  background: 'var(--bg-card)', borderRadius: 20, padding: 16,
+                  border: isLlm ? '1px solid rgba(124,92,252,0.35)' : '1px solid var(--border)', 
+                  minWidth: 280, maxWidth: 320, flexShrink: 0,
+                  boxShadow: isLlm ? '0 4px 16px rgba(124,92,252,0.12)' : '0 4px 12px rgba(0,0,0,0.05)',
+                  display: 'flex', flexDirection: 'column',
+                }}>
+                  {/* Card Header: Icon + Title + Amount */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {/* Engine badge icon */}
+                      <div style={{ 
+                        width: 34, height: 34, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        background: isLlm ? 'linear-gradient(135deg, rgba(124,92,252,0.2), rgba(168,85,247,0.15))' 
+                                         : isMemory ? 'rgba(34,197,94,0.12)' : 'var(--bg-elevated)',
+                        color: isLlm ? 'var(--accent)' : isMemory ? '#22c55e' : 'var(--text-muted)',
+                        border: isLlm ? '1px solid rgba(124,92,252,0.3)' : '1px solid var(--border)',
+                        flexShrink: 0,
+                      }}>
+                        {isLlm ? <Sparkles size={16} /> : isMemory ? <span style={{ fontSize: 15 }}>🧠</span> : <span style={{ fontSize: 15 }}>⚙️</span>}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
+                          {sug.suggestedLabel || sug.sender}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                          {/* Engine label pill */}
+                          <span style={{
+                            fontSize: 10, fontWeight: 700, letterSpacing: '0.03em',
+                            padding: '1px 6px', borderRadius: 20,
+                            background: isLlm ? 'rgba(124,92,252,0.15)' : isMemory ? 'rgba(34,197,94,0.12)' : 'var(--bg-elevated)',
+                            color: isLlm ? 'var(--accent)' : isMemory ? '#22c55e' : 'var(--text-muted)',
+                          }}>
+                            {isLlm ? '✦ Gemma AI' : isMemory ? '🧠 Learned' : '⚙ Pattern'}
+                          </span>
+                          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{sug.date}</span>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>{sug.suggestedLabel || sug.sender}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{sug.date}</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', flexShrink: 0 }}>
+                      {formatINR(sug.amount)}
                     </div>
                   </div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>{formatINR(sug.amount)}</div>
-                </div>
-                
-                <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                  &quot;{sug.smsBody}&quot;
-                </div>
 
-                <div style={{ display: 'flex', gap: 8, marginTop: 'auto' }}>
-                  <button onClick={() => handleActionSuggestion(sug, 'approve')} style={{ flex: 1, padding: '8px', borderRadius: 12, background: 'var(--accent)', color: '#fff', border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Review</button>
-                  <button onClick={() => handleActionSuggestion(sug, 'reject')} style={{ padding: '8px 16px', borderRadius: 12, background: 'var(--bg-elevated)', color: 'var(--text-secondary)', border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Dismiss</button>
+                  {/* Note from LLM or SMS body */}
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 14, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.5 }}>
+                    {sug.suggestedNote ? (
+                      <span style={{ fontStyle: 'normal' }}>{sug.suggestedNote}</span>
+                    ) : (
+                      <span style={{ fontStyle: 'italic', opacity: 0.8 }}>&quot;{sug.smsBody}&quot;</span>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 8, marginTop: 'auto' }}>
+                    <button onClick={() => handleActionSuggestion(sug, 'approve')} style={{ flex: 1, padding: '8px', borderRadius: 12, background: 'var(--accent)', color: '#fff', border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Review</button>
+                    <button onClick={() => handleActionSuggestion(sug, 'reject')} style={{ padding: '8px 16px', borderRadius: 12, background: 'var(--bg-elevated)', color: 'var(--text-secondary)', border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Dismiss</button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

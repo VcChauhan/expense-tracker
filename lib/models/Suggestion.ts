@@ -12,6 +12,7 @@ export interface ISuggestion extends Document {
   suggestedNote?: string;          // Optional: LLM-generated human-readable note
   suggestedTags?: string[];        // Optional: On-device suggested tags
   suggestedPaymentMethod?: string; // Optional: upi, credit_card, debit_card, netbanking
+  parsedBy?: string;               // 'llm' | 'regex' | 'memory'
 }
 
 const SuggestionSchema = new Schema<ISuggestion>({
@@ -26,6 +27,7 @@ const SuggestionSchema = new Schema<ISuggestion>({
   suggestedNote: { type: String, required: false },
   suggestedTags: { type: [String], default: [] },
   suggestedPaymentMethod: { type: String, default: 'upi' },
+  parsedBy: { type: String, required: false },
 }, { timestamps: true });
 
 // Prevent model recompilation error in Next.js HMR

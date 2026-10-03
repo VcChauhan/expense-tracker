@@ -60,6 +60,7 @@ export async function POST(req: Request) {
       suggestedNote: data.suggestedNote || undefined,
       suggestedTags,
       suggestedPaymentMethod,
+      parsedBy: data.parsedBy || 'regex',
     });
 
     return NextResponse.json(suggestion, { status: 201 });
