@@ -8,6 +8,7 @@
  */
 
 import { Category, Expense, OneOffType } from './types';
+import { checkOnDeviceAi, generateLocalBriefing } from './onDeviceAiClient';
 
 export interface AnomalyItem {
   id: string;
@@ -167,37 +168,32 @@ export async function runOnDeviceAnomalyAudit(
     healthStatus = 'watch_recurring';
   }
 
-  // Generate briefing: Try Gemini Nano (window.ai) if available, otherwise deterministic synthesis
+  // Generate briefing via On-Device Gemma SLM (or deterministic synthesis fallback)
   let executiveBriefing = '';
-  let modelEngineName = 'Local On-Device Reasoning Engine';
+  let modelEngineName = 'On-Device Gemma 2B (Snapdragon GPU)';
   let hasGeminiNano = false;
 
-  const aiCheck = await detectOnDeviceAiCapabilities();
-  if (aiCheck.available && typeof window !== 'undefined') {
-    try {
-      const ai = (window as any).ai;
-      const session = await ai.languageModel.create({
-        systemPrompt: 'You are a supportive, calm on-device personal financial advisor. Analyze one-off expenses vs true recurring lifestyle burn without judging. Keep your briefing concise (2-3 sentences), warm, and encouraging. Return plain text only.',
-      });
-
-      const promptData = `
-Month: ${selectedMonthName}
-Total spent: ₹${totalSpent}
-Normalized recurring spend: ₹${normalizedSpent}
-Excluded one-off anomalies (total ₹${totalAnomalySpent}): ${anomalies.map(a => `${a.name}: ₹${a.amount} (${a.oneOffType})`).join(', ')}
-Categories exceeded only because of anomalies: ${overBudgetBeforeNormalization.filter(c => c.isNormalizedSafe).map(c => c.categoryName).join(', ') || 'None'}
-Month Context Note from user: "${monthContextNote || 'None'}"
-
-Please explain why the user does NOT need to panic about their category budget overages, highlighting how their true recurring burn is healthy once the non-recurring items are excluded.
-`;
-
-      executiveBriefing = await session.prompt(promptData);
-      modelEngineName = 'On-Device Gemini Nano';
+  try {
+    const aiStatus = await checkOnDeviceAi();
+    if (aiStatus.available) {
       hasGeminiNano = true;
-      session.destroy?.();
-    } catch (e) {
-      console.warn('Gemini Nano prompt failed or interrupted, falling back to local reasoning:', e);
+      modelEngineName = aiStatus.engine;
+      const promptData = {
+        month: selectedMonthName,
+        totalSpent,
+        normalizedSpent,
+        anomaliesTotal: totalAnomalySpent,
+        anomaliesList: anomalies.map(a => `${a.name}: ₹${a.amount} (${a.oneOffType})`),
+        reconciledSafeCategories: overBudgetBeforeNormalization.filter(c => c.isNormalizedSafe).map(c => c.categoryName),
+        userNote: monthContextNote,
+      };
+      const response = await generateLocalBriefing(promptData);
+      if (response && response.length > 20) {
+        executiveBriefing = response;
+      }
     }
+  } catch (e) {
+    console.warn('On-device briefing call skipped:', e);
   }
 
   // Fallback deterministic local synthesis if window.ai is not running

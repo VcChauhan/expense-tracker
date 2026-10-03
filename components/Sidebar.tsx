@@ -16,7 +16,6 @@ const navItems = [
 
 const settingsItems = [
   { href: '/settings', icon: <Settings size={18} strokeWidth={1.8} />,        label: 'Settings' },
-  { href: '/hike',     icon: <TrendingUp size={18} strokeWidth={1.8} />,      label: 'Hike Planner'   },
 ];
 
 export default function Sidebar() {

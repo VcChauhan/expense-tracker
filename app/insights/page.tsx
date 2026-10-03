@@ -6,6 +6,7 @@ import { BrainCircuit } from 'lucide-react';
 import FullAiInsights from '@/components/FullAiInsights';
 import { AiCoachCard } from '@/components/AiCoachCard';
 import { AiBudgetAnomalyCard } from '@/components/AiBudgetAnomalyCard';
+import { OnDeviceCopilot } from '@/components/OnDeviceCopilot';
 
 export default function InsightsPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -32,6 +33,14 @@ export default function InsightsPage() {
     return expenses.filter(e => e.date && e.date.startsWith(ym));
   }, [expenses, currentMonth, currentYear]);
 
+  const totalSpent = useMemo(() => {
+    return currentMonthExpenses.reduce((s, e) => s + (e.amount || 0), 0);
+  }, [currentMonthExpenses]);
+
+  const totalBudget = useMemo(() => {
+    return (settings?.categories || []).reduce((s, c) => s + (c.monthlyBudget || 0), 0);
+  }, [settings?.categories]);
+
   if (loading) return <div className="page-container"><div className="loading-overlay"><div className="spinner" /></div></div>;
 
   return (
@@ -41,10 +50,21 @@ export default function InsightsPage() {
           <div style={{ background: 'var(--accent)', padding: 8, borderRadius: 12, color: 'var(--bg-card)' }}>
             <BrainCircuit size={24} />
           </div>
-          AI CFO Briefing
+          AI CFO Command Center
         </h1>
-        <p className="page-subtitle" style={{ marginTop: 8 }}>Your personalized, 100% on-device AI financial report.</p>
+        <p className="page-subtitle" style={{ marginTop: 8 }}>
+          100% On-Device Financial Intelligence powered by your Snapdragon GPU. Zero data leakage.
+        </p>
       </div>
+
+      {/* Interactive On-Device AI Financial Copilot */}
+      <OnDeviceCopilot
+        salary={settings?.monthlySalary || 0}
+        totalSpent={totalSpent}
+        budget={totalBudget}
+        categories={settings?.categories || []}
+        expenses={currentMonthExpenses}
+      />
 
       <AiBudgetAnomalyCard
         expenses={currentMonthExpenses}

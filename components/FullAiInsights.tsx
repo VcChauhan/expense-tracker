@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Sparkles, TrendingUp, TrendingDown, Minus, Target, Zap, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Sparkles, TrendingUp, TrendingDown, Minus, Target, Zap, CheckCircle2, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { formatINR } from '@/lib/types';
+import { generateLocalBriefing } from '@/lib/onDeviceAiClient';
 
 interface MomComparison {
   category: string;
@@ -27,16 +28,25 @@ export default function FullAiInsights({ month, year }: { month: number; year: n
     setLoading(true);
     setError(false);
     
-    // Explicitly fetching from the new full insights route
+    // Explicitly fetching data payload
     fetch(`/api/insights/full?month=${month}&year=${year}`)
       .then(res => {
         if (!res.ok) throw new Error('API failed');
         return res.json();
       })
-      .then(data => {
+      .then(async data => {
         if (data.report) {
-          setReport(data.report);
           setRawData(data.rawData);
+          // Enhance executive summary with on-device Gemma SLM
+          try {
+            const onDeviceBriefing = await generateLocalBriefing(data.rawData);
+            if (onDeviceBriefing && onDeviceBriefing.length > 25) {
+              data.report.executiveSummary = onDeviceBriefing;
+            }
+          } catch (e) {
+            console.warn('Local on-device briefing fallback:', e);
+          }
+          setReport(data.report);
         } else {
           setError(true);
         }
@@ -79,9 +89,14 @@ export default function FullAiInsights({ month, year }: { month: number; year: n
         position: 'relative',
         overflow: 'hidden'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-          <Sparkles size={20} color="var(--accent)" />
-          <h2 style={{ fontSize: 14, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: 1 }}>Executive Summary</h2>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Sparkles size={20} color="var(--accent)" />
+            <h2 style={{ fontSize: 14, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: 1, margin: 0 }}>Executive Summary</h2>
+          </div>
+          <span style={{ fontSize: 11, fontWeight: 700, color: '#10b981', display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(16,185,129,0.12)', padding: '3px 8px', borderRadius: 99 }}>
+            <ShieldCheck size={12} /> On-Device Gemma SLM
+          </span>
         </div>
         <p style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--text-primary)', fontWeight: 500, margin: 0 }}>
           {report.executiveSummary}

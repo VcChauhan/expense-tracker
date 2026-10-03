@@ -11,6 +11,7 @@ import { PaymentMethodSelector } from './PaymentMethodSelector';
 import { PaymentMethod, PaymentMethodValue, OneOffType } from '@/lib/types';
 import { QuickTemplate } from '@/lib/types';
 import { ONE_OFF_TYPES, predictFromNote, evaluateOptimalCreditCard } from '@/lib/onDeviceAi';
+import { parseNaturalExpenseLocally, checkOnDeviceAi } from '@/lib/onDeviceAiClient';
 import { successBuzz, errorShake, warningPulse, lightTap } from '@/lib/haptics';
 
 export default function QuickAddSheet() {
@@ -261,22 +262,30 @@ export default function QuickAddSheet() {
       setLoading(true);
 
       try {
-        const res = await fetch('/api/voice-parse', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: transcript }),
-        });
-        if (res.ok) {
-          const data = await res.json();
+        const data = await parseNaturalExpenseLocally(transcript, settings?.categories || []);
+        if (data) {
+          if (data.splitWays && data.splitWays > 1) {
+            setSplitWays(data.splitWays);
+          }
+          if (data.categoryId) {
+            setForm(f => ({
+              ...f,
+              amount: data.amount ? String(data.amount) : f.amount,
+              categoryId: data.categoryId,
+              note: data.notes || data.merchant || transcript,
+              tags: Array.isArray(data.tags) && data.tags.length > 0 ? data.tags : f.tags,
+              paymentMethod: (data.paymentMethod as PaymentMethodValue) || f.paymentMethod,
+            }));
+          }
           setVoiceSuggestion({
             transcript,
             amount: data.amount ? String(data.amount) : '',
             categoryId: data.categoryId || '',
-            note: data.note || ''
+            note: data.notes || data.merchant || transcript
           });
         }
       } catch (err) {
-        console.error('Voice parsing error', err);
+        console.error('On-device voice parsing error', err);
       } finally {
         setLoading(false);
       }
@@ -448,7 +457,12 @@ export default function QuickAddSheet() {
                 <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--accent-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Sparkles size={14} color="var(--accent-2)" />
                 </div>
-                <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Review AI Suggestion</h3>
+                <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span>Review AI Suggestion</span>
+                  <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 99, background: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)' }}>
+                    ✦ On-Device SLM
+                  </span>
+                </h3>
               </div>
 
               <div style={{ background: 'var(--bg-elevated)', borderRadius: 16, padding: '14px 16px', marginBottom: 20, border: '1px solid var(--border)' }}>

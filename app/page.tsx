@@ -10,11 +10,9 @@ import { Target, Bell, TrendingUp, TrendingDown, Minus, Sparkles, ArrowRight, Re
 import { formatINR, MONTHS, SHORT_MONTHS, Settings, Expense } from '@/lib/types';
 
 import { HealthScoreCard } from '@/components/HealthScoreCard';
-import { TimeTravelSlider } from '@/components/TimeTravelSlider';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { FocusWheel } from '@/components/FocusWheel';
 import { MonthlyRecapCard } from '@/components/MonthlyRecapCard';
-import { AiBudgetAnomalyCard } from '@/components/AiBudgetAnomalyCard';
 import { AffordabilityChecker } from '@/components/AffordabilityChecker';
 import { RebalanceModal } from '@/components/RebalanceModal';
 import { CreditCardTracker } from '@/components/CreditCardTracker';
@@ -391,19 +389,6 @@ export default function DashboardPage() {
             {isAnnual ? `${selectedYear} Overview` : 'This Month'}
           </div>
 
-          {/* ── On-Device AI Budget Normalization & Anomaly Card ── */}
-          {!isAnnual && (
-            <AiBudgetAnomalyCard
-              expenses={selectedMonthExpenses}
-              categories={settings?.categories ?? []}
-              selectedMonth={selectedMonth}
-              selectedYear={selectedYear}
-              monthName={MONTHS[selectedMonth]}
-              settings={settings}
-              onSettingsUpdate={s => setSettings(s)}
-            />
-          )}
-
           {/* ── Monthly Recap Card ── */}
           {!isAnnual && monthlySalary > 0 && (
             <MonthlyRecapCard
@@ -629,17 +614,6 @@ export default function DashboardPage() {
             activeTotalsMap={activeTotalsMap}
             historicalAverage={historicalAverage}
             isAnnual={isAnnual}
-          />
-
-          {/* ── Time Travel Slider ── */}
-          <TimeTravelSlider
-            spent={displaySpent}
-            budget={displayBudget}
-            income={displayIncome}
-            categories={settings?.categories ?? []}
-            activeTotalsMap={activeTotalsMap}
-            selectedMonth={selectedMonth}
-            selectedYear={selectedYear}
           />
 
           {/* ── Annual Trend Chart (shown in annual mode) ── */}
