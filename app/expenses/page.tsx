@@ -72,7 +72,7 @@ export default function ExpensesPage() {
   // Suggestions
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [reviewSuggestion, setReviewSuggestion] = useState<Suggestion | null>(null);
-  const [reviewForm, setReviewForm]     = useState<{ date: string; categoryId: string; amount: string; note: string; tags: string[]; paymentMethod: string }>({ date: today, categoryId: '', amount: '', note: '', tags: [], paymentMethod: 'upi' });
+  const [reviewForm, setReviewForm]     = useState<{ date: string; categoryId: string; amount: string; note: string; merchant: string; tags: string[]; paymentMethod: string }>({ date: today, categoryId: '', amount: '', note: '', merchant: '', tags: [], paymentMethod: 'upi' });
   const [reviewSplitWays, setReviewSplitWays] = useState<number>(1);
 
   useEffect(() => {
@@ -332,6 +332,7 @@ export default function ExpensesPage() {
         categoryId: sug.suggestedCategory || settings?.categories[0]?.id || '', 
         amount: sug.amount ? String(sug.amount) : '', 
         note: sug.suggestedNote || sug.suggestedLabel || '',
+        merchant: sug.suggestedLabel || '',
         tags: (sug as any).suggestedTags || [],
         paymentMethod: (sug as any).suggestedPaymentMethod || 'upi'
     });
@@ -349,10 +350,8 @@ export default function ExpensesPage() {
       const splitNote = reviewSplitWays > 1 ? ` (Split: ₹${parsedAmount} / ${reviewSplitWays})` : '';
       const finalNote = (reviewForm.note || '') + splitNote;
 
-      // Store the original merchant name separately from the user's note.
-      // This allows merchant-memory lookups to find this expense next time even
-      // when the user has personalised the note (e.g. note="banana", merchant="Vijeta Supermarket").
-      const merchant = reviewSuggestion.suggestedLabel || '';
+      // Store the user-confirmed merchant name separately from the user's note.
+      const merchant = reviewForm.merchant || reviewSuggestion.suggestedLabel || '';
 
       await fetch('/api/expenses', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -576,7 +575,7 @@ export default function ExpensesPage() {
                         {isLlm ? <Sparkles size={16} /> : isMemory ? <span style={{ fontSize: 15 }}>🧠</span> : <span style={{ fontSize: 15 }}>⚙️</span>}
                       </div>
                       <div>
-                        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', maxWidth: 165, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {sug.suggestedLabel || sug.sender}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
@@ -1503,21 +1502,18 @@ export default function ExpensesPage() {
                 </div>
               </div>
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <label style={{ fontSize: 13, color: 'var(--text-muted)' }}>Note</label>
-                  {reviewSuggestion.suggestedLabel && (
-                    <span style={{ 
-                      fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 9999,
-                      background: 'var(--bg-elevated)', color: 'var(--text-secondary)',
-                      display: 'inline-flex', alignItems: 'center', gap: 4,
-                      border: '1px solid var(--border)'
-                    }}>
-                      <span>🏬</span>
-                      <span>Store: <strong style={{ color: 'var(--text-primary)' }}>{reviewSuggestion.suggestedLabel}</strong></span>
-                    </span>
-                  )}
-                </div>
-                <input type="text" style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '12px 16px', borderRadius: 12, fontSize: 16 }} value={reviewForm.note || ''} onChange={e => setReviewForm({ ...reviewForm, note: e.target.value })} />
+                <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>Store / Merchant</label>
+                <input 
+                  type="text" 
+                  placeholder="e.g. Vijetha Supermarket"
+                  style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '12px 16px', borderRadius: 12, fontSize: 16 }} 
+                  value={reviewForm.merchant || ''} 
+                  onChange={e => setReviewForm({ ...reviewForm, merchant: e.target.value })} 
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>Note</label>
+                <input type="text" placeholder="e.g. banana, coffee, groceries..." style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '12px 16px', borderRadius: 12, fontSize: 16 }} value={reviewForm.note || ''} onChange={e => setReviewForm({ ...reviewForm, note: e.target.value })} />
                 {reviewSuggestion.suggestedNote && (
                   <div style={{ fontSize: 11, color: 'var(--accent)', marginTop: 5, display: 'flex', alignItems: 'center', gap: 4, fontWeight: 500 }}>
                     <Sparkles size={12} />
