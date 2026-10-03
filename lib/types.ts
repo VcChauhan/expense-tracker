@@ -131,6 +131,7 @@ export interface Expense {
   categoryId: string;
   amount: number;
   note: string;
+  merchant?: string;   // Original merchant name, stored separately from user's note
   tags: string[];
   paymentMethod?: PaymentMethodValue;
   isOneOff?: boolean;

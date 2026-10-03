@@ -349,9 +349,14 @@ export default function ExpensesPage() {
       const splitNote = reviewSplitWays > 1 ? ` (Split: ₹${parsedAmount} / ${reviewSplitWays})` : '';
       const finalNote = (reviewForm.note || '') + splitNote;
 
+      // Store the original merchant name separately from the user's note.
+      // This allows merchant-memory lookups to find this expense next time even
+      // when the user has personalised the note (e.g. note="banana", merchant="Vijeta Supermarket").
+      const merchant = reviewSuggestion.suggestedLabel || '';
+
       await fetch('/api/expenses', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...reviewForm, amount: finalAmount, note: finalNote, tags: reviewForm.tags }),
+        body: JSON.stringify({ ...reviewForm, amount: finalAmount, note: finalNote, tags: reviewForm.tags, merchant }),
       });
       await fetch(`/api/suggestions/${reviewSuggestion._id}`, { method: 'DELETE' });
       showToast('Expense added!', 'success');
