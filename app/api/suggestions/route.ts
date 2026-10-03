@@ -57,6 +57,7 @@ export async function POST(req: Request) {
       status: 'pending',
       suggestedCategory,
       suggestedLabel,
+      suggestedNote: data.suggestedNote || undefined,
       suggestedTags,
       suggestedPaymentMethod,
     });

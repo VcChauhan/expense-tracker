@@ -6,10 +6,11 @@ export interface ISuggestion extends Document {
   amount: number;
   date: string;
   status: 'pending' | 'approved' | 'rejected';
-  suggestedCategory?: string; // Optional: an initial guess for the category ID
-  suggestedAccount?: string;  // Optional: an initial guess for the account ID
-  suggestedLabel?: string;    // Optional: AI-generated transaction label
-  suggestedTags?: string[];   // Optional: On-device suggested tags
+  suggestedCategory?: string;      // Optional: an initial guess for the category ID
+  suggestedAccount?: string;       // Optional: an initial guess for the account ID
+  suggestedLabel?: string;         // Optional: AI-generated transaction label (merchant name)
+  suggestedNote?: string;          // Optional: LLM-generated human-readable note
+  suggestedTags?: string[];        // Optional: On-device suggested tags
   suggestedPaymentMethod?: string; // Optional: upi, credit_card, debit_card, netbanking
 }
 
@@ -22,6 +23,7 @@ const SuggestionSchema = new Schema<ISuggestion>({
   suggestedCategory: { type: String, required: false },
   suggestedAccount: { type: String, required: false },
   suggestedLabel: { type: String, required: false },
+  suggestedNote: { type: String, required: false },
   suggestedTags: { type: [String], default: [] },
   suggestedPaymentMethod: { type: String, default: 'upi' },
 }, { timestamps: true });
