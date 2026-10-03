@@ -9,11 +9,9 @@ import {
 import { Target, Bell, TrendingUp, TrendingDown, Minus, Sparkles, ArrowRight, Repeat } from 'lucide-react';
 import { formatINR, MONTHS, SHORT_MONTHS, Settings, Expense } from '@/lib/types';
 
-import { HealthScoreCard } from '@/components/HealthScoreCard';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { FocusWheel } from '@/components/FocusWheel';
 import { MonthlyRecapCard } from '@/components/MonthlyRecapCard';
-import { AffordabilityChecker } from '@/components/AffordabilityChecker';
 import { RebalanceModal } from '@/components/RebalanceModal';
 import { CreditCardTracker } from '@/components/CreditCardTracker';
 import { OnboardingWizard } from '@/components/OnboardingWizard';
@@ -505,19 +503,6 @@ export default function DashboardPage() {
             </div>
           </div>
           )}
-           {/* ── Section: Planning Tools ── */}
-          <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', margin: '20px 2px 10px' }}>
-            Planning Tools
-          </div>
-          
-          {/* ── "Can I Afford This?" ── */}
-          <AffordabilityChecker
-            monthlySalary={monthlySalary}
-            monthlySpent={monthlySpent}
-            monthlyBudget={monthlyBudget}
-            categories={settings?.categories ?? []}
-            activeTotalsMap={activeTotalsMap}
-          />
 
           {/* ── Savings Goals ── */}
           {settings?.savingsGoals && settings.savingsGoals.length > 0 && (
@@ -603,18 +588,6 @@ export default function DashboardPage() {
               </div>
             </div>
           )}
-
-          {/* ── Financial Health Score ── */}
-          <HealthScoreCard
-            spent={displaySpent}
-            budget={displayBudget}
-            income={displayIncome}
-            safePerDay={safePerDay}
-            categories={settings?.categories ?? []}
-            activeTotalsMap={activeTotalsMap}
-            historicalAverage={historicalAverage}
-            isAnnual={isAnnual}
-          />
 
           {/* ── Annual Trend Chart (shown in annual mode) ── */}
           {isAnnual && (

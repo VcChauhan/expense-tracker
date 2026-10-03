@@ -13,7 +13,6 @@ import { SubscriptionAudit } from '@/components/SubscriptionAudit';
 import { PredictiveCashflowCard } from '@/components/PredictiveCashflowCard';
 import { PaymentMethodBreakdownCard } from '@/components/PaymentMethodBreakdownCard';
 import { NetWorthTracker } from '@/components/NetWorthTracker';
-import { CategoryDonutChart } from '@/components/CategoryDonutChart';
 import { CashFlowSankey } from '@/components/CashFlowSankey';
 
 type ViewMode = 'monthly' | 'annual';
@@ -379,15 +378,6 @@ export default function ReportsPage() {
               selectedYear={selectedYear}
               viewMode={viewMode}
               creditCards={settings?.creditCards || []}
-            />
-          </div>
-
-          <div style={{ padding: '0 16px' }}>
-            <CategoryDonutChart
-              categories={settings?.categories ?? []}
-              categoryTotals={monthlyAnalytics?.categoryTotals ?? []}
-              totalSpent={monthlySpent}
-              expenses={expenses}
             />
           </div>
 
