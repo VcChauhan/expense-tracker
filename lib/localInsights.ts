@@ -49,31 +49,3 @@ export function generateLocalFullReport(payload: any) {
     actionableSteps
   };
 }
-
-export function parseVoiceInputLocally(text: string, categories: any[]) {
-  const lower = text.toLowerCase();
-  
-  // Extract amount
-  const amountMatch = lower.match(/(?:rs\.?|inr|rupees|₹)?\s*(\d+(?:\.\d+)?)/i) || lower.match(/(\d+)\s*(?:rs|rupees|inr|₹)/i);
-  const amount = amountMatch ? parseFloat(amountMatch[1]) : 0;
-
-  // Match category
-  let categoryId = categories[0]?.id || 'general';
-  for (const cat of categories) {
-    if (lower.includes(cat.name.toLowerCase())) {
-      categoryId = cat.id;
-      break;
-    }
-  }
-
-  // Clean note (max 4 words)
-  let note = text.replace(/(?:rs\.?|inr|rupees|₹)?\s*\d+(?:\.\d+)?/gi, '').trim();
-  if (!note) note = 'Voice expense';
-  const words = note.split(/\s+/).slice(0, 4).join(' ');
-
-  return {
-    amount,
-    categoryId,
-    note: words.charAt(0).toUpperCase() + words.slice(1)
-  };
-}

@@ -2,11 +2,10 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { formatINR, MONTHS, SHORT_MONTHS, Expense, Settings, Category, Suggestion, PaymentMethod } from '@/lib/types';
-import { CalendarDays, Edit2, Trash2, CheckCircle2, XCircle, ChevronLeft, ChevronRight, Sparkles, LayoutList, GitCommit, Search, Download, SlidersHorizontal, X, Calendar } from 'lucide-react';
+import { CalendarDays, Edit2, Trash2, CheckCircle2, XCircle, ChevronLeft, ChevronRight, Sparkles, LayoutList, Search, Download, SlidersHorizontal, X, Calendar } from 'lucide-react';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { TagSelector } from '@/components/TagSelector';
 import { ConfirmModal } from '@/components/ConfirmModal';
-import { ExpenseTimelineView } from '@/components/ExpenseTimelineView';
 import { ExpenseCalendarView } from '@/components/ExpenseCalendarView';
 import { PaymentMethodBadge, PaymentMethodSelector } from '@/components/PaymentMethodSelector';
 import { semanticFilterExpenses } from '@/lib/semanticSearch';
@@ -27,17 +26,17 @@ export default function ExpensesPage() {
 
   // Filters
   const [viewMode, setViewMode]           = useState<ViewMode>('monthly');
-  const [viewLayout, setViewLayout]       = useState<'list' | 'timeline' | 'calendar'>('list');
+  const [viewLayout, setViewLayout]       = useState<'list' | 'calendar'>('list');
   const [menuOpen, setMenuOpen]           = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('expenseViewLayout');
-      if (saved === 'list' || saved === 'timeline' || saved === 'calendar') setViewLayout(saved);
+      if (saved === 'list' || saved === 'calendar') setViewLayout(saved);
     }
   }, []);
 
-  function handleSetViewLayout(layout: 'list' | 'timeline' | 'calendar') {
+  function handleSetViewLayout(layout: 'list' | 'calendar') {
     setViewLayout(layout);
     if (typeof window !== 'undefined') localStorage.setItem('expenseViewLayout', layout);
     setMenuOpen(false);
@@ -479,7 +478,7 @@ export default function ExpensesPage() {
       {/* ── View Layout Segmented Control ── */}
       <div style={{ padding: '0 16px', marginBottom: 16 }}>
         <div style={{
-          display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
+          display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)',
           background: 'var(--bg-card)', border: '1px solid var(--border)',
           borderRadius: 14, padding: 3, gap: 4,
         }}>
@@ -498,23 +497,6 @@ export default function ExpensesPage() {
           >
             <LayoutList size={15} />
             <span>List</span>
-          </button>
-
-          <button
-            onClick={() => handleSetViewLayout('timeline')}
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              padding: '8px 0', borderRadius: 11, border: 'none',
-              background: viewLayout === 'timeline' ? 'var(--accent)' : 'transparent',
-              color: viewLayout === 'timeline' ? '#fff' : 'var(--text-secondary)',
-              fontWeight: 700, fontSize: 13, cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              fontFamily: "'DM Sans', sans-serif",
-              boxShadow: viewLayout === 'timeline' ? '0 2px 10px rgba(124,92,252,0.3)' : 'none',
-            }}
-          >
-            <GitCommit size={15} />
-            <span>Timeline</span>
           </button>
 
           <button
@@ -999,15 +981,6 @@ export default function ExpensesPage() {
             onDelete={handleDeleteClick}
           />
         </div>
-      ) : viewLayout === 'timeline' ? (
-        <ExpenseTimelineView 
-          expenses={filtered} 
-          viewMode={viewMode} 
-          categories={settings?.categories || []} 
-
-          onEdit={handleOpenEdit}
-          onDelete={handleDeleteClick}
-        />
       ) : viewMode === 'monthly' ? (
         <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--r-xl)', border: '1px solid var(--border)', overflow: 'hidden', margin: '0 16px' }}>
           <div style={{ padding: '16px 20px', background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
