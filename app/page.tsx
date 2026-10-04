@@ -13,7 +13,6 @@ import { CategoryIcon } from '@/components/CategoryIcon';
 import { FocusWheel } from '@/components/FocusWheel';
 import { MonthlyRecapCard } from '@/components/MonthlyRecapCard';
 import { RebalanceModal } from '@/components/RebalanceModal';
-import { CreditCardTracker } from '@/components/CreditCardTracker';
 import { OnboardingWizard } from '@/components/OnboardingWizard';
 
 interface CategoryTotal { _id: string; total: number; count: number; }
@@ -576,8 +575,29 @@ export default function DashboardPage() {
                         const targetDate = goal.targetDate ? new Date(goal.targetDate) : null;
                         const isOnTrack = targetDate ? projectedDate <= targetDate : true;
                         return (
-                          <div style={{ marginTop: 8, fontSize: 12, fontWeight: 700, color: isOnTrack ? 'var(--success)' : 'var(--warning)' }}>
-                            {isOnTrack ? '🎯 On track' : '⏳ At current pace'} — {projectedStr}
+                          <div style={{ marginTop: 8 }}>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: isOnTrack ? 'var(--success)' : 'var(--warning)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <span>{isOnTrack ? '🎯 On track' : '⏳ At current pace'}</span>
+                              <span>{projectedStr}</span>
+                            </div>
+                            <div style={{
+                              marginTop: 4,
+                              fontSize: 10.5,
+                              color: 'var(--text-muted)',
+                              background: 'var(--bg-elevated)',
+                              padding: '3px 8px',
+                              borderRadius: 6,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 4,
+                            }}>
+                              <span>✦</span>
+                              <span>
+                                {isOnTrack
+                                  ? `Retaining ₹${Math.round(avgMonthlySavings).toLocaleString('en-IN')}/mo pace covers target`
+                                  : `Add ~₹${Math.max(500, Math.round(remaining / 6)).toLocaleString('en-IN')}/mo to hit goal on time`}
+                              </span>
+                            </div>
                           </div>
                         );
                       })()}
@@ -729,14 +749,7 @@ export default function DashboardPage() {
             );
           })()}
 
-          {/* ── Credit Card Tracker ── */}
-          {settings && (
-            <CreditCardTracker
-              settings={settings}
-              expenses={allExpenses}
-              onUpdate={setSettings}
-            />
-          )}
+
 
           {showRebalanceModal && (
             <RebalanceModal

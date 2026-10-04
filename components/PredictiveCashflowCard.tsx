@@ -1,9 +1,10 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Category, Expense, formatINR } from '@/lib/types';
 import { predictCashflowAndBudget } from '@/lib/localForecaster';
-import { TrendingUp, Calendar } from 'lucide-react';
+import { TrendingUp, Calendar, Sparkles, ShieldCheck } from 'lucide-react';
+import { chatWithLocalCopilot } from '@/lib/onDeviceAiClient';
 
 interface PredictiveCashflowCardProps {
   salary: number;
@@ -24,6 +25,38 @@ export function PredictiveCashflowCard({ salary, expenses, categories }: Predict
     { label: '90-Day Surplus', value: forecast.projectedSurplus90d, pct: 100 },
   ];
   const maxSurplus = Math.max(...surplusRows.map(r => Math.abs(r.value)), 1);
+
+  const [aiNarrative, setAiNarrative] = useState<string>('');
+
+  useEffect(() => {
+    let active = true;
+    const prompt = `You are an on-device financial forecasting copilot. In 1 or 2 concise, punchy sentences, give Vivek a forecast verdict and advice based on this cashflow data:
+- Weekday Burn: ₹${forecast.weekdayBurnRate}/day
+- Weekend Burn: ₹${forecast.weekendBurnRate}/day
+- 30-Day Surplus: ₹${forecast.projectedSurplus30d}
+- 60-Day Surplus: ₹${forecast.projectedSurplus60d}
+- 90-Day Surplus: ₹${forecast.projectedSurplus90d}
+Be direct, helpful, and reference numbers. Keep under 35 words. Do not use markdown.`;
+
+    chatWithLocalCopilot(prompt, forecast)
+      .then(res => {
+        if (active && res && !res.includes('currently offline') && !res.includes("couldn't reach")) {
+          setAiNarrative(res.trim());
+        }
+      })
+      .catch(() => {});
+
+    return () => { active = false; };
+  }, [forecast]);
+
+  const defaultNarrative = useMemo(() => {
+    const isWeekendHeavy = forecast.weekendBurnRate > forecast.weekdayBurnRate * 1.25;
+    const isSurplusPositive = forecast.projectedSurplus30d > 0;
+    if (isSurplusPositive) {
+      return `At ₹${forecast.weekdayBurnRate.toLocaleString('en-IN')}/day weekday pace, your 30-day cushion is projected at ₹${forecast.projectedSurplus30d.toLocaleString('en-IN')}. ${isWeekendHeavy ? 'Weekend spending runs elevated — keeping outings paced will protect your surplus.' : 'Steady spending rate across all days.'}`;
+    }
+    return `Projected 30-day deficit of ₹${Math.abs(forecast.projectedSurplus30d).toLocaleString('en-IN')}. Trimming daily burn by ₹${Math.round(Math.abs(forecast.projectedSurplus30d) / 30).toLocaleString('en-IN')}/day brings your cashflow back into positive territory.`;
+  }, [forecast]);
 
   return (
     <div style={{
@@ -109,6 +142,40 @@ export function PredictiveCashflowCard({ salary, expenses, categories }: Predict
             </div>
           );
         })}
+      </div>
+
+      {/* AI Forward Cashflow Callout */}
+      <div style={{
+        marginTop: 16,
+        padding: '12px 14px',
+        borderRadius: 14,
+        background: 'var(--bg-elevated)',
+        border: '1px solid var(--border)',
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: 10,
+      }}>
+        <div style={{
+          width: 24, height: 24, borderRadius: 6,
+          background: 'var(--accent-dim)', color: 'var(--accent-2)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          flexShrink: 0, marginTop: 1,
+        }}>
+          <Sparkles size={13} />
+        </div>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+            <span style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--accent-2)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+              ✦ Gemma 2B Forward Narrative
+            </span>
+            <span style={{ fontSize: 9.5, color: '#10b981', display: 'flex', alignItems: 'center', gap: 3, fontWeight: 700 }}>
+              <ShieldCheck size={10} /> 100% Private
+            </span>
+          </div>
+          <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.45, fontWeight: 500 }}>
+            {aiNarrative || defaultNarrative}
+          </div>
+        </div>
       </div>
     </div>
   );

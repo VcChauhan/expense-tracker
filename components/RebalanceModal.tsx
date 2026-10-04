@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { Category, formatINR } from '@/lib/types';
-import { RefreshCcw, Check, X, ArrowRight } from 'lucide-react';
+import { RefreshCcw, Check, X, ArrowRight, ShieldCheck } from 'lucide-react';
 import { CategoryIcon } from './CategoryIcon';
 
 interface RebalanceModalProps {
@@ -48,7 +48,9 @@ export function RebalanceModal({ categories, activeTotalsMap, onClose, onApprove
       delta: c.monthlyBudget - (categories.find(orig => orig.id === c.id)?.monthlyBudget ?? 0),
     }));
 
-    return { updated, changes };
+    const coveredNeeded = overbudget.reduce((sum, o) => sum + o.overage, 0);
+
+    return { updated, changes, totalNeeded: coveredNeeded };
   }, [categories, activeTotalsMap]);
 
   return (
@@ -100,9 +102,28 @@ export function RebalanceModal({ categories, activeTotalsMap, onClose, onApprove
           </button>
         </div>
 
-        <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16, lineHeight: 1.4 }}>
-          The local AI calculated the following adjustments to cover over-budget categories using surplus capacity:
-        </p>
+        <div style={{
+          marginBottom: 16,
+          padding: '12px 14px',
+          borderRadius: 14,
+          background: 'var(--bg-elevated)',
+          border: '1px solid var(--border)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 4,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--accent-2)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+              ✦ Gemma 2B Zero-Friction Rebalance
+            </span>
+            <span style={{ fontSize: 10, color: '#10b981', display: 'flex', alignItems: 'center', gap: 3, fontWeight: 700 }}>
+              <ShieldCheck size={11} /> 100% Private
+            </span>
+          </div>
+          <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.4 }}>
+            Rebalancing shifts <strong>{formatINR(proposal.totalNeeded)}</strong> from under-spent categories to cover deficits, keeping your overall monthly savings rate intact without cutting lifestyle essentials.
+          </p>
+        </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24, maxHeight: 250, overflowY: 'auto' }}>
           {proposal.changes.map((c, idx) => (

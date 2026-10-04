@@ -159,15 +159,34 @@ export function MomCategoryRadar({ categories, allSettingsCategories = [] }: Mom
                   color: 'var(--text-secondary)',
                   lineHeight: 1.4,
                   display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
+                  flexDirection: 'column',
+                  gap: 6,
                 }}>
-                  <span>
-                    3-Month Trailing Avg: <strong>{formatINR(cat.historical3MonthAverage)}</strong>
-                  </span>
-                  <span>
-                    Budget: <strong>{formatINR(cat.budgetLimit)}</strong>
-                  </span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>
+                      3-Month Trailing Avg: <strong>{formatINR(cat.historical3MonthAverage)}</strong>
+                    </span>
+                    <span>
+                      Budget: <strong>{formatINR(cat.budgetLimit)}</strong>
+                    </span>
+                  </div>
+                  <div style={{
+                    background: 'var(--bg-card)',
+                    padding: '6px 10px',
+                    borderRadius: 8,
+                    fontSize: 11.5,
+                    color: isHigher ? 'var(--warning)' : 'var(--success)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}>
+                    <span>✦</span>
+                    <span>
+                      {isHigher
+                        ? `${cat.name} spend increased by ${pctChange.toFixed(0)}% vs last month. ${cat.budgetLimit > 0 && cat.actualSpent > cat.budgetLimit ? `Breached budget by ₹${(cat.actualSpent - cat.budgetLimit).toLocaleString('en-IN')}.` : 'Pacing ahead of last month.'}`
+                        : `${cat.name} spending dropped by ${pctChange.toFixed(0)}% vs last month. Excellent conservation!`}
+                    </span>
+                  </div>
                 </div>
               )}
             </div>

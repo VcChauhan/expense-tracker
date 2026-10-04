@@ -9,7 +9,7 @@ import { MomCategoryRadar } from '@/components/MomCategoryRadar';
 import { CfoActionChips } from '@/components/CfoActionChips';
 import { AiBudgetAnomalyCard } from '@/components/AiBudgetAnomalyCard';
 import { runOnDeviceAnomalyAudit, BudgetNormalizationResult } from '@/lib/onDeviceAi';
-import { checkOnDeviceAi, OnDeviceAiStatus } from '@/lib/onDeviceAiClient';
+import { checkOnDeviceAi, chatWithLocalCopilot, OnDeviceAiStatus } from '@/lib/onDeviceAiClient';
 
 export default function InsightsPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -170,6 +170,60 @@ export default function InsightsPage() {
     return items;
   }, [totalSpent, prevMonthSpent, categoryComparisons, totalAnomalySpent, normalizedSpent, settings]);
 
+  const [aiActionItems, setAiActionItems] = useState<any[] | null>(null);
+
+  // Gemma 2B On-Device Tactical Action Item Synthesizer
+  useEffect(() => {
+    if (!aiStatus?.available || totalSpent === 0) return;
+
+    let active = true;
+    const prompt = `You are Vivek's personal CFO powered by on-device Gemma 2B. Return exactly 3 compact, tactical action items for this month in JSON format. Each item must have:
+"badge" (1-2 words uppercase, e.g. "MOM PACE", "CATEGORY", "CASHFLOW"),
+"title" (3-5 words summary),
+"detail" (1 concise actionable sentence with numbers),
+"type" ("success" | "warning" | "tip").
+Output ONLY a raw valid JSON array, without any markdown formatting or backticks.`;
+
+    const context = {
+      month: MONTHS[now.getMonth()],
+      currentMonthSpent: totalSpent,
+      previousMonthSpent: prevMonthSpent,
+      momDifference: totalSpent - prevMonthSpent,
+      normalizedBurnRate: normalizedSpent,
+      oneOffAnomaliesTotal: totalAnomalySpent,
+      topSurgingCategories: categoryComparisons.filter(c => c.actualSpent > c.spentLastMonth).slice(0, 3).map(c => ({
+        name: c.name,
+        spentNow: c.actualSpent,
+        spentLastMonth: c.spentLastMonth,
+        budget: c.budgetLimit,
+      })),
+      monthlySalary: settings?.monthlySalary || 0,
+    };
+
+    chatWithLocalCopilot(prompt, context)
+      .then(res => {
+        if (!active || !res) return;
+        try {
+          const cleanJson = res.trim().replace(/^```json/i, '').replace(/^```/, '').replace(/```$/, '').trim();
+          const parsed = JSON.parse(cleanJson);
+          if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].title && parsed[0].detail) {
+            setAiActionItems(parsed.map((p, i) => ({
+              id: `gemma-action-${i}`,
+              badge: p.badge || 'AI CFO',
+              title: p.title,
+              detail: p.detail,
+              type: p.type === 'success' || p.type === 'warning' ? p.type : 'tip',
+            })));
+          }
+        } catch {
+          // Keep heuristic action items fallback
+        }
+      })
+      .catch(() => {});
+
+    return () => { active = false; };
+  }, [aiStatus?.available, totalSpent, prevMonthSpent, normalizedSpent, totalAnomalySpent, categoryComparisons, settings?.monthlySalary]);
+
   if (loading) {
     return (
       <div className="page-container">
@@ -232,8 +286,8 @@ export default function InsightsPage() {
 
       {/* ── 3. Tactical Action Plan (Compact 2-Line Chips) ── */}
       <CfoActionChips
-        items={actionItems}
-        isLlmActive={Boolean(aiStatus?.available)}
+        items={aiActionItems && aiActionItems.length > 0 ? aiActionItems : actionItems}
+        isLlmActive={Boolean(aiStatus?.available && aiActionItems && aiActionItems.length > 0)}
       />
 
       {/* ── 4. Month-Over-Month Category Radar (Comparing with Previous Month) ── */}

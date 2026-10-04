@@ -11,7 +11,6 @@ import { Wallet, CreditCard, PiggyBank, CalendarDays, ChevronLeft, ChevronRight,
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { SubscriptionAudit } from '@/components/SubscriptionAudit';
 import { PredictiveCashflowCard } from '@/components/PredictiveCashflowCard';
-import { PaymentMethodBreakdownCard } from '@/components/PaymentMethodBreakdownCard';
 import { NetWorthTracker } from '@/components/NetWorthTracker';
 import { CashFlowSankey } from '@/components/CashFlowSankey';
 
@@ -371,15 +370,7 @@ export default function ReportsPage() {
             <SubscriptionAudit />
           </div>
 
-          <div style={{ padding: '0 16px' }}>
-            <PaymentMethodBreakdownCard
-              expenses={expenses}
-              selectedMonth={selectedMonth}
-              selectedYear={selectedYear}
-              viewMode={viewMode}
-              creditCards={settings?.creditCards || []}
-            />
-          </div>
+
 
           <div style={{ padding: '0 16px' }}>
             <CashFlowSankey

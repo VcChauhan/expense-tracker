@@ -207,6 +207,26 @@ export function CfoPulseMetrics({
           </div>
         </div>
       </div>
+
+      {/* AI Pulse Synthesis Callout */}
+      <div style={{
+        marginTop: 10,
+        padding: '10px 14px',
+        borderRadius: 14,
+        background: 'var(--bg-elevated)',
+        border: '1px solid var(--border)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+      }}>
+        <span style={{ fontSize: 14 }}>💡</span>
+        <span style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.4, fontWeight: 500 }}>
+          <strong style={{ color: 'var(--text-primary)' }}>AI CFO Verdict: </strong>
+          {isMomBetter
+            ? `Burn rate is ₹${Math.abs(momDiff).toLocaleString('en-IN')} below last month at day ${daysElapsed}. Recurring baseline is healthy at ₹${normalizedSpent.toLocaleString('en-IN')}.`
+            : `Spend is ₹${momDiff.toLocaleString('en-IN')} higher than last month. ${totalAnomalySpent > 0 ? `However, ₹${totalAnomalySpent.toLocaleString('en-IN')} is absorbed by one-off anomalies.` : 'Watch discretionary pace in the remaining days.'}`}
+        </span>
+      </div>
     </div>
   );
 }
