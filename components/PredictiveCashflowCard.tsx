@@ -50,12 +50,16 @@ Be direct, helpful, and reference numbers. Keep under 35 words. Do not use markd
   }, [forecast]);
 
   const defaultNarrative = useMemo(() => {
-    const isWeekendHeavy = forecast.weekendBurnRate > forecast.weekdayBurnRate * 1.25;
-    const isSurplusPositive = forecast.projectedSurplus30d > 0;
+    if (!forecast) return '';
+    const weekday = forecast.weekdayBurnRate || 0;
+    const weekend = forecast.weekendBurnRate || 0;
+    const surplus30 = forecast.projectedSurplus30d || 0;
+    const isWeekendHeavy = weekend > weekday * 1.25;
+    const isSurplusPositive = surplus30 > 0;
     if (isSurplusPositive) {
-      return `At ₹${forecast.weekdayBurnRate.toLocaleString('en-IN')}/day weekday pace, your 30-day cushion is projected at ₹${forecast.projectedSurplus30d.toLocaleString('en-IN')}. ${isWeekendHeavy ? 'Weekend spending runs elevated — keeping outings paced will protect your surplus.' : 'Steady spending rate across all days.'}`;
+      return `At ₹${weekday.toLocaleString('en-IN')}/day weekday pace, your 30-day cushion is projected at ₹${surplus30.toLocaleString('en-IN')}. ${isWeekendHeavy ? 'Weekend spending runs elevated — keeping outings paced will protect your surplus.' : 'Steady spending rate across all days.'}`;
     }
-    return `Projected 30-day deficit of ₹${Math.abs(forecast.projectedSurplus30d).toLocaleString('en-IN')}. Trimming daily burn by ₹${Math.round(Math.abs(forecast.projectedSurplus30d) / 30).toLocaleString('en-IN')}/day brings your cashflow back into positive territory.`;
+    return `Projected 30-day deficit of ₹${Math.abs(surplus30).toLocaleString('en-IN')}. Trimming daily burn by ₹${Math.round(Math.abs(surplus30) / 30).toLocaleString('en-IN')}/day brings your cashflow back into positive territory.`;
   }, [forecast]);
 
   return (

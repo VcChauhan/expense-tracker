@@ -49,8 +49,6 @@ export function SubscriptionAudit() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading || leaks.length === 0) return null;
-
   const hasHike = leaks.some(l => l.isPriceHike);
 
   const totalAnnualCost = useMemo(() => {
@@ -85,6 +83,8 @@ In 1 or 2 concise, direct sentences under 30 words, recommend a concrete optimiz
     }
     return `You have ${leaks.length} recurring subscriptions totalling ₹${totalAnnualCost.toLocaleString('en-IN')}/year. Switching to annual billing on core services can save up to ~₹${Math.round(totalAnnualCost * 0.15).toLocaleString('en-IN')}/yr.`;
   }, [leaks, totalAnnualCost, hasHike]);
+
+  if (loading || leaks.length === 0) return null;
 
   return (
     <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 20, marginBottom: 24, overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
