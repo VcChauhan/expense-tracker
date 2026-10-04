@@ -3,15 +3,15 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { LayoutDashboard, PlusCircle, List, BarChart2, Settings, TrendingUp, LogOut, Sparkles, Lightbulb } from 'lucide-react';
+import { LayoutDashboard, PlusCircle, List, BarChart2, Settings, TrendingUp, LogOut, Sparkles, BrainCircuit } from 'lucide-react';
 
 const navItems = [
-  { href: '/',         icon: <LayoutDashboard size={18} strokeWidth={1.8} />, label: 'Dashboard'   },
-  { action: 'add',     icon: <PlusCircle size={18} strokeWidth={1.8} />,      label: 'Add Expense' },
-  { href: '/expenses', icon: <List size={18} strokeWidth={1.8} />,            label: 'Expense Log' },
-  { href: '/reports',  icon: <BarChart2 size={18} strokeWidth={1.8} />,       label: 'Reports'     },
+  { href: '/',            icon: <LayoutDashboard size={18} strokeWidth={1.8} />, label: 'Dashboard'   },
+  { action: 'add',        icon: <PlusCircle size={18} strokeWidth={1.8} />,      label: 'Add Expense' },
+  { href: '/expenses',    icon: <List size={18} strokeWidth={1.8} />,            label: 'Expense Log' },
+  { href: '/insights',    icon: <BrainCircuit size={18} strokeWidth={1.8} />,    label: 'AI CFO'      },
+  { href: '/reports',     icon: <BarChart2 size={18} strokeWidth={1.8} />,       label: 'Reports'     },
   { href: '/investments', icon: <TrendingUp size={18} strokeWidth={1.8} />,    label: 'Investments' },
-  { href: '/insights', icon: <Lightbulb size={18} strokeWidth={1.8} />,       label: 'Insights'    },
 ];
 
 const settingsItems = [

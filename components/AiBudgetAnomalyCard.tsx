@@ -154,31 +154,19 @@ export function AiBudgetAnomalyCard({
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)' }}>AI Budget Normalization</span>
-              {auditResult.hasGeminiNano ? (
-                <span style={{
-                  fontSize: 10, fontWeight: 800,
-                  padding: '2px 7px', borderRadius: 99,
-                  background: 'rgba(16,185,129,0.15)', color: '#10b981',
-                  border: '1px solid rgba(16,185,129,0.3)',
-                  display: 'flex', alignItems: 'center', gap: 4,
-                }}>
-                  <Cpu size={10} /> Gemini Nano
-                </span>
-              ) : (
-                <span style={{
-                  fontSize: 10, fontWeight: 800,
-                  padding: '2px 7px', borderRadius: 99,
-                  background: 'var(--bg-elevated)', color: 'var(--text-muted)',
-                  border: '1px solid var(--border)',
-                  display: 'flex', alignItems: 'center', gap: 4,
-                }}>
-                  <Cpu size={10} /> On-Device Engine
-                </span>
-              )}
+              <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)' }}>AI Outlier Normalization</span>
+              <span style={{
+                fontSize: 10, fontWeight: 800,
+                padding: '2px 7px', borderRadius: 99,
+                background: 'rgba(16,185,129,0.15)', color: '#10b981',
+                border: '1px solid rgba(16,185,129,0.3)',
+                display: 'flex', alignItems: 'center', gap: 4,
+              }}>
+                <Cpu size={10} /> Gemma 2B • On-Device GPU
+              </span>
             </div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 1 }}>
-              <ShieldCheck size={12} color="#10b981" /> 100% Private • 0 bytes sent to external cloud
+              <ShieldCheck size={12} color="#10b981" /> 100% Private • Zero Cloud Latency
             </div>
           </div>
         </div>

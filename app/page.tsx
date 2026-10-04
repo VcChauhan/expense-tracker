@@ -387,24 +387,7 @@ export default function DashboardPage() {
             {isAnnual ? `${selectedYear} Overview` : 'This Month'}
           </div>
 
-          {/* ── Monthly Recap Card ── */}
-          {!isAnnual && monthlySalary > 0 && (
-            <MonthlyRecapCard
-              spent={monthlySpent}
-              income={monthlySalary}
-              budget={monthlyBudget}
-              categories={settings?.categories ?? []}
-              categoryTotals={categoryTotals}
-              prevCategoryTotals={prevCategoryTotals}
-              historicalAverage={historicalAverage}
-              savingsGoals={settings?.savingsGoals}
-              month={selectedMonth}
-              year={selectedYear}
-            />
-          )}
-
           {/* ── Hero FocusWheel Card ── */}
-                    {/* ── Hero FocusWheel Card ── */}
           {displayBudget === 0 ? (
             <div style={{
               background: 'var(--bg-card)',
@@ -502,6 +485,22 @@ export default function DashboardPage() {
               ))}
             </div>
           </div>
+          )}
+
+          {/* ── Monthly Recap Card ── */}
+          {!isAnnual && monthlySalary > 0 && (
+            <MonthlyRecapCard
+              spent={monthlySpent}
+              income={monthlySalary}
+              budget={monthlyBudget}
+              categories={settings?.categories ?? []}
+              categoryTotals={categoryTotals}
+              prevCategoryTotals={prevCategoryTotals}
+              historicalAverage={historicalAverage}
+              savingsGoals={settings?.savingsGoals}
+              month={selectedMonth}
+              year={selectedYear}
+            />
           )}
 
           {/* ── Savings Goals ── */}

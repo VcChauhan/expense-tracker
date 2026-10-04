@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { House, Receipt, Plus, BarChart3, Lightbulb, Settings, TrendingUp, LogOut, MoreHorizontal, X } from 'lucide-react';
+import { House, Receipt, Plus, BarChart3, BrainCircuit, Settings, TrendingUp, LogOut, MoreHorizontal, X } from 'lucide-react';
 import { lightTap } from '@/lib/haptics';
 
 export default function BottomNav() {
@@ -28,13 +28,13 @@ export default function BottomNav() {
     { href: '/', icon: <House size={20} strokeWidth={2} />, label: 'Home' },
     { href: '/expenses', icon: <Receipt size={20} strokeWidth={2} />, label: 'Log' },
     { isFab: true },
-    { href: '/reports', icon: <BarChart3 size={20} strokeWidth={2} />, label: 'Reports' },
+    { href: '/insights', icon: <BrainCircuit size={20} strokeWidth={2} />, label: 'AI CFO' },
     { isMenu: true, icon: <MoreHorizontal size={20} strokeWidth={2} />, label: 'More' }
   ];
 
   const menuLinks = [
+    { href: '/reports', icon: <BarChart3 size={20} />, label: 'Reports', color: '#8B5CF6' },
     { href: '/investments', icon: <TrendingUp size={20} />, label: 'Investments', color: '#10B981' },
-    { href: '/insights', icon: <Lightbulb size={20} />, label: 'AI Insights', color: '#FBBF24' },
     { href: '/settings', icon: <Settings size={20} />, label: 'Settings', color: 'var(--accent-2)' },
   ];
 
