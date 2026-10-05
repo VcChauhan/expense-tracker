@@ -191,7 +191,7 @@ Output ONLY a raw valid JSON array, without any markdown formatting or backticks
       momDifference: totalSpent - prevMonthSpent,
       normalizedBurnRate: normalizedSpent,
       oneOffAnomaliesTotal: totalAnomalySpent,
-      topSurgingCategories: categoryComparisons.filter(c => c.actualSpent > c.spentLastMonth).slice(0, 3).map(c => ({
+      topSurgingCategories: categoryComparisons.filter((c: any) => c.actualSpent > c.spentLastMonth).slice(0, 3).map((c: any) => ({
         name: c.name,
         spentNow: c.actualSpent,
         spentLastMonth: c.spentLastMonth,

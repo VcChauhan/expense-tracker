@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, LineChart, Line, BarChart, Bar
 } from 'recharts';
 import { formatINR, SHORT_MONTHS, MONTHS, Settings, AnnualAnalytics } from '@/lib/types';
-import { ChevronLeft, ChevronRight, TrendingUp } from 'lucide-react';
+import { ChevronLeft, ChevronRight, TrendingUp, Store } from 'lucide-react';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { SubscriptionAudit } from '@/components/SubscriptionAudit';
 import { PredictiveCashflowCard } from '@/components/PredictiveCashflowCard';
