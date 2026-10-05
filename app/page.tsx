@@ -13,6 +13,7 @@ import { CategoryIcon } from '@/components/CategoryIcon';
 import { FocusWheel } from '@/components/FocusWheel';
 import { MonthlyRecapCard } from '@/components/MonthlyRecapCard';
 import { RebalanceModal } from '@/components/RebalanceModal';
+import { CreditCardTracker } from '@/components/CreditCardTracker';
 import { OnboardingWizard } from '@/components/OnboardingWizard';
 
 interface CategoryTotal { _id: string; total: number; count: number; }
@@ -749,7 +750,14 @@ export default function DashboardPage() {
             );
           })()}
 
-
+          {/* ── Credit Card Tracker ── */}
+          {settings && (
+            <CreditCardTracker
+              settings={settings}
+              expenses={allExpenses}
+              onUpdate={setSettings}
+            />
+          )}
 
           {showRebalanceModal && (
             <RebalanceModal
