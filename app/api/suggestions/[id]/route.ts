@@ -7,18 +7,19 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const { id } = await params;
     const body = await req.json();
     
-    // Status should be 'approved' or 'rejected'
-    const { status } = body;
-
-    if (!['approved', 'rejected'].includes(status)) {
-      return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
-    }
-
     await connectMongo();
     
+    const updates: Record<string, any> = {};
+    if (body.status && ['approved', 'rejected', 'pending'].includes(body.status)) updates.status = body.status;
+    if (body.suggestedNote !== undefined) updates.suggestedNote = body.suggestedNote;
+    if (body.suggestedLabel !== undefined) updates.suggestedLabel = body.suggestedLabel;
+    if (body.suggestedCategory !== undefined) updates.suggestedCategory = body.suggestedCategory;
+    if (body.suggestedTags !== undefined) updates.suggestedTags = body.suggestedTags;
+    if (body.amount !== undefined) updates.amount = body.amount;
+
     const suggestion = await Suggestion.findByIdAndUpdate(
       id,
-      { status },
+      updates,
       { new: true }
     );
 
